@@ -38,3 +38,11 @@ if __name__ == "__main__":
     numeric_cols = ['feature1', 'feature2']
     cleaned = clean_dataset(sample_data, numeric_cols)
     save_cleaned_data(cleaned, 'cleaned_data.csv')
+def remove_duplicates(seq):
+    seen = set()
+    result = []
+    for item in seq:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
