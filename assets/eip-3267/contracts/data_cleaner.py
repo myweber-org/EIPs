@@ -132,4 +132,58 @@ def clean_dataset(df, remove_dups=True, fill_na=True, normalize=True, detect_out
     if detect_out:
         cleaned_df = detect_outliers(cleaned_df)
     
+    return cleaned_dfimport pandas as pd
+
+def clean_dataframe(df, drop_duplicates=True, fill_missing=None):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        drop_duplicates (bool): Whether to drop duplicate rows. Default is True.
+        fill_missing (str or dict): Method to fill missing values. Can be 'mean', 'median', 
+                                   'mode', or a dictionary of column:value pairs. Default is None.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    if fill_missing is not None:
+        if isinstance(fill_missing, dict):
+            for column, value in fill_missing.items():
+                if column in cleaned_df.columns:
+                    cleaned_df[column] = cleaned_df[column].fillna(value)
+        elif fill_missing == 'mean':
+            cleaned_df = cleaned_df.fillna(cleaned_df.mean(numeric_only=True))
+        elif fill_missing == 'median':
+            cleaned_df = cleaned_df.fillna(cleaned_df.median(numeric_only=True))
+        elif fill_missing == 'mode':
+            cleaned_df = cleaned_df.fillna(cleaned_df.mode().iloc[0])
+    
     return cleaned_df
+
+def validate_dataframe(df, required_columns=None, min_rows=1):
+    """
+    Validate a DataFrame for required columns and minimum row count.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list): List of column names that must be present.
+        min_rows (int): Minimum number of rows required.
+    
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    if required_columns is not None:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    if len(df) < min_rows:
+        return False, f"DataFrame has fewer than {min_rows} rows"
+    
+    return True, "DataFrame is valid"
