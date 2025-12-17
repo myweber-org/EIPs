@@ -95,3 +95,100 @@ def validate_dataframe(df, required_columns=None, min_rows=1):
             return False, f"Missing required columns: {missing_columns}"
     
     return True, "DataFrame is valid"
+import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a DataFrame column using the Interquartile Range method.
+    
+    Args:
+        df: pandas DataFrame
+        column: Column name to clean
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    return filtered_df
+
+def normalize_column(df, column):
+    """
+    Normalize a column using min-max scaling.
+    
+    Args:
+        df: pandas DataFrame
+        column: Column name to normalize
+    
+    Returns:
+        DataFrame with normalized column
+    """
+    min_val = df[column].min()
+    max_val = df[column].max()
+    
+    if max_val != min_val:
+        df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
+    else:
+        df[column + '_normalized'] = 0
+    
+    return df
+
+def handle_missing_values(df, strategy='mean'):
+    """
+    Handle missing values in numeric columns.
+    
+    Args:
+        df: pandas DataFrame
+        strategy: 'mean', 'median', or 'mode' for imputation
+    
+    Returns:
+        DataFrame with missing values handled
+    """
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    
+    for col in numeric_cols:
+        if df[col].isnull().any():
+            if strategy == 'mean':
+                fill_value = df[col].mean()
+            elif strategy == 'median':
+                fill_value = df[col].median()
+            elif strategy == 'mode':
+                fill_value = df[col].mode()[0]
+            else:
+                fill_value = 0
+            
+            df[col] = df[col].fillna(fill_value)
+    
+    return df
+
+def clean_dataset(df, numeric_columns=None):
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Args:
+        df: pandas DataFrame
+        numeric_columns: List of numeric columns to clean
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    if numeric_columns is None:
+        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_df = df.copy()
+    
+    cleaned_df = handle_missing_values(cleaned_df, strategy='median')
+    
+    for column in numeric_columns:
+        if column in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, column)
+            cleaned_df = normalize_column(cleaned_df, column)
+    
+    return cleaned_df
