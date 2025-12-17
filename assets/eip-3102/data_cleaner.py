@@ -64,3 +64,43 @@ def get_data_summary(df):
         'data_types': df.dtypes.to_dict()
     }
     return summary
+import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a specified column in a DataFrame using the IQR method.
+    
+    Parameters:
+    df (pd.DataFrame): The input DataFrame.
+    column (str): The column name to process.
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed from the specified column.
+    """
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    return filtered_df
+
+def main():
+    # Example usage
+    data = {'values': [10, 12, 12, 13, 12, 11, 10, 100, 12, 14, 15, 10, 9, 9, 8, 150]}
+    df = pd.DataFrame(data)
+    
+    print("Original DataFrame:")
+    print(df)
+    print(f"Original shape: {df.shape}")
+    
+    cleaned_df = remove_outliers_iqr(df, 'values')
+    
+    print("\nDataFrame after removing outliers:")
+    print(cleaned_df)
+    print(f"Cleaned shape: {cleaned_df.shape}")
+
+if __name__ == "__main__":
+    main()
