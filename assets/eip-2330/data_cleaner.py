@@ -78,4 +78,94 @@ if __name__ == "__main__":
     print(cleaned)
     
     is_valid = validate_data(cleaned, required_columns=['id', 'value'])
-    print(f"\nData valid: {is_valid}")
+    print(f"\nData valid: {is_valid}")import pandas as pd
+import numpy as np
+
+def clean_csv_data(filepath, missing_strategy='mean', columns_to_drop=None):
+    """
+    Load and clean CSV data by handling missing values and optionally dropping columns.
+    
+    Parameters:
+    filepath (str): Path to the CSV file
+    missing_strategy (str): Strategy for handling missing values ('mean', 'median', 'mode', 'drop')
+    columns_to_drop (list): List of column names to drop from the dataset
+    
+    Returns:
+    pandas.DataFrame: Cleaned dataframe
+    """
+    try:
+        df = pd.read_csv(filepath)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found at path: {filepath}")
+    except Exception as e:
+        raise Exception(f"Error reading CSV file: {str(e)}")
+    
+    original_shape = df.shape
+    
+    if columns_to_drop:
+        df = df.drop(columns=columns_to_drop, errors='ignore')
+    
+    if missing_strategy == 'drop':
+        df = df.dropna()
+    elif missing_strategy in ['mean', 'median']:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            if missing_strategy == 'mean':
+                df[col].fillna(df[col].mean(), inplace=True)
+            else:
+                df[col].fillna(df[col].median(), inplace=True)
+    elif missing_strategy == 'mode':
+        for col in df.columns:
+            df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else 0, inplace=True)
+    
+    cleaned_shape = df.shape
+    
+    print(f"Data cleaning completed:")
+    print(f"  Original shape: {original_shape}")
+    print(f"  Cleaned shape: {cleaned_shape}")
+    print(f"  Rows removed: {original_shape[0] - cleaned_shape[0]}")
+    print(f"  Columns removed: {original_shape[1] - cleaned_shape[1]}")
+    
+    return df
+
+def detect_outliers_iqr(df, column):
+    """
+    Detect outliers in a column using the Interquartile Range method.
+    
+    Parameters:
+    df (pandas.DataFrame): Input dataframe
+    column (str): Column name to check for outliers
+    
+    Returns:
+    pandas.Series: Boolean series indicating outliers
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    if not pd.api.types.is_numeric_dtype(df[column]):
+        raise ValueError(f"Column '{column}' is not numeric")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    outliers = (df[column] < lower_bound) | (df[column] > upper_bound)
+    
+    return outliers
+
+def save_cleaned_data(df, output_path):
+    """
+    Save cleaned dataframe to CSV file.
+    
+    Parameters:
+    df (pandas.DataFrame): Cleaned dataframe
+    output_path (str): Path to save the cleaned CSV file
+    """
+    try:
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to: {output_path}")
+    except Exception as e:
+        raise Exception(f"Error saving cleaned data: {str(e)}")
