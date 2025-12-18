@@ -145,3 +145,29 @@ def main():
 
 if __name__ == "__main__":
     main()
+import pandas as pd
+
+def clean_dataframe(df, column_name, valid_values=None, drop_na=True):
+    """
+    Filters a DataFrame based on a specified column's values and optionally drops NA rows.
+
+    Parameters:
+    df (pd.DataFrame): The input DataFrame to clean.
+    column_name (str): The name of the column to filter by.
+    valid_values (list, optional): A list of valid values to keep in the column.
+                                   If None, only NA handling is performed.
+    drop_na (bool): If True, rows with NA in the specified column are removed.
+
+    Returns:
+    pd.DataFrame: The cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+
+    if drop_na:
+        cleaned_df = cleaned_df.dropna(subset=[column_name])
+
+    if valid_values is not None:
+        cleaned_df = cleaned_df[cleaned_df[column_name].isin(valid_values)]
+
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    return cleaned_df
