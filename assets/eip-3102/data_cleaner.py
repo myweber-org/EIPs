@@ -107,4 +107,98 @@ def validate_data(df, required_columns=None, min_rows=1):
 #     print(cleaned_df)
 #     
 #     is_valid, message = validate_data(cleaned_df, required_columns=['A', 'B', 'C'])
-#     print(f"\nValidation: {is_valid} - {message}")
+#     print(f"\nValidation: {is_valid} - {message}")import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a DataFrame column using the IQR method.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to process
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df
+
+def clean_numeric_data(df, columns=None):
+    """
+    Clean numeric data by removing outliers from specified columns.
+    If no columns specified, clean all numeric columns.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    columns (list): List of column names to clean
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    if columns is None:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        columns = list(numeric_cols)
+    
+    cleaned_df = df.copy()
+    
+    for col in columns:
+        if col in cleaned_df.columns:
+            try:
+                cleaned_df = remove_outliers_iqr(cleaned_df, col)
+            except Exception as e:
+                print(f"Warning: Could not clean column '{col}': {e}")
+    
+    return cleaned_df
+
+def save_cleaned_data(df, input_path, suffix='_cleaned'):
+    """
+    Save cleaned DataFrame to a new CSV file.
+    
+    Parameters:
+    df (pd.DataFrame): Cleaned DataFrame
+    input_path (str): Original file path
+    suffix (str): Suffix to add to filename
+    
+    Returns:
+    str: Path to saved file
+    """
+    if input_path.endswith('.csv'):
+        output_path = input_path.replace('.csv', f'{suffix}.csv')
+    else:
+        output_path = f"{input_path}{suffix}.csv"
+    
+    df.to_csv(output_path, index=False)
+    return output_path
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'id': range(1, 101),
+        'value': np.concatenate([
+            np.random.normal(100, 10, 90),
+            np.array([500, 600, 700, -300, -400])
+        ])
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print(f"Original data shape: {df.shape}")
+    print(f"Original data statistics:\n{df['value'].describe()}")
+    
+    cleaned_df = clean_numeric_data(df, columns=['value'])
+    print(f"\nCleaned data shape: {cleaned_df.shape}")
+    print(f"Cleaned data statistics:\n{cleaned_df['value'].describe()}")
+    
+    outliers_removed = df.shape[0] - cleaned_df.shape[0]
+    print(f"\nOutliers removed: {outliers_removed}")
