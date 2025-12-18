@@ -136,3 +136,11 @@ def clean_data_pipeline(df,
         df_clean = standardize_columns(df_clean, columns)
     
     return df_clean
+def remove_duplicates(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
