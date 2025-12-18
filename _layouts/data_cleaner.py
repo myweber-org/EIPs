@@ -1,79 +1,72 @@
-import pandas as pd
 
-def clean_dataset(df, drop_duplicates=True, fill_missing=None):
+def remove_duplicates(input_list):
     """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    Remove duplicate items from a list while preserving the original order.
     
     Args:
-        df (pd.DataFrame): Input DataFrame to clean.
-        drop_duplicates (bool): Whether to drop duplicate rows. Default is True.
-        fill_missing (str or dict): Method to fill missing values. Can be 'mean', 'median', 
-                                    'mode', or a dictionary of column:value pairs. Default is None.
+        input_list (list): The list from which duplicates should be removed.
     
     Returns:
-        pd.DataFrame: Cleaned DataFrame.
+        list: A new list with duplicates removed.
     """
-    cleaned_df = df.copy()
-    
-    if drop_duplicates:
-        cleaned_df = cleaned_df.drop_duplicates()
-    
-    if fill_missing is not None:
-        if isinstance(fill_missing, dict):
-            cleaned_df = cleaned_df.fillna(fill_missing)
-        elif fill_missing == 'mean':
-            cleaned_df = cleaned_df.fillna(cleaned_df.mean(numeric_only=True))
-        elif fill_missing == 'median':
-            cleaned_df = cleaned_df.fillna(cleaned_df.median(numeric_only=True))
-        elif fill_missing == 'mode':
-            cleaned_df = cleaned_df.fillna(cleaned_df.mode().iloc[0])
-    
-    return cleaned_df
-
-def validate_dataframe(df, required_columns=None):
-    """
-    Validate that a DataFrame meets basic requirements.
-    
-    Args:
-        df (pd.DataFrame): DataFrame to validate.
-        required_columns (list): List of column names that must be present.
-    
-    Returns:
-        bool: True if validation passes, False otherwise.
-    """
-    if not isinstance(df, pd.DataFrame):
-        return False
-    
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            print(f"Missing required columns: {missing_columns}")
-            return False
-    
-    return True
-
-if __name__ == "__main__":
-    sample_data = {
-        'A': [1, 2, 2, None, 5],
-        'B': [10, None, 30, 40, 50],
-        'C': ['x', 'y', 'y', 'z', None]
-    }
-    
-    df = pd.DataFrame(sample_data)
-    print("Original DataFrame:")
-    print(df)
-    
-    cleaned = clean_dataset(df, fill_missing='mean')
-    print("\nCleaned DataFrame:")
-    print(cleaned)
-    
-    is_valid = validate_dataframe(cleaned, required_columns=['A', 'B'])
-    print(f"\nDataFrame validation: {is_valid}")
-def remove_duplicates_preserve_order(iterable):
     seen = set()
     result = []
-    for item in iterable:
+    
+    for item in input_list:
         if item not in seen:
             seen.add(item)
             result.append(item)
+    
     return result
+
+def clean_data_with_threshold(data_list, threshold=None):
+    """
+    Clean data by removing duplicates, optionally filtering by occurrence threshold.
+    
+    Args:
+        data_list (list): List of data items to clean.
+        threshold (int, optional): Minimum occurrences to keep an item. Defaults to None.
+    
+    Returns:
+        list: Cleaned list of data items.
+    """
+    if not data_list:
+        return []
+    
+    # First remove duplicates while preserving order
+    unique_data = remove_duplicates(data_list)
+    
+    # Apply threshold filter if specified
+    if threshold is not None and threshold > 0:
+        from collections import Counter
+        counts = Counter(data_list)
+        unique_data = [item for item in unique_data if counts[item] >= threshold]
+    
+    return unique_data
+
+def validate_input_data(data):
+    """
+    Validate that input is a list or convertible to list.
+    
+    Args:
+        data: Input data to validate.
+    
+    Returns:
+        list: Validated list data.
+    
+    Raises:
+        TypeError: If data cannot be converted to a list.
+    """
+    if isinstance(data, list):
+        return data
+    elif hasattr(data, '__iter__') and not isinstance(data, (str, bytes)):
+        return list(data)
+    else:
+        raise TypeError("Input must be an iterable or list")
+
+# Example usage (commented out for production)
+if __name__ == "__main__":
+    sample_data = [1, 2, 2, 3, 4, 4, 4, 5, 1]
+    print("Original:", sample_data)
+    print("Cleaned:", remove_duplicates(sample_data))
+    print("Threshold 2:", clean_data_with_threshold(sample_data, threshold=2))
