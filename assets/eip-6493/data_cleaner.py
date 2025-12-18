@@ -115,4 +115,105 @@ def clean_dataset(data, outlier_method='iqr', normalize_method='minmax', missing
             elif normalize_method == 'zscore':
                 cleaned_data[f"{column}_standardized"] = normalize_zscore(cleaned_data, column)
     
-    return cleaned_data
+    return cleaned_dataimport pandas as pd
+import numpy as np
+
+def load_and_clean_csv(filepath, drop_na=True, fill_missing=False, fill_value=0):
+    """
+    Load a CSV file and perform basic cleaning operations.
+    
+    Args:
+        filepath (str): Path to the CSV file.
+        drop_na (bool): Whether to drop rows with missing values.
+        fill_missing (bool): Whether to fill missing values.
+        fill_value: Value to use for filling missing data.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    try:
+        df = pd.read_csv(filepath)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found: {filepath}")
+    
+    if drop_na and fill_missing:
+        raise ValueError("Cannot both drop and fill missing values. Choose one.")
+    
+    if drop_na:
+        df = df.dropna()
+    elif fill_missing:
+        df = df.fillna(fill_value)
+    
+    return df
+
+def remove_duplicates(df, subset=None):
+    """
+    Remove duplicate rows from DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        subset (list): Columns to consider for duplicates.
+    
+    Returns:
+        pd.DataFrame: DataFrame with duplicates removed.
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def normalize_column(df, column_name):
+    """
+    Normalize a column to range [0, 1].
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        column_name (str): Name of column to normalize.
+    
+    Returns:
+        pd.DataFrame: DataFrame with normalized column.
+    """
+    if column_name not in df.columns:
+        raise KeyError(f"Column '{column_name}' not found in DataFrame.")
+    
+    col_min = df[column_name].min()
+    col_max = df[column_name].max()
+    
+    if col_max == col_min:
+        df[column_name] = 0.5
+    else:
+        df[column_name] = (df[column_name] - col_min) / (col_max - col_min)
+    
+    return df
+
+def filter_outliers(df, column_name, method='iqr', threshold=1.5):
+    """
+    Filter outliers from a column using specified method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        column_name (str): Name of column to filter.
+        method (str): 'iqr' for interquartile range or 'zscore' for standard deviation.
+        threshold (float): Threshold for outlier detection.
+    
+    Returns:
+        pd.DataFrame: DataFrame with outliers removed.
+    """
+    if column_name not in df.columns:
+        raise KeyError(f"Column '{column_name}' not found in DataFrame.")
+    
+    if method == 'iqr':
+        Q1 = df[column_name].quantile(0.25)
+        Q3 = df[column_name].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - threshold * IQR
+        upper_bound = Q3 + threshold * IQR
+        filtered_df = df[(df[column_name] >= lower_bound) & (df[column_name] <= upper_bound)]
+    
+    elif method == 'zscore':
+        mean = df[column_name].mean()
+        std = df[column_name].std()
+        z_scores = np.abs((df[column_name] - mean) / std)
+        filtered_df = df[z_scores <= threshold]
+    
+    else:
+        raise ValueError("Method must be 'iqr' or 'zscore'.")
+    
+    return filtered_df
