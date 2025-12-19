@@ -97,4 +97,68 @@ def remove_duplicates_preserve_order(sequence):
         if item not in seen:
             seen.add(item)
             result.append(item)
-    return result
+    return resultimport pandas as pd
+
+def clean_dataset(df, columns=None, drop_duplicates=True, fill_missing='mean'):
+    """
+    Clean a pandas DataFrame by handling duplicates and missing values.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean
+        columns (list, optional): Specific columns to clean. If None, clean all columns.
+        drop_duplicates (bool): Whether to drop duplicate rows
+        fill_missing (str): Strategy to fill missing values - 'mean', 'median', 'mode', or 'drop'
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    df_clean = df.copy()
+    
+    if drop_duplicates:
+        df_clean = df_clean.drop_duplicates()
+    
+    if columns is None:
+        columns = df_clean.columns
+    
+    for col in columns:
+        if col in df_clean.columns:
+            if fill_missing == 'drop':
+                df_clean = df_clean.dropna(subset=[col])
+            elif fill_missing in ['mean', 'median']:
+                if pd.api.types.is_numeric_dtype(df_clean[col]):
+                    if fill_missing == 'mean':
+                        fill_value = df_clean[col].mean()
+                    else:
+                        fill_value = df_clean[col].median()
+                    df_clean[col] = df_clean[col].fillna(fill_value)
+            elif fill_missing == 'mode':
+                if not df_clean[col].empty:
+                    mode_value = df_clean[col].mode()
+                    if not mode_value.empty:
+                        df_clean[col] = df_clean[col].fillna(mode_value.iloc[0])
+    
+    return df_clean
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+        required_columns (list): List of required column names
+    
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
+    
+    return True, "DataFrame is valid"
