@@ -254,3 +254,35 @@ if __name__ == "__main__":
     cleaned_df = clean_dataframe(df, missing_strategy='median', outlier_method='iqr')
     print("\nCleaned DataFrame:")
     print(cleaned_df)
+import pandas as pd
+
+def clean_dataset(df, column_name):
+    """
+    Clean a specific column in a DataFrame by removing duplicates,
+    stripping whitespace, and converting to lowercase.
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+
+    # Remove duplicates
+    df = df.drop_duplicates(subset=[column_name])
+
+    # Normalize strings: strip whitespace and convert to lowercase
+    df[column_name] = df[column_name].astype(str).str.strip().str.lower()
+
+    return df
+
+def main():
+    # Example usage
+    data = {'Name': [' Alice ', 'bob', 'Alice', 'Bob ', 'Charlie']}
+    df = pd.DataFrame(data)
+
+    print("Original DataFrame:")
+    print(df)
+
+    cleaned_df = clean_dataset(df, 'Name')
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+
+if __name__ == "__main__":
+    main()
