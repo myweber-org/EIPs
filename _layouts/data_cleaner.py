@@ -190,3 +190,73 @@ if __name__ == "__main__":
         print(f"\n{column}:")
         for stat_name, stat_value in column_stats.items():
             print(f"  {stat_name}: {stat_value}")
+def remove_duplicates(input_list):
+    """
+    Remove duplicate elements from a list while preserving order.
+    
+    Args:
+        input_list (list): List containing elements, may include duplicates.
+    
+    Returns:
+        list: New list with duplicates removed, order preserved.
+    """
+    seen = set()
+    result = []
+    
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    
+    return result
+
+def clean_numeric_data(values, default=0):
+    """
+    Clean numeric data by converting strings to floats, handling invalid values.
+    
+    Args:
+        values (list): List of values to clean.
+        default (float): Default value for invalid entries.
+    
+    Returns:
+        list: Cleaned list of numeric values.
+    """
+    cleaned = []
+    
+    for value in values:
+        try:
+            cleaned.append(float(value))
+        except (ValueError, TypeError):
+            cleaned.append(default)
+    
+    return cleaned
+
+def filter_by_threshold(data, threshold, key=None):
+    """
+    Filter data based on a threshold value.
+    
+    Args:
+        data (list): List of values or dictionaries to filter.
+        threshold (float): Threshold value for filtering.
+        key (str, optional): If data contains dicts, key to extract value.
+    
+    Returns:
+        list: Filtered data where values >= threshold.
+    """
+    if key is None:
+        return [item for item in data if item >= threshold]
+    else:
+        return [item for item in data if item.get(key, 0) >= threshold]
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = [1, 2, 2, 3, 4, 4, 5, 1]
+    print("Original:", sample_data)
+    print("Cleaned:", remove_duplicates(sample_data))
+    
+    numeric_data = ["1.5", "2.3", "invalid", "4.7", None]
+    print("Numeric original:", numeric_data)
+    print("Numeric cleaned:", clean_numeric_data(numeric_data))
+    
+    scores = [{"name": "A", "score": 85}, {"name": "B", "score": 72}, {"name": "C", "score": 90}]
+    print("High scores:", filter_by_threshold(scores, 80, key="score"))
