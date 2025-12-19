@@ -73,3 +73,36 @@ if __name__ == "__main__":
     
     is_valid, message = validate_data(cleaned, required_columns=['A', 'B'])
     print(f"\nValidation: {is_valid} - {message}")
+import pandas as pd
+import re
+
+def clean_text_column(df, column_name):
+    """Standardize text by lowercasing and removing extra whitespace."""
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    df[column_name] = df[column_name].astype(str).str.lower()
+    df[column_name] = df[column_name].apply(lambda x: re.sub(r'\s+', ' ', x).strip())
+    return df
+
+def remove_duplicate_rows(df, subset=None):
+    """Remove duplicate rows from DataFrame."""
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def validate_email_column(df, email_column):
+    """Basic email format validation."""
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    if email_column not in df.columns:
+        raise ValueError(f"Column '{email_column}' not found in DataFrame")
+    df['email_valid'] = df[email_column].str.match(pattern)
+    return df
+
+def process_dataframe(df, text_columns=None, deduplicate=True, email_column=None):
+    """Main pipeline for data cleaning."""
+    if text_columns:
+        for col in text_columns:
+            df = clean_text_column(df, col)
+    if deduplicate:
+        df = remove_duplicate_rows(df)
+    if email_column:
+        df = validate_email_column(df, email_column)
+    return df
