@@ -48,3 +48,52 @@ if __name__ == "__main__":
     stats_df = calculate_statistics(cleaned)
     print("\nCleaned data statistics:")
     print(stats_df)
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+def remove_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+def normalize_minmax(df, column):
+    min_val = df[column].min()
+    max_val = df[column].max()
+    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
+    return df
+
+def clean_dataset(df, numeric_columns):
+    cleaned_df = df.copy()
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+            cleaned_df = normalize_minmax(cleaned_df, col)
+    cleaned_df = cleaned_df.dropna()
+    return cleaned_df
+
+def generate_summary(df):
+    summary = {
+        'original_rows': len(df),
+        'cleaned_rows': len(df.dropna()),
+        'numeric_columns': df.select_dtypes(include=[np.number]).columns.tolist(),
+        'missing_values': df.isnull().sum().to_dict()
+    }
+    return summary
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': np.random.normal(100, 15, 200),
+        'B': np.random.exponential(50, 200),
+        'C': np.random.randint(1, 1000, 200)
+    }
+    sample_df = pd.DataFrame(sample_data)
+    sample_df.iloc[10, 0] = 500
+    sample_df.iloc[20, 1] = 1000
+    
+    cleaned = clean_dataset(sample_df, ['A', 'B', 'C'])
+    stats = generate_summary(cleaned)
+    print(f"Cleaning complete. Retained {stats['cleaned_rows']} rows.")
