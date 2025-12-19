@@ -240,3 +240,65 @@ if __name__ == "__main__":
     cleaned = remove_duplicates_preserve_order(sample_data)
     print(f"Original: {sample_data}")
     print(f"Cleaned: {cleaned}")
+import pandas as pd
+import re
+from typing import List, Optional
+
+class DataCleaner:
+    def __init__(self, df: pd.DataFrame):
+        self.df = df.copy()
+    
+    def remove_duplicates(self, subset: Optional[List[str]] = None) -> pd.DataFrame:
+        """Remove duplicate rows from the dataframe."""
+        initial_count = len(self.df)
+        self.df = self.df.drop_duplicates(subset=subset, keep='first')
+        removed = initial_count - len(self.df)
+        print(f"Removed {removed} duplicate rows")
+        return self.df
+    
+    def normalize_text(self, column: str) -> pd.DataFrame:
+        """Normalize text in specified column: lowercase and remove extra spaces."""
+        if column not in self.df.columns:
+            raise ValueError(f"Column '{column}' not found in dataframe")
+        
+        self.df[column] = self.df[column].astype(str).apply(
+            lambda x: re.sub(r'\s+', ' ', x.strip().lower())
+        )
+        print(f"Normalized text in column '{column}'")
+        return self.df
+    
+    def fill_missing_values(self, column: str, value: str = 'unknown') -> pd.DataFrame:
+        """Fill missing values in specified column with given value."""
+        if column not in self.df.columns:
+            raise ValueError(f"Column '{column}' not found in dataframe")
+        
+        missing_count = self.df[column].isnull().sum()
+        self.df[column] = self.df[column].fillna(value)
+        print(f"Filled {missing_count} missing values in column '{column}' with '{value}'")
+        return self.df
+    
+    def get_cleaned_data(self) -> pd.DataFrame:
+        """Return the cleaned dataframe."""
+        return self.df
+
+def clean_dataset(input_file: str, output_file: str) -> None:
+    """Main function to clean a dataset from input file and save to output file."""
+    try:
+        df = pd.read_csv(input_file)
+        cleaner = DataCleaner(df)
+        
+        cleaner.remove_duplicates()
+        cleaner.normalize_text('description')
+        cleaner.fill_missing_values('category')
+        
+        cleaned_df = cleaner.get_cleaned_data()
+        cleaned_df.to_csv(output_file, index=False)
+        print(f"Cleaned data saved to {output_file}")
+        
+    except FileNotFoundError:
+        print(f"Error: Input file '{input_file}' not found")
+    except Exception as e:
+        print(f"Error during cleaning: {str(e)}")
+
+if __name__ == "__main__":
+    clean_dataset('raw_data.csv', 'cleaned_data.csv')
