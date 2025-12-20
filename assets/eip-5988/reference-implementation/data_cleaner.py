@@ -464,4 +464,69 @@ if __name__ == "__main__":
     print("Cleaned DataFrame shape:", cleaned.shape)
     
     stats = calculate_summary_stats(cleaned, 'A')
-    print("Summary statistics for column A:", stats)
+    print("Summary statistics for column A:", stats)import numpy as np
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specified column using the IQR method.
+    
+    Parameters:
+    data (np.ndarray): The dataset.
+    column (int): Index of the column to clean.
+    
+    Returns:
+    np.ndarray: Data with outliers removed.
+    """
+    if not isinstance(data, np.ndarray):
+        raise ValueError("Input data must be a numpy array")
+    
+    if column >= data.shape[1]:
+        raise IndexError("Column index out of bounds")
+    
+    col_data = data[:, column]
+    Q1 = np.percentile(col_data, 25)
+    Q3 = np.percentile(col_data, 75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    mask = (col_data >= lower_bound) & (col_data <= upper_bound)
+    cleaned_data = data[mask]
+    
+    return cleaned_data
+
+def calculate_statistics(data, column):
+    """
+    Calculate basic statistics for a column after cleaning.
+    
+    Parameters:
+    data (np.ndarray): The dataset.
+    column (int): Index of the column to analyze.
+    
+    Returns:
+    dict: Dictionary containing mean, median, and std.
+    """
+    cleaned = remove_outliers_iqr(data, column)
+    col_data = cleaned[:, column]
+    
+    stats = {
+        'mean': np.mean(col_data),
+        'median': np.median(col_data),
+        'std': np.std(col_data),
+        'count': len(col_data)
+    }
+    
+    return stats
+
+if __name__ == "__main__":
+    sample_data = np.random.randn(1000, 3)
+    sample_data[:, 1] = sample_data[:, 1] * 10 + 50
+    
+    print("Original data shape:", sample_data.shape)
+    
+    cleaned = remove_outliers_iqr(sample_data, 1)
+    print("Cleaned data shape:", cleaned.shape)
+    
+    stats = calculate_statistics(sample_data, 1)
+    print("Statistics for column 1:", stats)
