@@ -209,3 +209,112 @@ def clean_dataframe(df: pd.DataFrame,
             cleaned_df = normalize_column(cleaned_df, column)
     
     return cleaned_df
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean
+        drop_duplicates (bool): Whether to drop duplicate rows
+        fill_missing (str): Method to fill missing values ('mean', 'median', 'mode', or 'drop')
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        initial_rows = len(cleaned_df)
+        cleaned_df = cleaned_df.drop_duplicates()
+        removed = initial_rows - len(cleaned_df)
+        print(f"Removed {removed} duplicate rows")
+    
+    if cleaned_df.isnull().sum().sum() > 0:
+        print(f"Found {cleaned_df.isnull().sum().sum()} missing values")
+        
+        if fill_missing == 'drop':
+            cleaned_df = cleaned_df.dropna()
+            print("Dropped rows with missing values")
+        elif fill_missing == 'mean':
+            numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+            for col in numeric_cols:
+                if cleaned_df[col].isnull().any():
+                    cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mean())
+            print("Filled missing values with column means")
+        elif fill_missing == 'median':
+            numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+            for col in numeric_cols:
+                if cleaned_df[col].isnull().any():
+                    cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].median())
+            print("Filled missing values with column medians")
+        elif fill_missing == 'mode':
+            for col in cleaned_df.columns:
+                if cleaned_df[col].isnull().any():
+                    mode_val = cleaned_df[col].mode()
+                    if not mode_val.empty:
+                        cleaned_df[col] = cleaned_df[col].fillna(mode_val.iloc[0])
+            print("Filled missing values with column modes")
+    
+    return cleaned_df
+
+def validate_dataset(df, required_columns=None):
+    """
+    Validate a DataFrame for common data quality issues.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+        required_columns (list): List of columns that must be present
+    
+    Returns:
+        dict: Dictionary containing validation results
+    """
+    validation_results = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_values': df.isnull().sum().sum(),
+        'duplicate_rows': df.duplicated().sum(),
+        'data_types': df.dtypes.to_dict()
+    }
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        validation_results['missing_required_columns'] = missing_cols
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    if len(numeric_cols) > 0:
+        validation_results['numeric_stats'] = {
+            col: {
+                'min': df[col].min(),
+                'max': df[col].max(),
+                'mean': df[col].mean(),
+                'std': df[col].std()
+            }
+            for col in numeric_cols
+        }
+    
+    return validation_results
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, 2, 3, None, 5],
+        'B': [10, 20, 20, None, 50, 60],
+        'C': ['x', 'y', 'y', 'z', 'z', 'x']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    cleaned = clean_dataset(df, drop_duplicates=True, fill_missing='mean')
+    print("\nCleaned DataFrame:")
+    print(cleaned)
+    
+    print("\n" + "="*50 + "\n")
+    validation = validate_dataset(cleaned)
+    print("Validation Results:")
+    for key, value in validation.items():
+        print(f"{key}: {value}")
