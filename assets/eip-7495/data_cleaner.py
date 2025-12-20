@@ -300,4 +300,153 @@ class DataCleaner:
             'missing_values': self.df.isnull().sum().to_dict(),
             'data_types': self.df.dtypes.to_dict()
         }
-        return summary
+        return summaryimport pandas as pd
+import numpy as np
+from typing import Union, List
+
+def remove_outliers_iqr(
+    df: pd.DataFrame,
+    columns: Union[str, List[str]],
+    multiplier: float = 1.5
+) -> pd.DataFrame:
+    """
+    Remove outliers from specified columns using the IQR method.
+    
+    Parameters:
+    df: Input DataFrame
+    columns: Column name or list of column names
+    multiplier: IQR multiplier (default 1.5)
+    
+    Returns:
+    DataFrame with outliers removed
+    """
+    df_clean = df.copy()
+    
+    if isinstance(columns, str):
+        columns = [columns]
+    
+    for col in columns:
+        if col not in df_clean.columns:
+            continue
+            
+        Q1 = df_clean[col].quantile(0.25)
+        Q3 = df_clean[col].quantile(0.75)
+        IQR = Q3 - Q1
+        
+        lower_bound = Q1 - multiplier * IQR
+        upper_bound = Q3 + multiplier * IQR
+        
+        mask = (df_clean[col] >= lower_bound) & (df_clean[col] <= upper_bound)
+        df_clean = df_clean[mask]
+    
+    return df_clean.reset_index(drop=True)
+
+def fill_missing_values(
+    df: pd.DataFrame,
+    strategy: str = 'mean',
+    columns: Union[str, List[str], None] = None
+) -> pd.DataFrame:
+    """
+    Fill missing values in DataFrame columns.
+    
+    Parameters:
+    df: Input DataFrame
+    strategy: 'mean', 'median', 'mode', or 'constant'
+    columns: Specific columns to fill (None for all numeric columns)
+    
+    Returns:
+    DataFrame with filled missing values
+    """
+    df_filled = df.copy()
+    
+    if columns is None:
+        numeric_cols = df_filled.select_dtypes(include=[np.number]).columns
+        columns = list(numeric_cols)
+    elif isinstance(columns, str):
+        columns = [columns]
+    
+    for col in columns:
+        if col not in df_filled.columns:
+            continue
+            
+        if strategy == 'mean':
+            fill_value = df_filled[col].mean()
+        elif strategy == 'median':
+            fill_value = df_filled[col].median()
+        elif strategy == 'mode':
+            fill_value = df_filled[col].mode()[0] if not df_filled[col].mode().empty else 0
+        elif strategy == 'constant':
+            fill_value = 0
+        else:
+            raise ValueError(f"Unknown strategy: {strategy}")
+        
+        df_filled[col] = df_filled[col].fillna(fill_value)
+    
+    return df_filled
+
+def normalize_columns(
+    df: pd.DataFrame,
+    columns: Union[str, List[str]],
+    method: str = 'minmax'
+) -> pd.DataFrame:
+    """
+    Normalize specified columns in DataFrame.
+    
+    Parameters:
+    df: Input DataFrame
+    columns: Column name or list of column names
+    method: 'minmax' or 'zscore'
+    
+    Returns:
+    DataFrame with normalized columns
+    """
+    df_norm = df.copy()
+    
+    if isinstance(columns, str):
+        columns = [columns]
+    
+    for col in columns:
+        if col not in df_norm.columns:
+            continue
+            
+        if method == 'minmax':
+            col_min = df_norm[col].min()
+            col_max = df_norm[col].max()
+            if col_max != col_min:
+                df_norm[col] = (df_norm[col] - col_min) / (col_max - col_min)
+        
+        elif method == 'zscore':
+            col_mean = df_norm[col].mean()
+            col_std = df_norm[col].std()
+            if col_std != 0:
+                df_norm[col] = (df_norm[col] - col_mean) / col_std
+    
+    return df_norm
+
+def validate_dataframe(
+    df: pd.DataFrame,
+    required_columns: List[str],
+    min_rows: int = 1
+) -> bool:
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df: DataFrame to validate
+    required_columns: List of required column names
+    min_rows: Minimum number of rows required
+    
+    Returns:
+    True if validation passes, False otherwise
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False
+    
+    if len(df) < min_rows:
+        return False
+    
+    missing_cols = [col for col in required_columns if col not in df.columns]
+    if missing_cols:
+        return False
+    
+    return True
