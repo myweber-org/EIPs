@@ -73,4 +73,79 @@ if __name__ == "__main__":
     print(cleaned)
     
     is_valid, message = validate_data(cleaned, required_columns=['A', 'B'])
-    print(f"\nValidation: {is_valid} - {message}")
+    print(f"\nValidation: {is_valid} - {message}")import pandas as pd
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    subset (list, optional): Column labels to consider for duplicates.
+    keep (str, optional): Which duplicates to keep.
+    
+    Returns:
+    pd.DataFrame: DataFrame with duplicates removed.
+    """
+    if df.empty:
+        return df
+    
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+    return cleaned_df
+
+def validate_dataframe(df):
+    """
+    Basic validation of DataFrame structure.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+    
+    Returns:
+    bool: True if valid, False otherwise.
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False
+    
+    if df.empty:
+        return True
+    
+    return True
+
+def clean_dataset(file_path, output_path=None):
+    """
+    Load, clean, and optionally save a dataset.
+    
+    Parameters:
+    file_path (str): Path to input CSV file.
+    output_path (str, optional): Path to save cleaned CSV.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    try:
+        df = pd.read_csv(file_path)
+    except FileNotFoundError:
+        raise ValueError(f"File not found: {file_path}")
+    
+    if not validate_dataframe(df):
+        raise ValueError("Invalid DataFrame structure")
+    
+    cleaned_df = remove_duplicates(df)
+    
+    if output_path:
+        cleaned_df.to_csv(output_path, index=False)
+    
+    return cleaned_df
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'id': [1, 2, 2, 3, 4],
+        'name': ['Alice', 'Bob', 'Bob', 'Charlie', 'David'],
+        'value': [10, 20, 20, 30, 40]
+    })
+    
+    result = remove_duplicates(sample_data, subset=['id', 'name'])
+    print(f"Original rows: {len(sample_data)}")
+    print(f"Cleaned rows: {len(result)}")
+    print("Cleaned DataFrame:")
+    print(result)
