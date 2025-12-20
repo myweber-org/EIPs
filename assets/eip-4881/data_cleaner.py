@@ -167,4 +167,75 @@ if __name__ == "__main__":
     print(cleaned)
     
     is_valid = validate_data(cleaned, required_columns=['id', 'value'], min_rows=3)
-    print(f"\nData validation passed: {is_valid}")
+    print(f"\nData validation passed: {is_valid}")import pandas as pd
+
+def clean_dataset(df, columns_to_check=None):
+    """
+    Clean a pandas DataFrame by removing null values and duplicates.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        columns_to_check (list, optional): Specific columns to check for nulls.
+            If None, checks all columns. Defaults to None.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    # Create a copy to avoid modifying the original
+    cleaned_df = df.copy()
+    
+    # Remove rows with null values
+    if columns_to_check is None:
+        cleaned_df = cleaned_df.dropna()
+    else:
+        cleaned_df = cleaned_df.dropna(subset=columns_to_check)
+    
+    # Remove duplicate rows
+    cleaned_df = cleaned_df.drop_duplicates()
+    
+    # Reset index after cleaning
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    return cleaned_df
+
+def validate_dataframe(df):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+    
+    Returns:
+        dict: Dictionary with validation results.
+    """
+    validation_results = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'null_count': df.isnull().sum().sum(),
+        'duplicate_count': df.duplicated().sum(),
+        'column_names': list(df.columns),
+        'dtypes': df.dtypes.to_dict()
+    }
+    
+    return validation_results
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'id': [1, 2, 3, 4, 5, 5],
+        'name': ['Alice', 'Bob', None, 'David', 'Eve', 'Eve'],
+        'age': [25, 30, 35, None, 28, 28],
+        'score': [85.5, 92.0, 78.5, 88.0, 95.5, 95.5]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nValidation Results:")
+    print(validate_dataframe(df))
+    
+    cleaned_df = clean_dataset(df)
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    print("\nCleaned Validation Results:")
+    print(validate_dataframe(cleaned_df))
