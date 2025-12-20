@@ -113,4 +113,106 @@ class DataCleaner:
             'cleaned_columns': cleaned_shape[1],
             'rows_removed': self.original_shape[0] - cleaned_shape[0],
             'columns_removed': self.original_shape[1] - cleaned_shape[1]
-        }
+        }import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column, threshold=1.5):
+    """
+    Remove outliers using the Interquartile Range method.
+    Returns filtered DataFrame and outlier indices.
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - threshold * IQR
+    upper_bound = Q3 + threshold * IQR
+    
+    mask = (data[column] >= lower_bound) & (data[column] <= upper_bound)
+    outliers = data[~mask].index.tolist()
+    
+    return data[mask].copy(), outliers
+
+def normalize_minmax(data, columns=None):
+    """
+    Normalize specified columns using Min-Max scaling.
+    If columns is None, normalize all numeric columns.
+    """
+    if columns is None:
+        numeric_cols = data.select_dtypes(include=[np.number]).columns
+        columns = list(numeric_cols)
+    
+    normalized_data = data.copy()
+    for col in columns:
+        if col not in normalized_data.columns:
+            continue
+        col_min = normalized_data[col].min()
+        col_max = normalized_data[col].max()
+        if col_max > col_min:
+            normalized_data[col] = (normalized_data[col] - col_min) / (col_max - col_min)
+    
+    return normalized_data
+
+def detect_anomalies_zscore(data, column, threshold=3):
+    """
+    Detect anomalies using Z-score method.
+    Returns indices of anomalous values.
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    z_scores = np.abs(stats.zscore(data[column].dropna()))
+    anomaly_indices = data[column].dropna().index[z_scores > threshold].tolist()
+    
+    return anomaly_indices
+
+def clean_missing_values(data, strategy='mean', columns=None):
+    """
+    Handle missing values using specified strategy.
+    Supported strategies: 'mean', 'median', 'mode', 'drop'
+    """
+    cleaned_data = data.copy()
+    
+    if columns is None:
+        columns = cleaned_data.columns
+    
+    for col in columns:
+        if col not in cleaned_data.columns:
+            continue
+        
+        if strategy == 'drop':
+            cleaned_data = cleaned_data.dropna(subset=[col])
+        elif strategy == 'mean':
+            cleaned_data[col].fillna(cleaned_data[col].mean(), inplace=True)
+        elif strategy == 'median':
+            cleaned_data[col].fillna(cleaned_data[col].median(), inplace=True)
+        elif strategy == 'mode':
+            cleaned_data[col].fillna(cleaned_data[col].mode()[0], inplace=True)
+        else:
+            raise ValueError(f"Unsupported strategy: {strategy}")
+    
+    return cleaned_data
+
+def validate_dataframe(data, required_columns=None, numeric_columns=None):
+    """
+    Basic DataFrame validation.
+    Checks for required columns and numeric column types.
+    """
+    if not isinstance(data, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    if required_columns:
+        missing = [col for col in required_columns if col not in data.columns]
+        if missing:
+            raise ValueError(f"Missing required columns: {missing}")
+    
+    if numeric_columns:
+        non_numeric = [col for col in numeric_columns 
+                      if not pd.api.types.is_numeric_dtype(data[col])]
+        if non_numeric:
+            raise ValueError(f"Non-numeric columns specified as numeric: {non_numeric}")
+    
+    return True
