@@ -171,3 +171,73 @@ def validate_data(df, required_columns=None, min_rows=1):
             return False, f"Missing required columns: {missing_columns}"
     
     return True, "Data validation passed"
+import pandas as pd
+import re
+
+def clean_dataframe(df, column_mapping=None, drop_duplicates=True, normalize_text=True):
+    """
+    Clean a pandas DataFrame by removing duplicates and normalizing text columns.
+    
+    Args:
+        df: Input pandas DataFrame
+        column_mapping: Dictionary to rename columns (old_name: new_name)
+        drop_duplicates: Boolean to remove duplicate rows
+        normalize_text: Boolean to normalize text columns (lowercase, strip whitespace)
+    
+    Returns:
+        Cleaned pandas DataFrame
+    """
+    df_clean = df.copy()
+    
+    if column_mapping:
+        df_clean = df_clean.rename(columns=column_mapping)
+    
+    if drop_duplicates:
+        df_clean = df_clean.drop_duplicates().reset_index(drop=True)
+    
+    if normalize_text:
+        for col in df_clean.select_dtypes(include=['object']).columns:
+            df_clean[col] = df_clean[col].astype(str).apply(
+                lambda x: re.sub(r'\s+', ' ', x.strip().lower())
+            )
+    
+    return df_clean
+
+def validate_email_column(df, email_column):
+    """
+    Validate email addresses in a specified column.
+    
+    Args:
+        df: Input pandas DataFrame
+        email_column: Name of the column containing email addresses
+    
+    Returns:
+        DataFrame with additional 'email_valid' boolean column
+    """
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    
+    df_validated = df.copy()
+    df_validated['email_valid'] = df_validated[email_column].str.match(email_pattern)
+    
+    return df_validated
+
+def remove_outliers_iqr(df, column, multiplier=1.5):
+    """
+    Remove outliers from a numeric column using the Interquartile Range method.
+    
+    Args:
+        df: Input pandas DataFrame
+        column: Name of the numeric column
+        multiplier: IQR multiplier (default 1.5)
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - multiplier * IQR
+    upper_bound = Q3 + multiplier * IQR
+    
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
