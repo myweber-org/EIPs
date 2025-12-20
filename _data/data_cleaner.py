@@ -152,3 +152,25 @@ if __name__ == "__main__":
     print("\nCleaned DataFrame shape:", cleaned_df.shape)
     print("\nCleaned statistics:")
     print(calculate_basic_stats(cleaned_df, 'value'))
+import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    return filtered_df
+
+def clean_dataset(df, numeric_columns):
+    original_shape = df.shape
+    cleaned_df = df.copy()
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+    print(f"Original shape: {original_shape}")
+    print(f"Cleaned shape: {cleaned_df.shape}")
+    print(f"Removed {original_shape[0] - cleaned_df.shape[0]} rows")
+    return cleaned_df
