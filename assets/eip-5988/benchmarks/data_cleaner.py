@@ -225,4 +225,84 @@ if __name__ == "__main__":
     print(cleaned)
     
     is_valid = validate_data(cleaned, required_columns=['A', 'B', 'C'], min_rows=3)
-    print(f"\nData validation passed: {is_valid}")
+    print(f"\nData validation passed: {is_valid}")import pandas as pd
+import numpy as np
+import sys
+
+def load_csv(file_path):
+    """Load CSV file into a pandas DataFrame."""
+    try:
+        df = pd.read_csv(file_path)
+        print(f"Successfully loaded {file_path} with {df.shape[0]} rows and {df.shape[1]} columns.")
+        return df
+    except FileNotFoundError:
+        print(f"Error: File '{file_path}' not found.")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error loading CSV: {e}")
+        sys.exit(1)
+
+def clean_data(df):
+    """Perform basic data cleaning operations."""
+    original_rows = df.shape[0]
+    original_cols = df.shape[1]
+    
+    # Remove duplicate rows
+    df = df.drop_duplicates()
+    duplicates_removed = original_rows - df.shape[0]
+    
+    # Handle missing values: fill numeric columns with median, drop rows if too many missing
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        if df[col].isnull().sum() > 0:
+            df[col].fillna(df[col].median(), inplace=True)
+    
+    # Drop rows with missing values in non-numeric columns if more than 50% missing
+    non_numeric_cols = df.select_dtypes(exclude=[np.number]).columns
+    for col in non_numeric_cols:
+        missing_pct = df[col].isnull().sum() / df.shape[0]
+        if missing_pct > 0.5:
+            df.drop(col, axis=1, inplace=True)
+        else:
+            df[col].fillna('Unknown', inplace=True)
+    
+    # Remove columns with constant values
+    constant_cols = [col for col in df.columns if df[col].nunique() == 1]
+    df.drop(columns=constant_cols, inplace=True)
+    
+    print(f"Cleaning complete:")
+    print(f"  - Removed {duplicates_removed} duplicate rows")
+    print(f"  - Removed {len(constant_cols)} constant columns")
+    print(f"  - Final shape: {df.shape[0]} rows, {df.shape[1]} columns")
+    
+    return df
+
+def save_cleaned_data(df, output_path):
+    """Save cleaned DataFrame to CSV."""
+    try:
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to {output_path}")
+    except Exception as e:
+        print(f"Error saving file: {e}")
+        sys.exit(1)
+
+def main():
+    if len(sys.argv) != 3:
+        print("Usage: python data_cleaner.py <input_file.csv> <output_file.csv>")
+        sys.exit(1)
+    
+    input_file = sys.argv[1]
+    output_file = sys.argv[2]
+    
+    print(f"Starting data cleaning process...")
+    print(f"Input file: {input_file}")
+    print(f"Output file: {output_file}")
+    
+    df = load_csv(input_file)
+    cleaned_df = clean_data(df)
+    save_cleaned_data(cleaned_df, output_file)
+    
+    print("Data cleaning completed successfully.")
+
+if __name__ == "__main__":
+    main()
