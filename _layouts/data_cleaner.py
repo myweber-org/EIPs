@@ -413,3 +413,101 @@ if __name__ == "__main__":
     print(cleaner.get_summary())
     print("\nFirst 5 rows of cleaned data:")
     print(cleaned_df.head())
+import numpy as np
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specified column using the Interquartile Range method.
+    
+    Parameters:
+    data (np.ndarray): Input data array
+    column (int): Column index to process
+    
+    Returns:
+    np.ndarray: Data with outliers removed
+    """
+    if not isinstance(data, np.ndarray):
+        raise TypeError("Input data must be a numpy array")
+    
+    if column >= data.shape[1]:
+        raise IndexError("Column index out of bounds")
+    
+    column_data = data[:, column]
+    
+    Q1 = np.percentile(column_data, 25)
+    Q3 = np.percentile(column_data, 75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    mask = (column_data >= lower_bound) & (column_data <= upper_bound)
+    
+    return data[mask]
+
+def calculate_statistics(data):
+    """
+    Calculate basic statistics for the data.
+    
+    Parameters:
+    data (np.ndarray): Input data array
+    
+    Returns:
+    dict: Dictionary containing mean, median, and standard deviation
+    """
+    if data.size == 0:
+        return {"mean": 0, "median": 0, "std": 0}
+    
+    stats = {
+        "mean": np.mean(data),
+        "median": np.median(data),
+        "std": np.std(data)
+    }
+    
+    return stats
+
+def validate_data(data):
+    """
+    Validate data for cleaning operations.
+    
+    Parameters:
+    data (np.ndarray): Input data array
+    
+    Returns:
+    bool: True if data is valid, False otherwise
+    """
+    if data is None:
+        return False
+    
+    if not isinstance(data, np.ndarray):
+        return False
+    
+    if data.size == 0:
+        return False
+    
+    return True
+
+def process_dataset(data, column_index):
+    """
+    Main function to process dataset by removing outliers.
+    
+    Parameters:
+    data (np.ndarray): Input data array
+    column_index (int): Column index to clean
+    
+    Returns:
+    tuple: (cleaned_data, original_stats, cleaned_stats)
+    """
+    if not validate_data(data):
+        raise ValueError("Invalid input data")
+    
+    original_stats = calculate_statistics(data[:, column_index])
+    
+    cleaned_data = remove_outliers_iqr(data, column_index)
+    
+    if cleaned_data.size > 0:
+        cleaned_stats = calculate_statistics(cleaned_data[:, column_index])
+    else:
+        cleaned_stats = {"mean": 0, "median": 0, "std": 0}
+    
+    return cleaned_data, original_stats, cleaned_stats
