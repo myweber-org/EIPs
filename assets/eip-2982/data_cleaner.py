@@ -51,3 +51,51 @@ if __name__ == "__main__":
     print("Cleaned shape:", cleaned_data.shape)
     print("\nStatistics:")
     print(statistics)
+import pandas as pd
+import numpy as np
+
+def remove_outliers(df, column, method='iqr', threshold=1.5):
+    if method == 'iqr':
+        Q1 = df[column].quantile(0.25)
+        Q3 = df[column].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - threshold * IQR
+        upper_bound = Q3 + threshold * IQR
+        return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    elif method == 'zscore':
+        z_scores = np.abs((df[column] - df[column].mean()) / df[column].std())
+        return df[z_scores < threshold]
+    else:
+        raise ValueError("Method must be 'iqr' or 'zscore'")
+
+def normalize_column(df, column, method='minmax'):
+    if method == 'minmax':
+        df[column] = (df[column] - df[column].min()) / (df[column].max() - df[column].min())
+    elif method == 'standard':
+        df[column] = (df[column] - df[column].mean()) / df[column].std()
+    else:
+        raise ValueError("Method must be 'minmax' or 'standard'")
+    return df
+
+def clean_dataset(file_path, output_path, outlier_columns=None, normalize_columns=None):
+    df = pd.read_csv(file_path)
+    
+    if outlier_columns:
+        for col in outlier_columns:
+            df = remove_outliers(df, col)
+    
+    if normalize_columns:
+        for col in normalize_columns:
+            df = normalize_column(df, col)
+    
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to {output_path}")
+    return df
+
+if __name__ == "__main__":
+    cleaned_df = clean_dataset(
+        'raw_data.csv',
+        'cleaned_data.csv',
+        outlier_columns=['age', 'income'],
+        normalize_columns=['score', 'rating']
+    )
