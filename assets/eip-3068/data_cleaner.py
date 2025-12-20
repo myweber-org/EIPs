@@ -266,4 +266,26 @@ if __name__ == "__main__":
     print(cleaned)
     
     is_valid = validate_data(cleaned, required_columns=['id', 'value', 'category'], min_rows=3)
-    print(f"\nData validation result: {is_valid}")
+    print(f"\nData validation result: {is_valid}")def remove_duplicates(data_list):
+    seen = set()
+    result = []
+    for item in data_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+def clean_numeric_strings(data_list):
+    cleaned = []
+    for item in data_list:
+        if isinstance(item, str):
+            try:
+                cleaned.append(float(item))
+            except ValueError:
+                cleaned.append(item)
+        else:
+            cleaned.append(item)
+    return cleaned
+
+def filter_by_type(data_list, data_type):
+    return [item for item in data_list if isinstance(item, data_type)]
