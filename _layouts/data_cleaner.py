@@ -511,3 +511,51 @@ def process_dataset(data, column_index):
         cleaned_stats = {"mean": 0, "median": 0, "std": 0}
     
     return cleaned_data, original_stats, cleaned_stats
+import pandas as pd
+import numpy as np
+
+def clean_dataframe(df, drop_duplicates=True, fill_missing='mean'):
+    """
+    Cleans a pandas DataFrame by removing duplicates and handling missing values.
+    """
+    original_shape = df.shape
+    cleaned_df = df.copy()
+
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+        print(f"Removed {original_shape[0] - cleaned_df.shape[0]} duplicate rows.")
+
+    if fill_missing:
+        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+        if fill_missing == 'mean':
+            cleaned_df[numeric_cols] = cleaned_df[numeric_cols].fillna(cleaned_df[numeric_cols].mean())
+        elif fill_missing == 'median':
+            cleaned_df[numeric_cols] = cleaned_df[numeric_cols].fillna(cleaned_df[numeric_cols].median())
+        elif fill_missing == 'mode':
+            for col in numeric_cols:
+                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mode()[0])
+        print(f"Filled missing values in numeric columns using '{fill_missing}' strategy.")
+
+    object_cols = cleaned_df.select_dtypes(include=['object']).columns
+    cleaned_df[object_cols] = cleaned_df[object_cols].fillna('Unknown')
+    print("Filled missing values in object columns with 'Unknown'.")
+
+    final_shape = cleaned_df.shape
+    print(f"Data cleaning complete. Original shape: {original_shape}, Cleaned shape: {final_shape}")
+
+    return cleaned_df
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, 2, np.nan, 5],
+        'B': [10, np.nan, 10, 40, 50],
+        'C': ['x', 'y', 'x', 'y', np.nan],
+        'D': [100, 200, 100, np.nan, 500]
+    }
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nCleaning DataFrame...")
+    cleaned = clean_dataframe(df, fill_missing='median')
+    print("\nCleaned DataFrame:")
+    print(cleaned)
