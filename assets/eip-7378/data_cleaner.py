@@ -159,4 +159,101 @@ def remove_outliers_iqr(df, column, multiplier=1.5):
     lower_bound = Q1 - multiplier * IQR
     upper_bound = Q3 + multiplier * IQR
     
-    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]import pandas as pd
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        subset (list, optional): Columns to consider for duplicates
+        keep (str, optional): Which duplicates to keep ('first', 'last', False)
+    
+    Returns:
+        pd.DataFrame: DataFrame with duplicates removed
+    """
+    if subset is None:
+        subset = df.columns.tolist()
+    
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+    
+    print(f"Removed {len(df) - len(cleaned_df)} duplicate rows")
+    print(f"Original shape: {df.shape}, Cleaned shape: {cleaned_df.shape}")
+    
+    return cleaned_df
+
+def validate_dataframe(df):
+    """
+    Perform basic validation on DataFrame.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+    
+    Returns:
+        dict: Dictionary containing validation results
+    """
+    validation_results = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_values': df.isnull().sum().sum(),
+        'duplicate_rows': df.duplicated().sum(),
+        'data_types': df.dtypes.to_dict()
+    }
+    
+    return validation_results
+
+def clean_numeric_columns(df, columns=None):
+    """
+    Clean numeric columns by converting to appropriate types.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns (list, optional): Specific columns to clean
+    
+    Returns:
+        pd.DataFrame: DataFrame with cleaned numeric columns
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=['object']).columns
+    
+    cleaned_df = df.copy()
+    
+    for col in columns:
+        if col in df.columns:
+            try:
+                cleaned_df[col] = pd.to_numeric(df[col], errors='coerce')
+            except Exception as e:
+                print(f"Could not convert column {col}: {e}")
+    
+    return cleaned_df
+
+def main():
+    """
+    Example usage of data cleaning functions.
+    """
+    sample_data = {
+        'id': [1, 2, 3, 1, 2, 4],
+        'name': ['Alice', 'Bob', 'Charlie', 'Alice', 'Bob', 'David'],
+        'value': [10.5, 20.3, 15.7, 10.5, 20.3, 18.9],
+        'category': ['A', 'B', 'C', 'A', 'B', 'D']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    
+    print("Original DataFrame:")
+    print(df)
+    print()
+    
+    validation = validate_dataframe(df)
+    print("Validation Results:")
+    for key, value in validation.items():
+        print(f"{key}: {value}")
+    print()
+    
+    cleaned_df = remove_duplicates(df, subset=['id', 'name'])
+    print("Cleaned DataFrame:")
+    print(cleaned_df)
+
+if __name__ == "__main__":
+    main()
