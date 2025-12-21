@@ -210,3 +210,55 @@ if __name__ == "__main__":
     print("\nCleaned DataFrame:")
     cleaned = clean_dataframe(df)
     print(cleaned)
+import pandas as pd
+import re
+
+def clean_dataset(df, column_names):
+    """
+    Clean a pandas DataFrame by removing duplicate rows and normalizing
+    specified string columns (strip whitespace, lowercase).
+    """
+    cleaned_df = df.copy()
+    
+    # Remove duplicate rows
+    initial_count = len(cleaned_df)
+    cleaned_df = cleaned_df.drop_duplicates()
+    duplicates_removed = initial_count - len(cleaned_df)
+    
+    # Normalize specified string columns
+    for col in column_names:
+        if col in cleaned_df.columns:
+            if cleaned_df[col].dtype == 'object':
+                cleaned_df[col] = cleaned_df[col].apply(
+                    lambda x: re.sub(r'\s+', ' ', str(x).strip().lower()) 
+                    if pd.notnull(x) else x
+                )
+    
+    # Reset index after cleaning
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    print(f"Removed {duplicates_removed} duplicate rows")
+    print(f"Normalized columns: {column_names}")
+    return cleaned_df
+
+def validate_email_column(df, email_column):
+    """
+    Validate email addresses in a specified column using regex pattern.
+    Returns DataFrame with validation results.
+    """
+    if email_column not in df.columns:
+        raise ValueError(f"Column '{email_column}' not found in DataFrame")
+    
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    
+    df['email_valid'] = df[email_column].apply(
+        lambda x: bool(re.match(email_pattern, str(x))) if pd.notnull(x) else False
+    )
+    
+    valid_count = df['email_valid'].sum()
+    total_count = len(df)
+    
+    print(f"Email validation results:")
+    print(f"Valid emails: {valid_count}/{total_count} ({valid_count/total_count*100:.1f}%)")
+    
+    return df
