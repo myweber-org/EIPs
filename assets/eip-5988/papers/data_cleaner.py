@@ -206,3 +206,90 @@ def clean_dataset(df, outlier_threshold=1.5, normalize=True, fill_na=True):
         cleaner.normalize_minmax()
         
     return cleaner.get_cleaned_data(), cleaner.get_removed_count()
+import pandas as pd
+import re
+
+def clean_dataframe(df, columns_to_clean=None):
+    """
+    Clean a pandas DataFrame by removing duplicate rows and normalizing string columns.
+    """
+    cleaned_df = df.copy()
+    
+    # Remove duplicate rows
+    initial_rows = cleaned_df.shape[0]
+    cleaned_df = cleaned_df.drop_duplicates()
+    removed_duplicates = initial_rows - cleaned_df.shape[0]
+    
+    # Normalize string columns
+    if columns_to_clean is None:
+        # Automatically detect string columns
+        string_columns = cleaned_df.select_dtypes(include=['object']).columns
+    else:
+        string_columns = [col for col in columns_to_clean if col in cleaned_df.columns]
+    
+    for col in string_columns:
+        cleaned_df[col] = cleaned_df[col].apply(_normalize_string)
+    
+    return cleaned_df, removed_duplicates
+
+def _normalize_string(value):
+    """
+    Normalize a string by converting to lowercase, removing extra whitespace,
+    and stripping special characters.
+    """
+    if not isinstance(value, str):
+        return value
+    
+    # Convert to lowercase
+    normalized = value.lower()
+    
+    # Remove extra whitespace
+    normalized = re.sub(r'\s+', ' ', normalized).strip()
+    
+    # Remove special characters (keep alphanumeric and spaces)
+    normalized = re.sub(r'[^a-z0-9\s]', '', normalized)
+    
+    return normalized
+
+def validate_email_column(df, email_column):
+    """
+    Validate email addresses in a specified column.
+    Returns a DataFrame with valid emails and a count of invalid entries.
+    """
+    if email_column not in df.columns:
+        raise ValueError(f"Column '{email_column}' not found in DataFrame")
+    
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    
+    valid_mask = df[email_column].apply(
+        lambda x: bool(re.match(email_pattern, str(x))) if pd.notnull(x) else False
+    )
+    
+    valid_df = df[valid_mask].copy()
+    invalid_count = (~valid_mask).sum()
+    
+    return valid_df, invalid_count
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'name': ['John Doe', 'Jane Smith', 'John Doe', 'Alice Johnson  '],
+        'email': ['john@example.com', 'invalid-email', 'john@example.com', 'alice@company.org'],
+        'age': [25, 30, 25, 28]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print()
+    
+    cleaned_df, duplicates_removed = clean_dataframe(df)
+    print(f"Removed {duplicates_removed} duplicate rows")
+    print("Cleaned DataFrame:")
+    print(cleaned_df)
+    print()
+    
+    valid_emails, invalid_count = validate_email_column(df, 'email')
+    print(f"Found {invalid_count} invalid email addresses")
+    print("DataFrame with valid emails:")
+    print(valid_emails)
