@@ -305,4 +305,71 @@ def main():
     print("Data cleaning completed successfully.")
 
 if __name__ == "__main__":
-    main()
+    main()import pandas as pd
+import numpy as np
+
+def load_data(filepath):
+    """Load dataset from CSV file."""
+    try:
+        df = pd.read_csv(filepath)
+        print(f"Data loaded successfully. Shape: {df.shape}")
+        return df
+    except FileNotFoundError:
+        print(f"Error: File '{filepath}' not found.")
+        return None
+
+def remove_outliers(df, column, threshold=3):
+    """Remove outliers using z-score method."""
+    if column not in df.columns:
+        print(f"Column '{column}' not found in dataframe.")
+        return df
+    
+    z_scores = np.abs((df[column] - df[column].mean()) / df[column].std())
+    filtered_df = df[z_scores < threshold]
+    removed_count = len(df) - len(filtered_df)
+    print(f"Removed {removed_count} outliers from column '{column}'.")
+    return filtered_df
+
+def normalize_column(df, column):
+    """Normalize column values to range [0,1]."""
+    if column not in df.columns:
+        print(f"Column '{column}' not found in dataframe.")
+        return df
+    
+    min_val = df[column].min()
+    max_val = df[column].max()
+    
+    if max_val == min_val:
+        print(f"Column '{column}' has constant values. Normalization skipped.")
+        return df
+    
+    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
+    print(f"Column '{column}' normalized successfully.")
+    return df
+
+def clean_dataset(filepath, numeric_columns):
+    """Main function to clean dataset."""
+    df = load_data(filepath)
+    if df is None:
+        return None
+    
+    original_shape = df.shape
+    
+    for column in numeric_columns:
+        if column in df.columns:
+            df = remove_outliers(df, column)
+            df = normalize_column(df, column)
+    
+    print(f"Data cleaning completed. Original shape: {original_shape}, Final shape: {df.shape}")
+    return df
+
+if __name__ == "__main__":
+    # Example usage
+    data_file = "sample_data.csv"
+    numeric_cols = ['age', 'income', 'score']
+    
+    cleaned_data = clean_dataset(data_file, numeric_cols)
+    
+    if cleaned_data is not None:
+        cleaned_data.to_csv("cleaned_data.csv", index=False)
+        print("Cleaned data saved to 'cleaned_data.csv'")
