@@ -352,3 +352,84 @@ def main():
 
 if __name__ == "__main__":
     main()
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    def detect_outliers_iqr(self, column, threshold=1.5):
+        Q1 = self.df[column].quantile(0.25)
+        Q3 = self.df[column].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - threshold * IQR
+        upper_bound = Q3 + threshold * IQR
+        outliers = self.df[(self.df[column] < lower_bound) | (self.df[column] > upper_bound)]
+        return outliers
+    
+    def remove_outliers_zscore(self, column, threshold=3):
+        z_scores = np.abs(stats.zscore(self.df[column].dropna()))
+        mask = z_scores < threshold
+        self.df = self.df[mask]
+        return self.df
+    
+    def impute_missing_mean(self, column):
+        if column in self.numeric_columns:
+            mean_value = self.df[column].mean()
+            self.df[column].fillna(mean_value, inplace=True)
+        return self.df
+    
+    def impute_missing_median(self, column):
+        if column in self.numeric_columns:
+            median_value = self.df[column].median()
+            self.df[column].fillna(median_value, inplace=True)
+        return self.df
+    
+    def drop_columns_missing_threshold(self, threshold=0.3):
+        missing_percent = self.df.isnull().sum() / len(self.df)
+        columns_to_drop = missing_percent[missing_percent > threshold].index.tolist()
+        self.df.drop(columns=columns_to_drop, inplace=True)
+        return self.df
+    
+    def get_cleaned_data(self):
+        return self.df.copy()
+    
+    def summary(self):
+        summary_dict = {
+            'original_shape': self.df.shape,
+            'missing_values': self.df.isnull().sum().sum(),
+            'numeric_columns': self.numeric_columns,
+            'outlier_info': {}
+        }
+        
+        for col in self.numeric_columns:
+            outliers = self.detect_outliers_iqr(col)
+            summary_dict['outlier_info'][col] = len(outliers)
+        
+        return summary_dict
+
+def example_usage():
+    data = {
+        'A': [1, 2, 3, 4, 5, 100, 7, 8, 9, 10],
+        'B': [10, 20, None, 40, 50, 60, 70, 80, 90, 100],
+        'C': [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
+    }
+    
+    df = pd.DataFrame(data)
+    cleaner = DataCleaner(df)
+    
+    print("Original data summary:")
+    print(cleaner.summary())
+    
+    cleaner.remove_outliers_zscore('A')
+    cleaner.impute_missing_median('B')
+    
+    cleaned_df = cleaner.get_cleaned_data()
+    print("\nCleaned data shape:", cleaned_df.shape)
+    print("Cleaned data:\n", cleaned_df)
+
+if __name__ == "__main__":
+    example_usage()
