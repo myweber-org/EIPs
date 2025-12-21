@@ -119,3 +119,92 @@ if __name__ == "__main__":
     result_df = example_usage()
     print("\nFirst 5 rows of processed data:")
     print(result_df.head())
+import pandas as pd
+import numpy as np
+from datetime import datetime
+
+def clean_dataframe(df):
+    """
+    Clean a pandas DataFrame by removing duplicates and standardizing date columns.
+    """
+    # Remove duplicate rows
+    initial_count = len(df)
+    df = df.drop_duplicates()
+    removed_duplicates = initial_count - len(df)
+    
+    # Standardize date columns
+    date_columns = [col for col in df.columns if 'date' in col.lower()]
+    
+    for col in date_columns:
+        try:
+            df[col] = pd.to_datetime(df[col], errors='coerce')
+            # Format to YYYY-MM-DD if conversion successful
+            df[col] = df[col].dt.strftime('%Y-%m-%d')
+        except Exception as e:
+            print(f"Could not convert column {col}: {e}")
+            continue
+    
+    # Fill missing numeric values with column median
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        if df[col].isnull().any():
+            median_val = df[col].median()
+            df[col] = df[col].fillna(median_val)
+    
+    return df, removed_duplicates
+
+def validate_data(df, required_columns):
+    """
+    Validate that required columns exist in the DataFrame.
+    """
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    
+    if missing_columns:
+        raise ValueError(f"Missing required columns: {missing_columns}")
+    
+    return True
+
+def export_cleaned_data(df, output_path):
+    """
+    Export cleaned DataFrame to CSV file.
+    """
+    try:
+        df.to_csv(output_path, index=False)
+        return True
+    except Exception as e:
+        print(f"Error exporting data: {e}")
+        return False
+
+def main():
+    # Example usage
+    sample_data = {
+        'order_date': ['2023-01-15', '2023-01-15', '2023-02-20', None],
+        'customer_id': [101, 101, 102, 103],
+        'amount': [150.50, 150.50, 200.75, None],
+        'product': ['A', 'A', 'B', 'C']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n")
+    
+    cleaned_df, duplicates_removed = clean_dataframe(df)
+    print(f"Removed {duplicates_removed} duplicate rows")
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    
+    # Validate required columns
+    required_cols = ['order_date', 'customer_id', 'amount']
+    try:
+        validate_data(cleaned_df, required_cols)
+        print("Data validation passed")
+    except ValueError as e:
+        print(f"Validation error: {e}")
+    
+    # Export to file
+    if export_cleaned_data(cleaned_df, 'cleaned_data.csv'):
+        print("Data exported successfully")
+
+if __name__ == "__main__":
+    main()
