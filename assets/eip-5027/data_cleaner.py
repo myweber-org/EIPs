@@ -624,3 +624,35 @@ class DataCleaner:
         print(self.df.isnull().sum())
         print("\nData types:")
         print(self.df.dtypes)
+import re
+import string
+
+def remove_punctuation(text):
+    """Remove all punctuation from the input text."""
+    if not isinstance(text, str):
+        return ''
+    translator = str.maketrans('', '', string.punctuation)
+    return text.translate(translator)
+
+def normalize_whitespace(text):
+    """Replace multiple whitespace characters with a single space."""
+    if not isinstance(text, str):
+        return ''
+    return re.sub(r'\s+', ' ', text).strip()
+
+def clean_text(text, remove_punct=True, normalize_ws=True):
+    """Clean text by optionally removing punctuation and normalizing whitespace."""
+    if not isinstance(text, str):
+        return ''
+    
+    cleaned = text
+    if remove_punct:
+        cleaned = remove_punctuation(cleaned)
+    if normalize_ws:
+        cleaned = normalize_whitespace(cleaned)
+    
+    return cleaned
+
+def batch_clean(texts, remove_punct=True, normalize_ws=True):
+    """Clean a list of text strings."""
+    return [clean_text(t, remove_punct, normalize_ws) for t in texts]
