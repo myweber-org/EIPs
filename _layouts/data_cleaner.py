@@ -558,4 +558,61 @@ if __name__ == "__main__":
     print("\nCleaning DataFrame...")
     cleaned = clean_dataframe(df, fill_missing='median')
     print("\nCleaned DataFrame:")
-    print(cleaned)
+    print(cleaned)import pandas as pd
+import sys
+
+def remove_duplicates(input_file, output_file=None, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a CSV file.
+    
+    Args:
+        input_file (str): Path to input CSV file
+        output_file (str): Path to output CSV file (default: input_file + '_cleaned.csv')
+        subset (list): Columns to consider for identifying duplicates
+        keep (str): Which duplicate to keep - 'first', 'last', or False (remove all)
+    
+    Returns:
+        int: Number of duplicates removed
+    """
+    try:
+        df = pd.read_csv(input_file)
+        initial_count = len(df)
+        
+        df_cleaned = df.drop_duplicates(subset=subset, keep=keep)
+        final_count = len(df_cleaned)
+        
+        if output_file is None:
+            output_file = input_file.replace('.csv', '_cleaned.csv')
+        
+        df_cleaned.to_csv(output_file, index=False)
+        
+        duplicates_removed = initial_count - final_count
+        print(f"Removed {duplicates_removed} duplicate rows")
+        print(f"Cleaned data saved to: {output_file}")
+        
+        return duplicates_removed
+        
+    except FileNotFoundError:
+        print(f"Error: File '{input_file}' not found")
+        return -1
+    except pd.errors.EmptyDataError:
+        print(f"Error: File '{input_file}' is empty")
+        return -1
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return -1
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Usage: python data_cleaner.py <input_file> [output_file]")
+        sys.exit(1)
+    
+    input_file = sys.argv[1]
+    output_file = sys.argv[2] if len(sys.argv) > 2 else None
+    
+    result = remove_duplicates(input_file, output_file)
+    
+    if result >= 0:
+        sys.exit(0)
+    else:
+        sys.exit(1)
