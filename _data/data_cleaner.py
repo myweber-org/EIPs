@@ -115,4 +115,37 @@ if __name__ == "__main__":
     
     # Validate the data
     is_valid, message = validate_dataframe(normalized, required_columns=['A', 'B'])
-    print(f"\nValidation: {message}")
+    print(f"\nValidation: {message}")import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+def normalize_minmax(df, column):
+    min_val = df[column].min()
+    max_val = df[column].max()
+    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
+    return df
+
+def clean_dataset(input_path, output_path):
+    data = pd.read_csv(input_path)
+    
+    numeric_cols = data.select_dtypes(include=[np.number]).columns
+    
+    for col in numeric_cols:
+        data = remove_outliers_iqr(data, col)
+    
+    for col in numeric_cols:
+        data = normalize_minmax(data, col)
+    
+    data.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to {output_path}")
+    return data
+
+if __name__ == "__main__":
+    cleaned_data = clean_dataset('raw_data.csv', 'cleaned_data.csv')
