@@ -304,4 +304,63 @@ def summarize_cleaning(df_before, df_after, numeric_columns):
             'original_std': df_before[col].std(),
             'cleaned_std': df_after[col].std()
         }
-    return pd.DataFrame(summary).T
+    return pd.DataFrame(summary).Timport pandas as pd
+import numpy as np
+import argparse
+import os
+
+def clean_csv(input_file, output_file=None, drop_na=True, fill_missing=False, fill_value=0):
+    """
+    Clean a CSV file by handling missing values and basic data issues.
+    """
+    try:
+        df = pd.read_csv(input_file)
+        print(f"Original shape: {df.shape}")
+        
+        if drop_na:
+            df_cleaned = df.dropna()
+            print(f"After dropping NA: {df_cleaned.shape}")
+        elif fill_missing:
+            df_cleaned = df.fillna(fill_value)
+            print(f"After filling NA with {fill_value}: {df_cleaned.shape}")
+        else:
+            df_cleaned = df.copy()
+        
+        if output_file is None:
+            base_name = os.path.splitext(input_file)[0]
+            output_file = f"{base_name}_cleaned.csv"
+        
+        df_cleaned.to_csv(output_file, index=False)
+        print(f"Cleaned data saved to: {output_file}")
+        return output_file
+    
+    except FileNotFoundError:
+        print(f"Error: File '{input_file}' not found.")
+        return None
+    except Exception as e:
+        print(f"Error during cleaning: {e}")
+        return None
+
+def main():
+    parser = argparse.ArgumentParser(description='Clean CSV files')
+    parser.add_argument('input', help='Input CSV file path')
+    parser.add_argument('-o', '--output', help='Output CSV file path')
+    parser.add_argument('--keep-na', action='store_true', help='Keep NA values (default: drop NA)')
+    parser.add_argument('--fill', type=float, help='Fill NA with specified value')
+    
+    args = parser.parse_args()
+    
+    drop_na = not args.keep_na
+    fill_missing = args.fill is not None
+    fill_value = args.fill if args.fill is not None else 0
+    
+    clean_csv(
+        input_file=args.input,
+        output_file=args.output,
+        drop_na=drop_na,
+        fill_missing=fill_missing,
+        fill_value=fill_value
+    )
+
+if __name__ == "__main__":
+    main()
