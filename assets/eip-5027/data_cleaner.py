@@ -433,3 +433,123 @@ def example_usage():
 
 if __name__ == "__main__":
     example_usage()
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(dataframe, column, threshold=1.5):
+    """
+    Remove outliers from a DataFrame column using IQR method.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input DataFrame
+    column (str): Column name to process
+    threshold (float): IQR multiplier (default 1.5)
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = dataframe[column].quantile(0.25)
+    q3 = dataframe[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
+                           (dataframe[column] <= upper_bound)]
+    return filtered_df.copy()
+
+def normalize_column(dataframe, column, method='minmax'):
+    """
+    Normalize a column using specified method.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input DataFrame
+    column (str): Column name to normalize
+    method (str): Normalization method ('minmax' or 'zscore')
+    
+    Returns:
+    pd.Series: Normalized column values
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    if method == 'minmax':
+        min_val = dataframe[column].min()
+        max_val = dataframe[column].max()
+        if max_val == min_val:
+            return pd.Series([0.5] * len(dataframe), index=dataframe.index)
+        normalized = (dataframe[column] - min_val) / (max_val - min_val)
+    
+    elif method == 'zscore':
+        mean_val = dataframe[column].mean()
+        std_val = dataframe[column].std()
+        if std_val == 0:
+            return pd.Series([0] * len(dataframe), index=dataframe.index)
+        normalized = (dataframe[column] - mean_val) / std_val
+    
+    else:
+        raise ValueError("Method must be 'minmax' or 'zscore'")
+    
+    return normalized
+
+def clean_dataset(dataframe, numeric_columns=None, outlier_threshold=1.5, normalize_method='minmax'):
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input DataFrame
+    numeric_columns (list): List of numeric columns to process
+    outlier_threshold (float): IQR threshold for outlier removal
+    normalize_method (str): Normalization method
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    if numeric_columns is None:
+        numeric_columns = dataframe.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_df = dataframe.copy()
+    
+    for column in numeric_columns:
+        if column in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, column, outlier_threshold)
+            cleaned_df[f'{column}_normalized'] = normalize_column(cleaned_df, column, normalize_method)
+    
+    return cleaned_df
+
+def validate_dataframe(dataframe, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    dataframe (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of required column names
+    
+    Returns:
+    dict: Validation results
+    """
+    validation_result = {
+        'is_valid': True,
+        'missing_columns': [],
+        'null_counts': {},
+        'dtypes': {}
+    }
+    
+    if required_columns:
+        missing = [col for col in required_columns if col not in dataframe.columns]
+        if missing:
+            validation_result['is_valid'] = False
+            validation_result['missing_columns'] = missing
+    
+    for column in dataframe.columns:
+        null_count = dataframe[column].isnull().sum()
+        if null_count > 0:
+            validation_result['null_counts'][column] = null_count
+        
+        validation_result['dtypes'][column] = str(dataframe[column].dtype)
+    
+    return validation_result
