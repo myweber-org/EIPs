@@ -424,4 +424,22 @@ def main():
     print(calculate_summary_statistics(cleaned_df, 'values'))
 
 if __name__ == "__main__":
-    main()
+    main()def remove_duplicates(input_list):
+    seen = set()
+    result = []
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+def clean_data(data):
+    if not isinstance(data, list):
+        raise TypeError("Input must be a list")
+    cleaned = remove_duplicates(data)
+    return cleaned
+
+if __name__ == "__main__":
+    sample_data = [1, 2, 2, 3, 4, 4, 5]
+    print(f"Original: {sample_data}")
+    print(f"Cleaned: {clean_data(sample_data)}")
