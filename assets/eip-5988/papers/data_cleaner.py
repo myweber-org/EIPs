@@ -292,4 +292,35 @@ if __name__ == "__main__":
     valid_emails, invalid_count = validate_email_column(df, 'email')
     print(f"Found {invalid_count} invalid email addresses")
     print("DataFrame with valid emails:")
-    print(valid_emails)
+    print(valid_emails)import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+def normalize_minmax(df, column):
+    min_val = df[column].min()
+    max_val = df[column].max()
+    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
+    return df
+
+def clean_dataset(file_path):
+    data = pd.read_csv(file_path)
+    numeric_cols = data.select_dtypes(include=[np.number]).columns
+    
+    for col in numeric_cols:
+        data = remove_outliers_iqr(data, col)
+        data = normalize_minmax(data, col)
+    
+    cleaned_file = file_path.replace('.csv', '_cleaned.csv')
+    data.to_csv(cleaned_file, index=False)
+    return cleaned_file
+
+if __name__ == "__main__":
+    cleaned = clean_dataset('sample_data.csv')
+    print(f"Cleaned data saved to: {cleaned}")
