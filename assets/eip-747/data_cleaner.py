@@ -321,3 +321,11 @@ def clean_numeric_data(df, columns=None):
             print(f"Removed {removed_count} outliers from column '{column}'")
     
     return cleaned_df
+def remove_duplicates_preserve_order(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
