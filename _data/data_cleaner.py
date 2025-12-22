@@ -148,4 +148,112 @@ def clean_dataset(input_path, output_path):
     return data
 
 if __name__ == "__main__":
-    cleaned_data = clean_dataset('raw_data.csv', 'cleaned_data.csv')
+    cleaned_data = clean_dataset('raw_data.csv', 'cleaned_data.csv')import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column, factor=1.5):
+    """
+    Remove outliers using IQR method
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - factor * IQR
+    upper_bound = Q3 + factor * IQR
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    removed_count = len(data) - len(filtered_data)
+    
+    return filtered_data, removed_count
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using min-max scaling
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return data[column].apply(lambda x: 0.5)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def standardize_zscore(data, column):
+    """
+    Standardize data using z-score normalization
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return data[column].apply(lambda x: 0)
+    
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
+
+def clean_dataset(df, numeric_columns=None):
+    """
+    Comprehensive data cleaning function
+    """
+    if numeric_columns is None:
+        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_df = df.copy()
+    stats_report = {}
+    
+    for col in numeric_columns:
+        if col in df.columns:
+            # Remove outliers
+            cleaned_df, removed = remove_outliers_iqr(cleaned_df, col)
+            stats_report[col] = {
+                'outliers_removed': removed,
+                'original_mean': df[col].mean(),
+                'cleaned_mean': cleaned_df[col].mean(),
+                'original_std': df[col].std(),
+                'cleaned_std': cleaned_df[col].std()
+            }
+    
+    return cleaned_df, stats_report
+
+def create_sample_data():
+    """
+    Create sample data for testing
+    """
+    np.random.seed(42)
+    data = {
+        'feature_a': np.random.normal(100, 15, 1000),
+        'feature_b': np.random.exponential(50, 1000),
+        'feature_c': np.random.uniform(0, 1, 1000)
+    }
+    
+    # Add some outliers
+    data['feature_a'][:50] = np.random.normal(300, 10, 50)
+    data['feature_b'][:30] = np.random.normal(500, 20, 30)
+    
+    df = pd.DataFrame(data)
+    return df
+
+if __name__ == "__main__":
+    # Example usage
+    sample_df = create_sample_data()
+    print("Original dataset shape:", sample_df.shape)
+    print("Original statistics:")
+    print(sample_df.describe())
+    
+    cleaned_df, report = clean_dataset(sample_df)
+    print("\nCleaned dataset shape:", cleaned_df.shape)
+    print("\nCleaning report:")
+    for col, stats in report.items():
+        print(f"{col}: {stats['outliers_removed']} outliers removed")
