@@ -645,4 +645,69 @@ def remove_duplicates(sequence):
         if item not in seen:
             seen.add(item)
             result.append(item)
-    return result
+    return resultimport csv
+import re
+
+def clean_string(value):
+    """Remove extra whitespace and normalize case."""
+    if not isinstance(value, str):
+        return value
+    cleaned = re.sub(r'\s+', ' ', value.strip())
+    return cleaned.lower()
+
+def clean_numeric(value):
+    """Convert string numbers to integers, handle empty values."""
+    if isinstance(value, (int, float)):
+        return value
+    if not value or str(value).strip() == '':
+        return 0
+    try:
+        return int(re.sub(r'[^\d.-]', '', str(value)))
+    except ValueError:
+        return 0
+
+def process_csv(input_path, output_path):
+    """Read CSV, clean data, and write to new file."""
+    cleaned_rows = []
+    
+    with open(input_path, 'r', newline='', encoding='utf-8') as infile:
+        reader = csv.DictReader(infile)
+        fieldnames = reader.fieldnames
+        
+        for row in reader:
+            cleaned_row = {}
+            for key in fieldnames:
+                original = row[key]
+                if key.endswith('_id') or key.endswith('_count'):
+                    cleaned_row[key] = clean_numeric(original)
+                else:
+                    cleaned_row[key] = clean_string(original)
+            cleaned_rows.append(cleaned_row)
+    
+    with open(output_path, 'w', newline='', encoding='utf-8') as outfile:
+        writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(cleaned_rows)
+    
+    return len(cleaned_rows)
+
+def validate_email(email):
+    """Basic email format validation."""
+    if not email or not isinstance(email, str):
+        return False
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, email.strip()))
+
+if __name__ == "__main__":
+    sample_data = [
+        {"name": "  JOHN DOE  ", "email": "test@example.com", "score": "95"},
+        {"name": "jane smith", "email": "invalid-email", "score": ""}
+    ]
+    
+    print("Testing data cleaner:")
+    for item in sample_data:
+        print(f"Original: {item}")
+        print(f"Cleaned name: {clean_string(item['name'])}")
+        print(f"Valid email: {validate_email(item['email'])}")
+        print(f"Cleaned score: {clean_numeric(item['score'])}")
+        print("-" * 30)
