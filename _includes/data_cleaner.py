@@ -160,4 +160,116 @@ if __name__ == "__main__":
     
     # Validate
     is_valid = validate_dataframe(cleaned, required_columns=['id', 'name'])
-    print(f"\nData validation: {'PASS' if is_valid else 'FAIL'}")
+    print(f"\nData validation: {'PASS' if is_valid else 'FAIL'}")import pandas as pd
+import numpy as np
+from typing import Optional
+
+def remove_duplicates(df: pd.DataFrame, subset: Optional[list] = None) -> pd.DataFrame:
+    """
+    Remove duplicate rows from DataFrame.
+    
+    Args:
+        df: Input DataFrame
+        subset: Columns to consider for duplicates
+    
+    Returns:
+        DataFrame with duplicates removed
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def handle_missing_values(df: pd.DataFrame, strategy: str = 'drop', fill_value: float = 0.0) -> pd.DataFrame:
+    """
+    Handle missing values in DataFrame.
+    
+    Args:
+        df: Input DataFrame
+        strategy: 'drop' to remove rows, 'fill' to replace with value
+        fill_value: Value to use when strategy is 'fill'
+    
+    Returns:
+        DataFrame with handled missing values
+    """
+    if strategy == 'drop':
+        return df.dropna()
+    elif strategy == 'fill':
+        return df.fillna(fill_value)
+    else:
+        raise ValueError("Strategy must be 'drop' or 'fill'")
+
+def normalize_column(df: pd.DataFrame, column: str) -> pd.DataFrame:
+    """
+    Normalize a column to range [0, 1].
+    
+    Args:
+        df: Input DataFrame
+        column: Column name to normalize
+    
+    Returns:
+        DataFrame with normalized column
+    """
+    if column not in df.columns:
+        raise KeyError(f"Column '{column}' not found in DataFrame")
+    
+    df_copy = df.copy()
+    col_min = df_copy[column].min()
+    col_max = df_copy[column].max()
+    
+    if col_max == col_min:
+        df_copy[column] = 0.5
+    else:
+        df_copy[column] = (df_copy[column] - col_min) / (col_max - col_min)
+    
+    return df_copy
+
+def filter_outliers(df: pd.DataFrame, column: str, threshold: float = 3.0) -> pd.DataFrame:
+    """
+    Filter outliers using z-score method.
+    
+    Args:
+        df: Input DataFrame
+        column: Column name to check for outliers
+        threshold: Z-score threshold
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if column not in df.columns:
+        raise KeyError(f"Column '{column}' not found in DataFrame")
+    
+    z_scores = np.abs((df[column] - df[column].mean()) / df[column].std())
+    return df[z_scores < threshold]
+
+def clean_dataframe(df: pd.DataFrame, 
+                   remove_dups: bool = True,
+                   handle_nan: str = 'drop',
+                   normalize_cols: Optional[list] = None,
+                   outlier_cols: Optional[list] = None) -> pd.DataFrame:
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Args:
+        df: Input DataFrame
+        remove_dups: Whether to remove duplicates
+        handle_nan: Strategy for missing values
+        normalize_cols: Columns to normalize
+        outlier_cols: Columns to filter outliers from
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    if remove_dups:
+        cleaned_df = remove_duplicates(cleaned_df)
+    
+    cleaned_df = handle_missing_values(cleaned_df, strategy=handle_nan)
+    
+    if normalize_cols:
+        for col in normalize_cols:
+            cleaned_df = normalize_column(cleaned_df, col)
+    
+    if outlier_cols:
+        for col in outlier_cols:
+            cleaned_df = filter_outliers(cleaned_df, col)
+    
+    return cleaned_df
