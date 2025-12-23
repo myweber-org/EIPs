@@ -81,3 +81,65 @@ def save_cleaned_data(df, output_path, format='csv'):
         raise ValueError(f"Unsupported format: {format}. Use 'csv', 'excel', or 'json'")
     
     print(f"Data saved to {output_path} in {format} format")
+import csv
+import sys
+from pathlib import Path
+
+def remove_duplicates(input_file, output_file=None, key_column=None):
+    """
+    Remove duplicate rows from a CSV file.
+    
+    Args:
+        input_file: Path to input CSV file
+        output_file: Path to output CSV file (optional)
+        key_column: Column name to identify duplicates (optional)
+    """
+    if not Path(input_file).exists():
+        raise FileNotFoundError(f"Input file not found: {input_file}")
+    
+    if output_file is None:
+        output_file = input_file.replace('.csv', '_cleaned.csv')
+    
+    seen = set()
+    unique_rows = []
+    
+    with open(input_file, 'r', newline='', encoding='utf-8') as infile:
+        reader = csv.DictReader(infile)
+        fieldnames = reader.fieldnames
+        
+        for row in reader:
+            if key_column:
+                key = row.get(key_column)
+            else:
+                key = tuple(row.values())
+            
+            if key not in seen:
+                seen.add(key)
+                unique_rows.append(row)
+    
+    with open(output_file, 'w', newline='', encoding='utf-8') as outfile:
+        writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(unique_rows)
+    
+    return len(unique_rows)
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: python data_cleaner.py <input_file> [output_file] [key_column]")
+        sys.exit(1)
+    
+    input_file = sys.argv[1]
+    output_file = sys.argv[2] if len(sys.argv) > 2 else None
+    key_column = sys.argv[3] if len(sys.argv) > 3 else None
+    
+    try:
+        count = remove_duplicates(input_file, output_file, key_column)
+        print(f"Processed {count} unique rows")
+        print(f"Output saved to: {output_file if output_file else input_file.replace('.csv', '_cleaned.csv')}")
+    except Exception as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
