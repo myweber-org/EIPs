@@ -546,3 +546,64 @@ def get_data_summary(df):
         }
     
     return summary
+import numpy as np
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specified column using the IQR method.
+    
+    Parameters:
+    data (list or array-like): The dataset.
+    column (int or str): Column index or name to process.
+    
+    Returns:
+    np.ndarray: Data with outliers removed.
+    """
+    if isinstance(data, list):
+        data = np.array(data)
+    
+    if isinstance(column, str):
+        # If column is a string, assume data is structured with column names
+        # This is a placeholder for actual column indexing logic
+        col_data = data
+    else:
+        col_data = data[:, column]
+    
+    q1 = np.percentile(col_data, 25)
+    q3 = np.percentile(col_data, 75)
+    iqr = q3 - q1
+    lower_bound = q1 - 1.5 * iqr
+    upper_bound = q3 + 1.5 * iqr
+    
+    mask = (col_data >= lower_bound) & (col_data <= upper_bound)
+    return data[mask]
+
+def calculate_statistics(data):
+    """
+    Calculate basic statistics for the data.
+    
+    Parameters:
+    data (np.ndarray): Input data.
+    
+    Returns:
+    dict: Dictionary containing mean, median, and standard deviation.
+    """
+    if len(data) == 0:
+        return {"mean": None, "median": None, "std": None}
+    
+    return {
+        "mean": np.mean(data),
+        "median": np.median(data),
+        "std": np.std(data)
+    }
+
+if __name__ == "__main__":
+    sample_data = np.random.randn(1000, 3)
+    sample_data[50, 1] = 100  # Add an outlier
+    
+    cleaned_data = remove_outliers_iqr(sample_data, column=1)
+    stats = calculate_statistics(cleaned_data[:, 1])
+    
+    print(f"Original data shape: {sample_data.shape}")
+    print(f"Cleaned data shape: {cleaned_data.shape}")
+    print(f"Statistics for cleaned column: {stats}")
