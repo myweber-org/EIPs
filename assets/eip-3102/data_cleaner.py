@@ -745,3 +745,11 @@ if __name__ == "__main__":
     
     unique_count = remove_duplicates(input_file, output_file, key_column)
     print(f"Processed {unique_count} unique records. Output saved to {output_file}")
+def remove_duplicates(seq):
+    seen = set()
+    result = []
+    for item in seq:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
