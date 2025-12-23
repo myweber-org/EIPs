@@ -54,4 +54,65 @@ def remove_special_characters(text_series, keep_chars='a-zA-Z0-9\s'):
         pd.Series: Cleaned text series.
     """
     pattern = f'[^{keep_chars}]'
-    return text_series.str.replace(pattern, '', regex=True)
+    return text_series.str.replace(pattern, '', regex=True)import pandas as pd
+
+def clean_dataset(df, drop_duplicates=True, fill_missing=True, fill_value=0):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        drop_duplicates (bool): Whether to drop duplicate rows.
+        fill_missing (bool): Whether to fill missing values.
+        fill_value: Value to use for filling missing data.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    if fill_missing:
+        cleaned_df = cleaned_df.fillna(fill_value)
+    
+    return cleaned_df
+
+def remove_outliers(df, column, threshold=3):
+    """
+    Remove outliers from a specific column using z-score method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        column (str): Column name to process.
+        threshold (float): Z-score threshold for outlier detection.
+    
+    Returns:
+        pd.DataFrame: DataFrame with outliers removed.
+    """
+    from scipy import stats
+    import numpy as np
+    
+    z_scores = np.abs(stats.zscore(df[column].dropna()))
+    mask = z_scores < threshold
+    return df[mask].reset_index(drop=True)
+
+def normalize_column(df, column):
+    """
+    Normalize a column to range [0, 1].
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        column (str): Column name to normalize.
+    
+    Returns:
+        pd.Series: Normalized column values.
+    """
+    col_min = df[column].min()
+    col_max = df[column].max()
+    
+    if col_max == col_min:
+        return df[column]
+    
+    return (df[column] - col_min) / (col_max - col_min)
