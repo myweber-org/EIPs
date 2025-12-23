@@ -456,4 +456,146 @@ if __name__ == "__main__":
     
     cleaned = clean_dataset(df, drop_duplicates=True, fill_missing='mean')
     print("\nCleaned DataFrame:")
-    print(cleaned)
+    print(cleaned)import pandas as pd
+import numpy as np
+
+def clean_dataframe(df, fill_strategy='mean', column_case='lower'):
+    """
+    Clean a pandas DataFrame by handling missing values and standardizing column names.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    fill_strategy (str): Strategy for filling missing values. 
+                         Options: 'mean', 'median', 'mode', 'drop', or 'zero'.
+    column_case (str): Target case for column names. 
+                       Options: 'lower', 'upper', 'title', or 'snake'.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    
+    df_clean = df.copy()
+    
+    # Standardize column names
+    if column_case == 'lower':
+        df_clean.columns = df_clean.columns.str.lower()
+    elif column_case == 'upper':
+        df_clean.columns = df_clean.columns.str.upper()
+    elif column_case == 'title':
+        df_clean.columns = df_clean.columns.str.title()
+    elif column_case == 'snake':
+        df_clean.columns = df_clean.columns.str.replace(' ', '_').str.lower()
+    
+    # Handle missing values
+    for col in df_clean.columns:
+        if df_clean[col].dtype in ['float64', 'int64']:
+            if fill_strategy == 'mean':
+                fill_value = df_clean[col].mean()
+            elif fill_strategy == 'median':
+                fill_value = df_clean[col].median()
+            elif fill_strategy == 'mode':
+                fill_value = df_clean[col].mode()[0] if not df_clean[col].mode().empty else 0
+            elif fill_strategy == 'zero':
+                fill_value = 0
+            elif fill_strategy == 'drop':
+                df_clean = df_clean.dropna(subset=[col])
+                continue
+            
+            df_clean[col] = df_clean[col].fillna(fill_value)
+        else:
+            # For non-numeric columns, fill with most frequent value or drop
+            if fill_strategy == 'drop':
+                df_clean = df_clean.dropna(subset=[col])
+            else:
+                most_frequent = df_clean[col].mode()[0] if not df_clean[col].mode().empty else ''
+                df_clean[col] = df_clean[col].fillna(most_frequent)
+    
+    # Remove duplicate rows
+    df_clean = df_clean.drop_duplicates()
+    
+    # Reset index after cleaning
+    df_clean = df_clean.reset_index(drop=True)
+    
+    return df_clean
+
+def validate_dataframe(df, required_columns=None, numeric_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+    required_columns (list): List of column names that must be present.
+    numeric_columns (list): List of column names that must be numeric.
+    
+    Returns:
+    dict: Dictionary containing validation results and messages.
+    """
+    
+    validation_result = {
+        'is_valid': True,
+        'messages': [],
+        'missing_columns': [],
+        'non_numeric_columns': []
+    }
+    
+    # Check required columns
+    if required_columns:
+        missing = [col for col in required_columns if col not in df.columns]
+        if missing:
+            validation_result['is_valid'] = False
+            validation_result['missing_columns'] = missing
+            validation_result['messages'].append(f"Missing required columns: {missing}")
+    
+    # Check numeric columns
+    if numeric_columns:
+        non_numeric = []
+        for col in numeric_columns:
+            if col in df.columns and not np.issubdtype(df[col].dtype, np.number):
+                non_numeric.append(col)
+        
+        if non_numeric:
+            validation_result['is_valid'] = False
+            validation_result['non_numeric_columns'] = non_numeric
+            validation_result['messages'].append(f"Non-numeric columns found: {non_numeric}")
+    
+    # Check for empty DataFrame
+    if df.empty:
+        validation_result['is_valid'] = False
+        validation_result['messages'].append("DataFrame is empty")
+    
+    return validation_result
+
+# Example usage (commented out for production)
+if __name__ == "__main__":
+    # Create sample data
+    sample_data = {
+        'Name': ['Alice', 'Bob', None, 'David', 'Alice'],
+        'Age': [25, 30, None, 35, 25],
+        'Salary': [50000, 60000, 55000, None, 50000],
+        'Department': ['HR', 'IT', 'IT', None, 'HR']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n")
+    
+    # Clean the data
+    cleaned_df = clean_dataframe(df, fill_strategy='mean', column_case='lower')
+    print("Cleaned DataFrame:")
+    print(cleaned_df)
+    print("\n")
+    
+    # Validate the cleaned data
+    validation = validate_dataframe(
+        cleaned_df, 
+        required_columns=['name', 'age', 'salary'],
+        numeric_columns=['age', 'salary']
+    )
+    
+    print("Validation Results:")
+    print(f"Is Valid: {validation['is_valid']}")
+    if validation['messages']:
+        print("Messages:")
+        for msg in validation['messages']:
+            print(f"  - {msg}")
