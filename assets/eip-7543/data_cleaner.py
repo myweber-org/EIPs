@@ -389,4 +389,48 @@ def clean_dataset(file_path, numeric_columns):
 if __name__ == "__main__":
     cleaned_data = clean_dataset('raw_data.csv', ['age', 'income', 'score'])
     cleaned_data.to_csv('cleaned_data.csv', index=False)
-    print(f"Data cleaning complete. Remaining records: {len(cleaned_data)}")
+    print(f"Data cleaning complete. Remaining records: {len(cleaned_data)}")import pandas as pd
+import re
+
+def clean_dataframe(df, column_names):
+    """
+    Clean a pandas DataFrame by removing duplicate rows and normalizing
+    specified string columns (strip whitespace, convert to lowercase).
+    """
+    # Remove duplicate rows
+    df_cleaned = df.drop_duplicates().reset_index(drop=True)
+    
+    # Normalize specified string columns
+    for col in column_names:
+        if col in df_cleaned.columns:
+            # Ensure column is string type
+            df_cleaned[col] = df_cleaned[col].astype(str)
+            # Remove extra whitespace and convert to lowercase
+            df_cleaned[col] = df_cleaned[col].apply(
+                lambda x: re.sub(r'\s+', ' ', x.strip()).lower()
+            )
+    
+    return df_cleaned
+
+def validate_email_column(df, email_column):
+    """
+    Validate email addresses in a DataFrame column using regex.
+    Returns a boolean Series indicating valid emails.
+    """
+    if email_column not in df.columns:
+        raise ValueError(f"Column '{email_column}' not found in DataFrame")
+    
+    email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return df[email_column].str.match(email_regex, na=False)
+
+# Example usage (commented out for production)
+# if __name__ == "__main__":
+#     sample_data = {
+#         'name': [' John ', 'Jane', ' John ', 'ALICE'],
+#         'email': ['test@example.com', 'invalid-email', 'test@example.com', 'alice@domain.org'],
+#         'value': [1, 2, 1, 3]
+#     }
+#     df = pd.DataFrame(sample_data)
+#     cleaned_df = clean_dataframe(df, ['name', 'email'])
+#     print(cleaned_df)
+#     print(validate_email_column(cleaned_df, 'email'))
