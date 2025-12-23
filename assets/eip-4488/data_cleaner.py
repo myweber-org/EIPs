@@ -271,3 +271,111 @@ def clean_dataframe(df: pd.DataFrame,
                 cleaned_df = normalize_column(cleaned_df, col)
     
     return cleaned_df
+import pandas as pd
+import numpy as np
+from pathlib import Path
+
+def clean_csv_data(input_path, output_path=None, missing_strategy='mean'):
+    """
+    Clean CSV data by handling missing values and standardizing numeric columns.
+    
+    Parameters:
+    input_path (str): Path to input CSV file
+    output_path (str, optional): Path for cleaned output CSV. If None, adds '_cleaned' suffix
+    missing_strategy (str): Strategy for handling missing values ('mean', 'median', 'drop', 'zero')
+    
+    Returns:
+    pandas.DataFrame: Cleaned DataFrame
+    """
+    
+    # Validate input file exists
+    input_path = Path(input_path)
+    if not input_path.exists():
+        raise FileNotFoundError(f"Input file not found: {input_path}")
+    
+    # Read CSV file
+    df = pd.read_csv(input_path)
+    
+    # Store original shape for logging
+    original_shape = df.shape
+    
+    # Identify numeric columns
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    
+    # Handle missing values based on strategy
+    if missing_strategy == 'mean':
+        for col in numeric_cols:
+            df[col] = df[col].fillna(df[col].mean())
+    elif missing_strategy == 'median':
+        for col in numeric_cols:
+            df[col] = df[col].fillna(df[col].median())
+    elif missing_strategy == 'zero':
+        df[numeric_cols] = df[numeric_cols].fillna(0)
+    elif missing_strategy == 'drop':
+        df = df.dropna(subset=numeric_cols)
+    else:
+        raise ValueError(f"Unknown missing strategy: {missing_strategy}")
+    
+    # Standardize numeric columns (z-score normalization)
+    for col in numeric_cols:
+        if df[col].std() > 0:  # Avoid division by zero
+            df[col] = (df[col] - df[col].mean()) / df[col].std()
+    
+    # Determine output path
+    if output_path is None:
+        output_path = input_path.parent / f"{input_path.stem}_cleaned.csv"
+    else:
+        output_path = Path(output_path)
+    
+    # Save cleaned data
+    df.to_csv(output_path, index=False)
+    
+    # Print summary statistics
+    print(f"Original data shape: {original_shape}")
+    print(f"Cleaned data shape: {df.shape}")
+    print(f"Missing values handled using: {missing_strategy} strategy")
+    print(f"Cleaned data saved to: {output_path}")
+    
+    return df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pandas.DataFrame): DataFrame to validate
+    required_columns (list, optional): List of required column names
+    
+    Returns:
+    bool: True if validation passes
+    """
+    
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    if df.empty:
+        raise ValueError("DataFrame is empty")
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    return True
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'temperature': [22.5, np.nan, 25.0, 21.8, np.nan],
+        'humidity': [45, 50, np.nan, 48, 52],
+        'pressure': [1013, 1012, 1015, np.nan, 1014]
+    }
+    
+    test_df = pd.DataFrame(sample_data)
+    test_df.to_csv('test_data.csv', index=False)
+    
+    try:
+        cleaned_df = clean_csv_data('test_data.csv', missing_strategy='mean')
+        print("\nValidation passed:", validate_dataframe(cleaned_df))
+    except Exception as e:
+        print(f"Error during cleaning: {e}")
