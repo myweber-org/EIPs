@@ -192,3 +192,73 @@ def clean_dataset(df, missing_strategy='mean', outlier_method=None):
         cleaner.remove_outliers(method=outlier_method)
     
     return cleaner.get_cleaned_data()
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+def remove_outliers_iqr(df, columns):
+    cleaned_df = df.copy()
+    for col in columns:
+        if col in cleaned_df.columns:
+            Q1 = cleaned_df[col].quantile(0.25)
+            Q3 = cleaned_df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - 1.5 * IQR
+            upper_bound = Q3 + 1.5 * IQR
+            cleaned_df = cleaned_df[(cleaned_df[col] >= lower_bound) & (cleaned_df[col] <= upper_bound)]
+    return cleaned_df
+
+def normalize_data(df, columns, method='minmax'):
+    normalized_df = df.copy()
+    for col in columns:
+        if col in normalized_df.columns:
+            if method == 'minmax':
+                min_val = normalized_df[col].min()
+                max_val = normalized_df[col].max()
+                if max_val != min_val:
+                    normalized_df[col] = (normalized_df[col] - min_val) / (max_val - min_val)
+            elif method == 'zscore':
+                mean_val = normalized_df[col].mean()
+                std_val = normalized_df[col].std()
+                if std_val != 0:
+                    normalized_df[col] = (normalized_df[col] - mean_val) / std_val
+    return normalized_df
+
+def clean_dataset(file_path, output_path, outlier_cols=None, normalize_cols=None, normalize_method='minmax'):
+    try:
+        df = pd.read_csv(file_path)
+        print(f"Original dataset shape: {df.shape}")
+        
+        if outlier_cols:
+            df = remove_outliers_iqr(df, outlier_cols)
+            print(f"After outlier removal shape: {df.shape}")
+        
+        if normalize_cols:
+            df = normalize_data(df, normalize_cols, normalize_method)
+            print(f"Data normalized using {normalize_method} method")
+        
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned dataset saved to {output_path}")
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: File {file_path} not found")
+        return None
+    except Exception as e:
+        print(f"Error during processing: {str(e)}")
+        return None
+
+if __name__ == "__main__":
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    
+    columns_for_outliers = ['age', 'income', 'score']
+    columns_for_normalization = ['income', 'score', 'height']
+    
+    cleaned_data = clean_dataset(
+        input_file,
+        output_file,
+        outlier_cols=columns_for_outliers,
+        normalize_cols=columns_for_normalization,
+        normalize_method='zscore'
+    )
