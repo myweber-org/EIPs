@@ -91,3 +91,107 @@ if __name__ == "__main__":
             print("Data cleaning completed successfully.")
         else:
             print("Data validation failed.")
+import pandas as pd
+import numpy as np
+from typing import Optional
+
+def clean_csv_data(
+    input_path: str,
+    output_path: str,
+    missing_strategy: str = 'drop',
+    fill_value: Optional[float] = None
+) -> pd.DataFrame:
+    """
+    Clean CSV data by handling missing values and standardizing column names.
+    
+    Args:
+        input_path: Path to input CSV file
+        output_path: Path to save cleaned CSV file
+        missing_strategy: Strategy for handling missing values ('drop', 'fill', 'interpolate')
+        fill_value: Value to fill missing data with when using 'fill' strategy
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    try:
+        df = pd.read_csv(input_path)
+        
+        df.columns = df.columns.str.strip().str.lower().str.replace(' ', '_')
+        
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        
+        if missing_strategy == 'drop':
+            df_cleaned = df.dropna(subset=numeric_cols)
+        elif missing_strategy == 'fill':
+            if fill_value is not None:
+                df_cleaned = df.fillna({col: fill_value for col in numeric_cols})
+            else:
+                df_cleaned = df.fillna(df[numeric_cols].mean())
+        elif missing_strategy == 'interpolate':
+            df_cleaned = df.copy()
+            for col in numeric_cols:
+                df_cleaned[col] = df_cleaned[col].interpolate(method='linear')
+        else:
+            raise ValueError(f"Unknown missing strategy: {missing_strategy}")
+        
+        df_cleaned.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to: {output_path}")
+        print(f"Original rows: {len(df)}, Cleaned rows: {len(df_cleaned)}")
+        
+        return df_cleaned
+        
+    except FileNotFoundError:
+        print(f"Error: Input file not found at {input_path}")
+        raise
+    except pd.errors.EmptyDataError:
+        print("Error: Input file is empty")
+        raise
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        raise
+
+def validate_dataframe(df: pd.DataFrame) -> bool:
+    """
+    Validate DataFrame for common data quality issues.
+    
+    Args:
+        df: DataFrame to validate
+    
+    Returns:
+        True if validation passes, False otherwise
+    """
+    if df.empty:
+        print("Validation failed: DataFrame is empty")
+        return False
+    
+    if df.isnull().all().any():
+        print("Validation failed: Some columns contain only null values")
+        return False
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        if df[col].abs().max() > 1e10:
+            print(f"Validation warning: Column {col} contains extremely large values")
+    
+    return True
+
+if __name__ == "__main__":
+    sample_df = pd.DataFrame({
+        'temperature': [22.5, np.nan, 24.0, 25.5, np.nan],
+        'humidity': [45, 50, np.nan, 55, 60],
+        'pressure': [1013, 1012, 1011, np.nan, 1010]
+    })
+    
+    sample_df.to_csv('sample_data.csv', index=False)
+    
+    cleaned = clean_csv_data(
+        input_path='sample_data.csv',
+        output_path='cleaned_data.csv',
+        missing_strategy='fill',
+        fill_value=0
+    )
+    
+    if validate_dataframe(cleaned):
+        print("Data validation passed")
+    else:
+        print("Data validation failed")
