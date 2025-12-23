@@ -312,4 +312,36 @@ def get_data_summary(df):
         summary[f'{col}_min'] = df[col].min()
         summary[f'{col}_max'] = df[col].max()
     
-    return summary
+    return summaryimport pandas as pd
+import numpy as np
+import sys
+
+def clean_csv(input_file, output_file):
+    try:
+        df = pd.read_csv(input_file)
+        
+        df = df.drop_duplicates()
+        
+        for col in df.select_dtypes(include=[np.number]).columns:
+            df[col] = df[col].fillna(df[col].median())
+        
+        for col in df.select_dtypes(include=['object']).columns:
+            df[col] = df[col].fillna('Unknown')
+            df[col] = df[col].str.strip()
+        
+        df.to_csv(output_file, index=False)
+        print(f"Cleaned data saved to {output_file}")
+        
+    except FileNotFoundError:
+        print(f"Error: File '{input_file}' not found.")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("Usage: python data_cleaner.py <input_file> <output_file>")
+        sys.exit(1)
+    
+    clean_csv(sys.argv[1], sys.argv[2])
