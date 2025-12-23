@@ -752,4 +752,15 @@ def remove_duplicates(seq):
         if item not in seen:
             seen.add(item)
             result.append(item)
+    return resultdef remove_duplicates(input_list):
+    """
+    Removes duplicate elements from a list while preserving the original order.
+    Uses a dictionary to track seen elements for O(n) time complexity.
+    """
+    seen = {}
+    result = []
+    for item in input_list:
+        if item not in seen:
+            seen[item] = True
+            result.append(item)
     return result
