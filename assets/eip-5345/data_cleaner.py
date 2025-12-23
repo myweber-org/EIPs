@@ -385,4 +385,90 @@ if __name__ == "__main__":
     cleaned_df = clean_dataset(df)
     print("\nCleaned DataFrame:")
     print(cleaned_df)
-    print(f"Cleaned shape: {cleaned_df.shape}")
+    print(f"Cleaned shape: {cleaned_df.shape}")import pandas as pd
+import numpy as np
+
+def clean_dataset(df, column_mapping=None, drop_duplicates=True, fill_missing='mean'):
+    """
+    Clean a pandas DataFrame by handling missing values, duplicates,
+    and standardizing column names.
+    """
+    df_clean = df.copy()
+    
+    # Standardize column names if mapping is provided
+    if column_mapping:
+        df_clean = df_clean.rename(columns=column_mapping)
+    
+    # Remove duplicate rows
+    if drop_duplicates:
+        df_clean = df_clean.drop_duplicates()
+    
+    # Handle missing values
+    for col in df_clean.columns:
+        if df_clean[col].dtype in ['float64', 'int64']:
+            if fill_missing == 'mean':
+                df_clean[col] = df_clean[col].fillna(df_clean[col].mean())
+            elif fill_missing == 'median':
+                df_clean[col] = df_clean[col].fillna(df_clean[col].median())
+            elif fill_missing == 'mode':
+                df_clean[col] = df_clean[col].fillna(df_clean[col].mode()[0])
+        else:
+            df_clean[col] = df_clean[col].fillna('Unknown')
+    
+    # Remove leading/trailing whitespace from string columns
+    for col in df_clean.select_dtypes(include=['object']).columns:
+        df_clean[col] = df_clean[col].str.strip()
+    
+    return df_clean
+
+def validate_dataframe(df, required_columns=None, min_rows=1):
+    """
+    Validate DataFrame structure and content.
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    if len(df) < min_rows:
+        raise ValueError(f"DataFrame must have at least {min_rows} rows")
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    return True
+
+def sample_data_generator(n_samples=100, n_features=5):
+    """
+    Generate sample data for testing the cleaning functions.
+    """
+    np.random.seed(42)
+    
+    data = {
+        f'feature_{i}': np.random.randn(n_samples) for i in range(n_features)
+    }
+    
+    # Add some missing values
+    for col in data:
+        mask = np.random.random(n_samples) < 0.1
+        data[col] = np.where(mask, np.nan, data[col])
+    
+    # Add duplicate rows
+    df = pd.DataFrame(data)
+    df = pd.concat([df, df.iloc[:5]], ignore_index=True)
+    
+    return df
+
+if __name__ == "__main__":
+    # Example usage
+    sample_df = sample_data_generator()
+    print("Original DataFrame shape:", sample_df.shape)
+    
+    cleaned_df = clean_dataset(sample_df, fill_missing='median')
+    print("Cleaned DataFrame shape:", cleaned_df.shape)
+    
+    try:
+        validate_dataframe(cleaned_df, min_rows=10)
+        print("Data validation passed")
+    except ValueError as e:
+        print(f"Data validation failed: {e}")
