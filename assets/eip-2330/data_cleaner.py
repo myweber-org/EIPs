@@ -205,3 +205,87 @@ if __name__ == "__main__":
     cleaned_data = clean_dataset('raw_data.csv')
     cleaned_data.to_csv('cleaned_data.csv', index=False)
     print(f"Data cleaning complete. Original shape: {pd.read_csv('raw_data.csv').shape}, Cleaned shape: {cleaned_data.shape}")
+import pandas as pd
+
+def clean_dataset(df, drop_na=True, column_case='lower'):
+    """
+    Clean a pandas DataFrame by handling missing values and standardizing column names.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    drop_na (bool): If True, drop rows with any null values. Default True.
+    column_case (str): Target case for column names ('lower', 'upper', 'title'). Default 'lower'.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    # Handle missing values
+    if drop_na:
+        cleaned_df = cleaned_df.dropna()
+    else:
+        # Fill numeric columns with median, categorical with mode
+        for col in cleaned_df.columns:
+            if pd.api.types.is_numeric_dtype(cleaned_df[col]):
+                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].median())
+            else:
+                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mode()[0] if not cleaned_df[col].mode().empty else 'Unknown')
+    
+    # Standardize column names
+    if column_case == 'lower':
+        cleaned_df.columns = cleaned_df.columns.str.lower()
+    elif column_case == 'upper':
+        cleaned_df.columns = cleaned_df.columns.str.upper()
+    elif column_case == 'title':
+        cleaned_df.columns = cleaned_df.columns.str.title()
+    
+    # Remove leading/trailing whitespace from column names
+    cleaned_df.columns = cleaned_df.columns.str.strip()
+    
+    # Replace spaces with underscores in column names
+    cleaned_df.columns = cleaned_df.columns.str.replace(' ', '_')
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and required columns.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+    required_columns (list): List of column names that must be present.
+    
+    Returns:
+    tuple: (bool, str) indicating validation success and message.
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "DataFrame validation passed"
+
+# Example usage (commented out for production)
+# if __name__ == "__main__":
+#     sample_data = pd.DataFrame({
+#         'Name': ['Alice', 'Bob', None, 'Charlie'],
+#         'Age': [25, None, 30, 35],
+#         'Score': [85.5, 92.0, 78.5, None]
+#     })
+#     
+#     print("Original DataFrame:")
+#     print(sample_data)
+#     
+#     cleaned = clean_dataset(sample_data, drop_na=False, column_case='lower')
+#     print("\nCleaned DataFrame:")
+#     print(cleaned)
+#     
+#     is_valid, message = validate_dataframe(cleaned, required_columns=['name', 'age'])
+#     print(f"\nValidation: {is_valid}, Message: {message}")
