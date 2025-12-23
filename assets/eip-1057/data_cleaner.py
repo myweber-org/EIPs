@@ -1,155 +1,46 @@
 
-import numpy as np
 import pandas as pd
-from scipy import stats
+import numpy as np
+from pathlib import Path
 
-class DataCleaner:
-    def __init__(self, df):
-        self.df = df.copy()
-        self.original_shape = df.shape
-        
-    def remove_duplicates(self):
-        self.df = self.df.drop_duplicates()
-        return self
+def clean_dataset(input_path, output_path=None):
+    """
+    Load a CSV dataset, remove duplicate rows, standardize column names,
+    and fill missing numeric values with column median.
+    """
+    df = pd.read_csv(input_path)
     
-    def handle_missing_values(self, strategy='mean'):
-        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
-        
-        if strategy == 'mean':
-            self.df[numeric_cols] = self.df[numeric_cols].fillna(self.df[numeric_cols].mean())
-        elif strategy == 'median':
-            self.df[numeric_cols] = self.df[numeric_cols].fillna(self.df[numeric_cols].median())
-        elif strategy == 'mode':
-            self.df[numeric_cols] = self.df[numeric_cols].fillna(self.df[numeric_cols].mode().iloc[0])
-        
-        return self
+    original_shape = df.shape
+    print(f"Original dataset shape: {original_shape}")
     
-    def detect_outliers_zscore(self, threshold=3):
-        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
-        z_scores = np.abs(stats.zscore(self.df[numeric_cols]))
-        outlier_mask = (z_scores > threshold).any(axis=1)
-        return outlier_mask
+    df.columns = df.columns.str.strip().str.lower().str.replace(' ', '_')
     
-    def remove_outliers(self, threshold=3):
-        outlier_mask = self.detect_outliers_zscore(threshold)
-        self.df = self.df[~outlier_mask]
-        return self
+    df = df.drop_duplicates()
     
-    def normalize_data(self, method='minmax'):
-        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
-        
-        if method == 'minmax':
-            self.df[numeric_cols] = (self.df[numeric_cols] - self.df[numeric_cols].min()) / (self.df[numeric_cols].max() - self.df[numeric_cols].min())
-        elif method == 'standard':
-            self.df[numeric_cols] = (self.df[numeric_cols] - self.df[numeric_cols].mean()) / self.df[numeric_cols].std()
-        
-        return self
+    for col in df.select_dtypes(include=[np.number]).columns:
+        if df[col].isnull().any():
+            median_val = df[col].median()
+            df[col] = df[col].fillna(median_val)
+            print(f"Filled missing values in '{col}' with median: {median_val}")
     
-    def get_cleaned_data(self):
-        return self.df
+    cleaned_shape = df.shape
+    print(f"Cleaned dataset shape: {cleaned_shape}")
+    print(f"Removed {original_shape[0] - cleaned_shape[0]} duplicate rows")
     
-    def get_cleaning_report(self):
-        removed_rows = self.original_shape[0] - self.df.shape[0]
-        removed_cols = self.original_shape[1] - self.df.shape[1]
-        
-        report = {
-            'original_shape': self.original_shape,
-            'cleaned_shape': self.df.shape,
-            'rows_removed': removed_rows,
-            'columns_removed': removed_cols,
-            'missing_values': self.df.isnull().sum().sum(),
-            'duplicates': self.original_shape[0] - self.df.drop_duplicates().shape[0]
-        }
-        
-        return report
-
-def create_sample_data():
-    np.random.seed(42)
-    data = {
-        'feature_a': np.random.randn(100),
-        'feature_b': np.random.randn(100) * 2 + 5,
-        'feature_c': np.random.randn(100) * 0.5 + 10
-    }
+    if output_path is None:
+        input_file = Path(input_path)
+        output_path = input_file.parent / f"{input_file.stem}_cleaned{input_file.suffix}"
     
-    df = pd.DataFrame(data)
-    df.iloc[5, 0] = np.nan
-    df.iloc[10, 1] = np.nan
-    df.iloc[95, 2] = 100
-    
-    df = pd.concat([df, df.iloc[:5]], ignore_index=True)
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned dataset saved to: {output_path}")
     
     return df
 
 if __name__ == "__main__":
-    sample_df = create_sample_data()
-    cleaner = DataCleaner(sample_df)
-    
-    cleaned_df = (cleaner
-                 .remove_duplicates()
-                 .handle_missing_values(strategy='mean')
-                 .remove_outliers(threshold=3)
-                 .normalize_data(method='minmax')
-                 .get_cleaned_data())
-    
-    report = cleaner.get_cleaning_report()
-    print(f"Cleaning completed. Removed {report['rows_removed']} rows.")
-    print(f"Final shape: {report['cleaned_shape']}")
-import pandas as pd
-import numpy as np
-
-def remove_outliers_iqr(df, column):
-    """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame.
-    column (str): Column name to process.
-    
-    Returns:
-    pd.DataFrame: DataFrame with outliers removed.
-    """
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    return filtered_df
-
-def calculate_summary_statistics(df, column):
-    """
-    Calculate summary statistics for a DataFrame column.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame.
-    column (str): Column name to analyze.
-    
-    Returns:
-    dict: Dictionary containing summary statistics.
-    """
-    stats = {
-        'mean': df[column].mean(),
-        'median': df[column].median(),
-        'std': df[column].std(),
-        'min': df[column].min(),
-        'max': df[column].max(),
-        'count': df[column].count()
-    }
-    return stats
-
-if __name__ == "__main__":
-    sample_data = {'values': [10, 12, 12, 13, 12, 11, 14, 13, 15, 102, 12, 11, 14, 13, 12, 11, 10, 9, 9, 10, 11, 200]}
-    df = pd.DataFrame(sample_data)
-    
-    print("Original DataFrame:")
-    print(df)
-    print("\nOriginal Statistics:")
-    print(calculate_summary_statistics(df, 'values'))
-    
-    cleaned_df = remove_outliers_iqr(df, 'values')
-    print("\nCleaned DataFrame:")
-    print(cleaned_df)
-    print("\nCleaned Statistics:")
-    print(calculate_summary_statistics(cleaned_df, 'values'))
+    import sys
+    if len(sys.argv) > 1:
+        input_file = sys.argv[1]
+        output_file = sys.argv[2] if len(sys.argv) > 2 else None
+        clean_dataset(input_file, output_file)
+    else:
+        print("Usage: python data_cleaner.py <input_file> [output_file]")
