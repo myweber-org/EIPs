@@ -119,3 +119,79 @@ def validate_data(data, required_columns):
         return False, f"Columns with null values: {columns_with_nulls}"
     
     return True, "Data validation passed"
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(dataframe, column):
+    Q1 = dataframe[column].quantile(0.25)
+    Q3 = dataframe[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return dataframe[(dataframe[column] >= lower_bound) & (dataframe[column] <= upper_bound)]
+
+def remove_outliers_zscore(dataframe, column, threshold=3):
+    z_scores = np.abs(stats.zscore(dataframe[column]))
+    return dataframe[z_scores < threshold]
+
+def normalize_minmax(dataframe, column):
+    min_val = dataframe[column].min()
+    max_val = dataframe[column].max()
+    if max_val == min_val:
+        return dataframe[column]
+    return (dataframe[column] - min_val) / (max_val - min_val)
+
+def normalize_zscore(dataframe, column):
+    mean_val = dataframe[column].mean()
+    std_val = dataframe[column].std()
+    if std_val == 0:
+        return dataframe[column]
+    return (dataframe[column] - mean_val) / std_val
+
+def clean_dataset(dataframe, numeric_columns, outlier_method='iqr', normalize_method='minmax'):
+    df_clean = dataframe.copy()
+    
+    for col in numeric_columns:
+        if col not in df_clean.columns:
+            continue
+            
+        if outlier_method == 'iqr':
+            df_clean = remove_outliers_iqr(df_clean, col)
+        elif outlier_method == 'zscore':
+            df_clean = remove_outliers_zscore(df_clean, col)
+        
+        if normalize_method == 'minmax':
+            df_clean[col] = normalize_minmax(df_clean, col)
+        elif normalize_method == 'zscore':
+            df_clean[col] = normalize_zscore(df_clean, col)
+    
+    return df_clean.reset_index(drop=True)
+
+def validate_cleaning(dataframe, numeric_columns):
+    validation_report = {}
+    
+    for col in numeric_columns:
+        if col not in dataframe.columns:
+            continue
+            
+        col_data = dataframe[col]
+        validation_report[col] = {
+            'missing_values': col_data.isnull().sum(),
+            'mean': col_data.mean(),
+            'std': col_data.std(),
+            'min': col_data.min(),
+            'max': col_data.max(),
+            'skewness': col_data.skew(),
+            'outliers_iqr': detect_outliers_iqr(col_data)
+        }
+    
+    return validation_report
+
+def detect_outliers_iqr(series):
+    Q1 = series.quantile(0.25)
+    Q3 = series.quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return ((series < lower_bound) | (series > upper_bound)).sum()
