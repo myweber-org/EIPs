@@ -295,4 +295,107 @@ def clean_numeric_column(dataframe, column_name, fill_method='mean'):
         column_data.fillna(fill_value, inplace=True)
         print(f"Filled missing values with {fill_method}: {fill_value}")
     
-    return column_data
+    return column_dataimport numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column, multiplier=1.5):
+    """
+    Remove outliers using the Interquartile Range method.
+    """
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - multiplier * IQR
+    upper_bound = Q3 + multiplier * IQR
+    return data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+
+def remove_outliers_zscore(data, column, threshold=3):
+    """
+    Remove outliers using Z-score method.
+    """
+    z_scores = np.abs(stats.zscore(data[column]))
+    return data[z_scores < threshold]
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using Min-Max scaling.
+    """
+    min_val = data[column].min()
+    max_val = data[column].max()
+    data[column + '_normalized'] = (data[column] - min_val) / (max_val - min_val)
+    return data
+
+def normalize_zscore(data, column):
+    """
+    Normalize data using Z-score standardization.
+    """
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    data[column + '_standardized'] = (data[column] - mean_val) / std_val
+    return data
+
+def clean_dataset(df, numeric_columns, outlier_method='iqr', normalize_method='minmax'):
+    """
+    Main cleaning function that handles outliers and normalization.
+    """
+    cleaned_df = df.copy()
+    
+    for col in numeric_columns:
+        if outlier_method == 'iqr':
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+        elif outlier_method == 'zscore':
+            cleaned_df = remove_outliers_zscore(cleaned_df, col)
+        
+        if normalize_method == 'minmax':
+            cleaned_df = normalize_minmax(cleaned_df, col)
+        elif normalize_method == 'zscore':
+            cleaned_df = normalize_zscore(cleaned_df, col)
+    
+    return cleaned_df
+
+def validate_data(data, column, check_type='range', min_val=None, max_val=None):
+    """
+    Validate data based on specified criteria.
+    """
+    if check_type == 'range':
+        if min_val is not None:
+            invalid = data[column] < min_val
+            if invalid.any():
+                print(f"Warning: {invalid.sum()} values below minimum {min_val}")
+        if max_val is not None:
+            invalid = data[column] > max_val
+            if invalid.any():
+                print(f"Warning: {invalid.sum()} values above maximum {max_val}")
+    return data
+
+def example_usage():
+    """
+    Example usage of the data cleaning functions.
+    """
+    np.random.seed(42)
+    sample_data = pd.DataFrame({
+        'feature1': np.random.normal(100, 15, 1000),
+        'feature2': np.random.exponential(50, 1000),
+        'category': np.random.choice(['A', 'B', 'C'], 1000)
+    })
+    
+    print("Original data shape:", sample_data.shape)
+    print("Original statistics:")
+    print(sample_data[['feature1', 'feature2']].describe())
+    
+    cleaned = clean_dataset(
+        sample_data, 
+        ['feature1', 'feature2'], 
+        outlier_method='iqr', 
+        normalize_method='zscore'
+    )
+    
+    print("\nCleaned data shape:", cleaned.shape)
+    print("Cleaned statistics:")
+    print(cleaned[['feature1_standardized', 'feature2_standardized']].describe())
+    
+    return cleaned
+
+if __name__ == "__main__":
+    result = example_usage()
