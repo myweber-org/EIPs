@@ -943,3 +943,149 @@ if __name__ == "__main__":
     
     is_valid, message = validate_dataframe(cleaned, required_columns=['A', 'B'])
     print(f"\nValidation: {message}")
+import pandas as pd
+import numpy as np
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    subset (list, optional): Column labels to consider for duplicates
+    keep (str): Which duplicates to keep - 'first', 'last', or False
+    
+    Returns:
+    pd.DataFrame: DataFrame with duplicates removed
+    """
+    if df.empty:
+        return df
+    
+    if subset is not None:
+        if not all(col in df.columns for col in subset):
+            raise ValueError("All subset columns must exist in DataFrame")
+    
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep, ignore_index=True)
+    
+    removed_count = len(df) - len(cleaned_df)
+    if removed_count > 0:
+        print(f"Removed {removed_count} duplicate row(s)")
+    
+    return cleaned_df
+
+def clean_numeric_columns(df, columns, fill_method='mean'):
+    """
+    Clean numeric columns by handling missing values.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    columns (list): List of numeric column names to clean
+    fill_method (str): Method to fill missing values - 'mean', 'median', or 'zero'
+    
+    Returns:
+    pd.DataFrame: DataFrame with cleaned numeric columns
+    """
+    cleaned_df = df.copy()
+    
+    for col in columns:
+        if col not in cleaned_df.columns:
+            print(f"Warning: Column '{col}' not found in DataFrame")
+            continue
+        
+        if not pd.api.types.is_numeric_dtype(cleaned_df[col]):
+            print(f"Warning: Column '{col}' is not numeric")
+            continue
+        
+        missing_count = cleaned_df[col].isna().sum()
+        
+        if missing_count > 0:
+            if fill_method == 'mean':
+                fill_value = cleaned_df[col].mean()
+            elif fill_method == 'median':
+                fill_value = cleaned_df[col].median()
+            elif fill_method == 'zero':
+                fill_value = 0
+            else:
+                raise ValueError("fill_method must be 'mean', 'median', or 'zero'")
+            
+            cleaned_df[col] = cleaned_df[col].fillna(fill_value)
+            print(f"Filled {missing_count} missing value(s) in column '{col}' with {fill_method}")
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None, min_rows=1):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of required column names
+    min_rows (int): Minimum number of rows required
+    
+    Returns:
+    bool: True if validation passes, False otherwise
+    """
+    if not isinstance(df, pd.DataFrame):
+        print("Error: Input is not a pandas DataFrame")
+        return False
+    
+    if len(df) < min_rows:
+        print(f"Error: DataFrame must have at least {min_rows} row(s)")
+        return False
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            print(f"Error: Missing required columns: {missing_columns}")
+            return False
+    
+    return True
+
+def get_data_summary(df):
+    """
+    Generate a summary of the DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    
+    Returns:
+    dict: Dictionary containing data summary
+    """
+    summary = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'numeric_columns': list(df.select_dtypes(include=[np.number]).columns),
+        'categorical_columns': list(df.select_dtypes(include=['object', 'category']).columns),
+        'missing_values': df.isna().sum().to_dict(),
+        'duplicate_rows': df.duplicated().sum()
+    }
+    
+    return summary
+
+if __name__ == "__main__":
+    sample_data = {
+        'id': [1, 2, 2, 3, 4, 4, 5],
+        'name': ['Alice', 'Bob', 'Bob', 'Charlie', 'David', 'David', 'Eve'],
+        'score': [85.5, 92.0, 92.0, 78.5, None, 88.0, 95.5],
+        'age': [25, 30, 30, 22, 28, 28, 35]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print()
+    
+    cleaned_df = remove_duplicates(df, subset=['id', 'name'])
+    print("\nAfter removing duplicates:")
+    print(cleaned_df)
+    print()
+    
+    cleaned_df = clean_numeric_columns(cleaned_df, ['score', 'age'], fill_method='mean')
+    print("\nAfter cleaning numeric columns:")
+    print(cleaned_df)
+    print()
+    
+    summary = get_data_summary(cleaned_df)
+    print("Data Summary:")
+    for key, value in summary.items():
+        print(f"{key}: {value}")
