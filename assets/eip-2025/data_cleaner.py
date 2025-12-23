@@ -205,4 +205,94 @@ def get_data_summary(df):
         'missing_values': df.isnull().sum().to_dict()
     }
     
-    return summary
+    return summaryimport pandas as pd
+
+def remove_duplicates(dataframe, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a pandas DataFrame.
+    
+    Args:
+        dataframe: pandas DataFrame to clean.
+        subset: Column label or sequence of labels to consider for duplicates.
+                If None, all columns are used.
+        keep: Determines which duplicates to mark.
+              'first': Mark duplicates as False except for the first occurrence.
+              'last': Mark duplicates as False except for the last occurrence.
+              False: Mark all duplicates as True.
+    
+    Returns:
+        Cleaned DataFrame with duplicates removed.
+    """
+    if not isinstance(dataframe, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    cleaned_df = dataframe.drop_duplicates(subset=subset, keep=keep)
+    
+    removed_count = len(dataframe) - len(cleaned_df)
+    print(f"Removed {removed_count} duplicate rows.")
+    
+    return cleaned_df
+
+def validate_dataframe(dataframe, required_columns=None):
+    """
+    Validate basic DataFrame structure and required columns.
+    
+    Args:
+        dataframe: pandas DataFrame to validate.
+        required_columns: List of column names that must be present.
+    
+    Returns:
+        Boolean indicating if validation passed.
+    """
+    if not isinstance(dataframe, pd.DataFrame):
+        return False
+    
+    if dataframe.empty:
+        print("Warning: DataFrame is empty.")
+        return False
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in dataframe.columns]
+        if missing_columns:
+            print(f"Missing required columns: {missing_columns}")
+            return False
+    
+    return True
+
+def clean_numeric_column(dataframe, column_name, fill_method='mean'):
+    """
+    Clean a numeric column by handling missing values.
+    
+    Args:
+        dataframe: pandas DataFrame containing the column.
+        column_name: Name of the column to clean.
+        fill_method: Method to fill missing values ('mean', 'median', 'zero').
+    
+    Returns:
+        Series with cleaned numeric values.
+    """
+    if column_name not in dataframe.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    
+    if not pd.api.types.is_numeric_dtype(dataframe[column_name]):
+        raise TypeError(f"Column '{column_name}' must be numeric")
+    
+    column_data = dataframe[column_name].copy()
+    
+    missing_count = column_data.isna().sum()
+    if missing_count > 0:
+        print(f"Found {missing_count} missing values in column '{column_name}'")
+        
+        if fill_method == 'mean':
+            fill_value = column_data.mean()
+        elif fill_method == 'median':
+            fill_value = column_data.median()
+        elif fill_method == 'zero':
+            fill_value = 0
+        else:
+            raise ValueError("fill_method must be 'mean', 'median', or 'zero'")
+        
+        column_data.fillna(fill_value, inplace=True)
+        print(f"Filled missing values with {fill_method}: {fill_value}")
+    
+    return column_data
