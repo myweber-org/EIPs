@@ -459,3 +459,152 @@ if __name__ == "__main__":
     print(f"Original shape: {sample_data.shape}")
     print(f"Cleaned shape: {processed_data.shape}")
     print(f"Data validation: {validate_dataframe(processed_data)}")
+import pandas as pd
+import numpy as np
+
+def remove_missing_rows(df, columns=None):
+    """
+    Remove rows with missing values from specified columns or entire DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns (list, optional): List of columns to check for missing values.
+                                  If None, checks all columns.
+    
+    Returns:
+        pd.DataFrame: DataFrame with rows containing missing values removed
+    """
+    if columns is None:
+        return df.dropna()
+    else:
+        return df.dropna(subset=columns)
+
+def fill_missing_with_mean(df, columns):
+    """
+    Fill missing values in specified columns with column mean.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns (list): List of columns to fill missing values
+    
+    Returns:
+        pd.DataFrame: DataFrame with missing values filled
+    """
+    df_filled = df.copy()
+    for col in columns:
+        if col in df.columns:
+            df_filled[col] = df_filled[col].fillna(df_filled[col].mean())
+    return df_filled
+
+def detect_outliers_iqr(df, column, threshold=1.5):
+    """
+    Detect outliers using Interquartile Range (IQR) method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to check for outliers
+        threshold (float): Multiplier for IQR (default: 1.5)
+    
+    Returns:
+        pd.Series: Boolean series indicating outliers (True = outlier)
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - threshold * IQR
+    upper_bound = Q3 + threshold * IQR
+    
+    return (df[column] < lower_bound) | (df[column] > upper_bound)
+
+def remove_outliers(df, column, threshold=1.5):
+    """
+    Remove outliers from specified column using IQR method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to remove outliers from
+        threshold (float): Multiplier for IQR (default: 1.5)
+    
+    Returns:
+        pd.DataFrame: DataFrame with outliers removed
+    """
+    outliers = detect_outliers_iqr(df, column, threshold)
+    return df[~outliers].reset_index(drop=True)
+
+def winsorize_outliers(df, column, limits=(0.05, 0.05)):
+    """
+    Winsorize outliers by capping extreme values at specified percentiles.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to winsorize
+        limits (tuple): Lower and upper percentile limits (default: 0.05, 0.05)
+    
+    Returns:
+        pd.DataFrame: DataFrame with winsorized column
+    """
+    df_winsorized = df.copy()
+    
+    if column not in df_winsorized.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    lower_limit = df_winsorized[column].quantile(limits[0])
+    upper_limit = df_winsorized[column].quantile(1 - limits[1])
+    
+    df_winsorized[column] = np.where(
+        df_winsorized[column] < lower_limit, lower_limit, df_winsorized[column]
+    )
+    df_winsorized[column] = np.where(
+        df_winsorized[column] > upper_limit, upper_limit, df_winsorized[column]
+    )
+    
+    return df_winsorized
+
+def standardize_columns(df, columns):
+    """
+    Standardize specified columns to have zero mean and unit variance.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns (list): List of columns to standardize
+    
+    Returns:
+        pd.DataFrame: DataFrame with standardized columns
+    """
+    df_standardized = df.copy()
+    
+    for col in columns:
+        if col in df_standardized.columns:
+            mean = df_standardized[col].mean()
+            std = df_standardized[col].std()
+            if std > 0:
+                df_standardized[col] = (df_standardized[col] - mean) / std
+    
+    return df_standardized
+
+def get_data_summary(df):
+    """
+    Generate a summary of data quality including missing values and basic statistics.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+    
+    Returns:
+        pd.DataFrame: Summary DataFrame
+    """
+    summary = pd.DataFrame({
+        'dtype': df.dtypes,
+        'missing_count': df.isnull().sum(),
+        'missing_percent': (df.isnull().sum() / len(df)) * 100,
+        'unique_count': df.nunique(),
+        'mean': df.select_dtypes(include=[np.number]).mean(),
+        'std': df.select_dtypes(include=[np.number]).std(),
+        'min': df.select_dtypes(include=[np.number]).min(),
+        'max': df.select_dtypes(include=[np.number]).max()
+    })
+    
+    return summary
