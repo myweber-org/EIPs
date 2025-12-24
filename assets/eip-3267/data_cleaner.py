@@ -81,3 +81,78 @@ def process_data_file(file_path, output_path=None):
     except Exception as e:
         print(f"Error processing file: {e}")
         return None
+import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a specified column in a DataFrame using the IQR method.
+    
+    Parameters:
+    df (pd.DataFrame): The input DataFrame.
+    column (str): The column name to process.
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed.
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df
+
+def clean_missing_values(df, strategy='mean'):
+    """
+    Handle missing values in numeric columns.
+    
+    Parameters:
+    df (pd.DataFrame): The input DataFrame.
+    strategy (str): Strategy for imputation ('mean', 'median', 'drop').
+    
+    Returns:
+    pd.DataFrame: DataFrame with missing values handled.
+    """
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    
+    if strategy == 'mean':
+        df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
+    elif strategy == 'median':
+        df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].median())
+    elif strategy == 'drop':
+        df = df.dropna(subset=numeric_cols)
+    else:
+        raise ValueError("Strategy must be 'mean', 'median', or 'drop'")
+    
+    return df
+
+def normalize_column(df, column):
+    """
+    Normalize a column using min-max scaling.
+    
+    Parameters:
+    df (pd.DataFrame): The input DataFrame.
+    column (str): The column name to normalize.
+    
+    Returns:
+    pd.DataFrame: DataFrame with normalized column.
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    min_val = df[column].min()
+    max_val = df[column].max()
+    
+    if max_val == min_val:
+        df[column] = 0.5
+    else:
+        df[column] = (df[column] - min_val) / (max_val - min_val)
+    
+    return df
