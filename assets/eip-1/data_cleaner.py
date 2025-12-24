@@ -794,3 +794,74 @@ def validate_dataframe(dataframe, required_columns=None):
         validation_results['missing_columns'] = missing
     
     return validation_results
+import pandas as pd
+
+def clean_dataset(df, drop_duplicates=True, fill_missing=True, fill_value=0):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    drop_duplicates (bool): Whether to drop duplicate rows. Default is True.
+    fill_missing (bool): Whether to fill missing values. Default is True.
+    fill_value: Value to use for filling missing data. Default is 0.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    if fill_missing:
+        cleaned_df = cleaned_df.fillna(fill_value)
+    
+    return cleaned_df
+
+def calculate_statistics(df, numeric_columns=None):
+    """
+    Calculate basic statistics for numeric columns in a DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    numeric_columns (list): List of column names to calculate statistics for.
+                           If None, all numeric columns are used.
+    
+    Returns:
+    dict: Dictionary containing mean, median, and standard deviation.
+    """
+    if numeric_columns is None:
+        numeric_columns = df.select_dtypes(include=['float64', 'int64']).columns.tolist()
+    
+    stats = {}
+    for col in numeric_columns:
+        if col in df.columns:
+            stats[col] = {
+                'mean': df[col].mean(),
+                'median': df[col].median(),
+                'std': df[col].std()
+            }
+    
+    return stats
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'A': [1, 2, 2, 3, None, 4],
+        'B': [5, None, 7, 8, 9, 10],
+        'C': ['x', 'y', 'x', 'y', 'z', 'z']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned = clean_dataset(df)
+    print("\nCleaned DataFrame:")
+    print(cleaned)
+    
+    stats = calculate_statistics(cleaned, ['A', 'B'])
+    print("\nStatistics:")
+    for col, values in stats.items():
+        print(f"{col}: {values}")
