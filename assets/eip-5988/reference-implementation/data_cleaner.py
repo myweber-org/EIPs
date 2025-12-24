@@ -262,3 +262,91 @@ if __name__ == "__main__":
         normalize_cols=columns_for_normalization,
         normalize_method='zscore'
     )
+import pandas as pd
+import numpy as np
+
+def clean_csv_data(input_file, output_file):
+    """
+    Load a CSV file, clean missing values, and save the cleaned data.
+    """
+    try:
+        df = pd.read_csv(input_file)
+        print(f"Original data shape: {df.shape}")
+        
+        # Handle missing values
+        # Fill numeric columns with median
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            if df[col].isnull().sum() > 0:
+                df[col].fillna(df[col].median(), inplace=True)
+        
+        # Fill categorical columns with mode
+        categorical_cols = df.select_dtypes(include=['object']).columns
+        for col in categorical_cols:
+            if df[col].isnull().sum() > 0:
+                df[col].fillna(df[col].mode()[0], inplace=True)
+        
+        # Remove any remaining rows with missing values
+        df.dropna(inplace=True)
+        
+        # Remove duplicate rows
+        df.drop_duplicates(inplace=True)
+        
+        print(f"Cleaned data shape: {df.shape}")
+        print(f"Missing values after cleaning: {df.isnull().sum().sum()}")
+        
+        # Save cleaned data
+        df.to_csv(output_file, index=False)
+        print(f"Cleaned data saved to: {output_file}")
+        
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: File '{input_file}' not found.")
+        return None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None
+
+def validate_data(df):
+    """
+    Perform basic validation on the cleaned dataframe.
+    """
+    if df is None:
+        return False
+    
+    validation_passed = True
+    
+    # Check for missing values
+    if df.isnull().sum().sum() > 0:
+        print("Validation failed: Data still contains missing values.")
+        validation_passed = False
+    
+    # Check for infinite values in numeric columns
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        if np.isinf(df[col]).any():
+            print(f"Validation failed: Column '{col}' contains infinite values.")
+            validation_passed = False
+    
+    # Check data types
+    for col in df.columns:
+        if df[col].dtype == 'object':
+            if df[col].str.contains('NaN').any():
+                print(f"Validation failed: Column '{col}' contains 'NaN' strings.")
+                validation_passed = False
+    
+    if validation_passed:
+        print("Data validation passed successfully.")
+    
+    return validation_passed
+
+if __name__ == "__main__":
+    # Example usage
+    input_csv = "raw_data.csv"
+    output_csv = "cleaned_data.csv"
+    
+    cleaned_df = clean_csv_data(input_csv, output_csv)
+    
+    if cleaned_df is not None:
+        validate_data(cleaned_df)
