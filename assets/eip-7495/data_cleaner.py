@@ -572,3 +572,129 @@ if __name__ == "__main__":
     normalized = normalize_columns(cleaned, method='minmax')
     print("\nNormalized DataFrame:")
     print(normalized)
+import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, columns=None):
+    """
+    Remove outliers from DataFrame using Interquartile Range method.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    columns (list): List of column names to process. If None, process all numeric columns.
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    df_clean = df.copy()
+    
+    for col in columns:
+        if col not in df.columns:
+            continue
+            
+        Q1 = df[col].quantile(0.25)
+        Q3 = df[col].quantile(0.75)
+        IQR = Q3 - Q1
+        
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+        
+        mask = (df[col] >= lower_bound) & (df[col] <= upper_bound)
+        df_clean = df_clean[mask]
+    
+    return df_clean.reset_index(drop=True)
+
+def calculate_summary_statistics(df, columns=None):
+    """
+    Calculate summary statistics for numeric columns.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    columns (list): List of column names to process. If None, process all numeric columns.
+    
+    Returns:
+    pd.DataFrame: Summary statistics
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    stats = pd.DataFrame()
+    
+    for col in columns:
+        if col not in df.columns:
+            continue
+            
+        col_stats = {
+            'mean': df[col].mean(),
+            'median': df[col].median(),
+            'std': df[col].std(),
+            'min': df[col].min(),
+            'max': df[col].max(),
+            'q1': df[col].quantile(0.25),
+            'q3': df[col].quantile(0.75),
+            'count': df[col].count(),
+            'missing': df[col].isnull().sum()
+        }
+        
+        stats[col] = pd.Series(col_stats)
+    
+    return stats
+
+def normalize_data(df, columns=None, method='minmax'):
+    """
+    Normalize data using specified method.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    columns (list): List of column names to process. If None, process all numeric columns.
+    method (str): Normalization method - 'minmax' or 'zscore'
+    
+    Returns:
+    pd.DataFrame: Normalized DataFrame
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    df_normalized = df.copy()
+    
+    for col in columns:
+        if col not in df.columns:
+            continue
+            
+        if method == 'minmax':
+            min_val = df[col].min()
+            max_val = df[col].max()
+            if max_val != min_val:
+                df_normalized[col] = (df[col] - min_val) / (max_val - min_val)
+        
+        elif method == 'zscore':
+            mean_val = df[col].mean()
+            std_val = df[col].std()
+            if std_val != 0:
+                df_normalized[col] = (df[col] - mean_val) / std_val
+    
+    return df_normalized
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': np.random.normal(100, 15, 1000),
+        'B': np.random.exponential(50, 1000),
+        'C': np.random.uniform(0, 200, 1000)
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original data shape:", df.shape)
+    
+    cleaned_df = remove_outliers_iqr(df)
+    print("Cleaned data shape:", cleaned_df.shape)
+    
+    stats = calculate_summary_statistics(cleaned_df)
+    print("\nSummary statistics:")
+    print(stats)
+    
+    normalized_df = normalize_data(cleaned_df, method='minmax')
+    print("\nNormalized data sample:")
+    print(normalized_df.head())
