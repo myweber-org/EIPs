@@ -599,4 +599,68 @@ if __name__ == "__main__":
     
     # Validate the cleaned data
     is_valid, message = validate_dataframe(cleaned, required_columns=['A', 'B', 'C'])
-    print(f"\nValidation: {is_valid} - {message}")
+    print(f"\nValidation: {is_valid} - {message}")import pandas as pd
+import re
+
+def clean_text_column(df, column_name):
+    """
+    Clean a text column by removing duplicates, stripping whitespace,
+    and converting to lowercase.
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame.")
+    
+    # Remove duplicates within the column
+    df[column_name] = df[column_name].drop_duplicates()
+    
+    # Strip leading/trailing whitespace
+    df[column_name] = df[column_name].str.strip()
+    
+    # Convert to lowercase
+    df[column_name] = df[column_name].str.lower()
+    
+    # Remove extra spaces between words
+    df[column_name] = df[column_name].apply(lambda x: re.sub(r'\s+', ' ', x) if isinstance(x, str) else x)
+    
+    return df
+
+def remove_special_characters(df, column_name, keep_chars='a-zA-Z0-9 '):
+    """
+    Remove special characters from a text column, keeping only specified characters.
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame.")
+    
+    pattern = f'[^{keep_chars}]'
+    df[column_name] = df[column_name].apply(lambda x: re.sub(pattern, '', x) if isinstance(x, str) else x)
+    
+    return df
+
+def normalize_data(file_path, output_path, text_column='text'):
+    """
+    Main function to load, clean, and save data.
+    """
+    # Load data
+    df = pd.read_csv(file_path)
+    
+    # Clean the specified text column
+    df = clean_text_column(df, text_column)
+    
+    # Remove special characters (keeping alphanumeric and spaces)
+    df = remove_special_characters(df, text_column)
+    
+    # Drop rows where the text column is empty after cleaning
+    df = df[df[text_column].str.len() > 0]
+    
+    # Reset index
+    df = df.reset_index(drop=True)
+    
+    # Save cleaned data
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to {output_path}")
+    return df
+
+if __name__ == "__main__":
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    normalize_data(input_file, output_file)
