@@ -609,3 +609,54 @@ def remove_duplicates(sequence):
             seen.add(item)
             result.append(item)
     return result
+import pandas as pd
+
+def clean_dataframe(df, subset=None, fill_method='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame to clean.
+        subset (list, optional): Column labels to consider for identifying duplicates.
+                                 If None, all columns are used.
+        fill_method (str): Method to fill missing values. Options: 'mean', 'median', 'mode', 'zero'.
+                           Default is 'mean'.
+
+    Returns:
+        pd.DataFrame: The cleaned DataFrame.
+    """
+    # Create a copy to avoid modifying the original DataFrame
+    cleaned_df = df.copy()
+
+    # Remove duplicate rows
+    cleaned_df = cleaned_df.drop_duplicates(subset=subset, keep='first')
+
+    # Handle missing values based on the specified method
+    if fill_method == 'mean':
+        cleaned_df = cleaned_df.fillna(cleaned_df.mean(numeric_only=True))
+    elif fill_method == 'median':
+        cleaned_df = cleaned_df.fillna(cleaned_df.median(numeric_only=True))
+    elif fill_method == 'mode':
+        # For mode, we take the first mode if multiple exist
+        cleaned_df = cleaned_df.fillna(cleaned_df.mode().iloc[0])
+    elif fill_method == 'zero':
+        cleaned_df = cleaned_df.fillna(0)
+    else:
+        raise ValueError(f"Unsupported fill_method: {fill_method}. Use 'mean', 'median', 'mode', or 'zero'.")
+
+    return cleaned_df
+
+# Example usage (commented out for production)
+# if __name__ == "__main__":
+#     # Create a sample DataFrame with duplicates and missing values
+#     data = {
+#         'A': [1, 2, 2, 4, None],
+#         'B': [5, None, 5, 8, 9],
+#         'C': ['x', 'y', 'x', 'z', 'y']
+#     }
+#     df = pd.DataFrame(data)
+#     print("Original DataFrame:")
+#     print(df)
+#     cleaned = clean_dataframe(df, subset=['A', 'B'], fill_method='mean')
+#     print("\nCleaned DataFrame:")
+#     print(cleaned)
