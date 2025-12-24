@@ -576,3 +576,48 @@ def clean_numeric_columns(df, columns):
             df[col] = pd.to_numeric(df[col], errors='coerce')
     
     return df
+import pandas as pd
+
+def clean_dataset(df):
+    """
+    Clean a pandas DataFrame by removing null values and duplicate rows.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to be cleaned.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    cleaned_df = df.copy()
+    
+    cleaned_df = cleaned_df.dropna()
+    
+    cleaned_df = cleaned_df.drop_duplicates()
+    
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    return cleaned_df
+
+def validate_cleaning(df_before, df_after):
+    """
+    Validate the cleaning process by comparing row counts.
+    
+    Args:
+        df_before (pd.DataFrame): Original DataFrame.
+        df_after (pd.DataFrame): Cleaned DataFrame.
+    
+    Returns:
+        dict: Dictionary with cleaning statistics.
+    """
+    stats = {
+        'original_rows': len(df_before),
+        'cleaned_rows': len(df_after),
+        'rows_removed': len(df_before) - len(df_after),
+        'null_rows_removed': df_before.isnull().any(axis=1).sum(),
+        'duplicate_rows_removed': df_before.duplicated().sum()
+    }
+    
+    return stats
