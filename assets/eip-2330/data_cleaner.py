@@ -288,4 +288,47 @@ def validate_dataframe(df, required_columns=None):
 #     print(cleaned)
 #     
 #     is_valid, message = validate_dataframe(cleaned, required_columns=['name', 'age'])
-#     print(f"\nValidation: {is_valid}, Message: {message}")
+#     print(f"\nValidation: {is_valid}, Message: {message}")import pandas as pd
+import re
+
+def clean_dataframe(df, column_name):
+    """
+    Clean a specific column in a DataFrame by removing duplicates,
+    stripping whitespace, and converting to lowercase.
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    
+    df_clean = df.copy()
+    df_clean[column_name] = df_clean[column_name].astype(str)
+    df_clean[column_name] = df_clean[column_name].apply(lambda x: re.sub(r'\s+', ' ', x.strip()))
+    df_clean[column_name] = df_clean[column_name].str.lower()
+    df_clean = df_clean.drop_duplicates(subset=[column_name], keep='first')
+    
+    return df_clean
+
+def validate_email(email_string):
+    """
+    Validate if a string is a properly formatted email address.
+    """
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, email_string))
+
+def sample_usage():
+    data = {'Name': [' Alice ', 'bob', 'Alice', '  Carol  '],
+            'Email': ['alice@example.com', 'invalid-email', 'alice@example.com', 'carol@test.org']}
+    df = pd.DataFrame(data)
+    
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned_df = clean_dataframe(df, 'Name')
+    print("\nCleaned DataFrame (by Name):")
+    print(cleaned_df)
+    
+    print("\nEmail Validation:")
+    for email in df['Email']:
+        print(f"{email}: {validate_email(email)}")
+
+if __name__ == "__main__":
+    sample_usage()
