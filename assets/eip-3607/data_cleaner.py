@@ -251,4 +251,117 @@ def clean_dataset(df, numeric_columns, outlier_method='iqr', normalize_method='m
                 cleaned_df = normalize_zscore(cleaned_df, col)
     
     cleaned_df = handle_missing_values(cleaned_df, strategy=missing_strategy)
-    return cleaned_df
+    return cleaned_dfimport csv
+import re
+from typing import List, Dict, Any, Optional
+
+def clean_csv_data(input_file: str, output_file: str, columns_to_clean: Optional[List[str]] = None) -> None:
+    """
+    Clean a CSV file by removing extra whitespace and standardizing text.
+    
+    Args:
+        input_file: Path to the input CSV file
+        output_file: Path to the output cleaned CSV file
+        columns_to_clean: List of column names to clean. If None, clean all columns.
+    """
+    
+    def clean_text(text: str) -> str:
+        """Remove extra whitespace and standardize text."""
+        if not isinstance(text, str):
+            return text
+            
+        # Remove leading/trailing whitespace
+        text = text.strip()
+        
+        # Replace multiple spaces with single space
+        text = re.sub(r'\s+', ' ', text)
+        
+        # Standardize line endings
+        text = text.replace('\r\n', '\n').replace('\r', '\n')
+        
+        return text
+    
+    try:
+        with open(input_file, 'r', newline='', encoding='utf-8') as infile:
+            reader = csv.DictReader(infile)
+            fieldnames = reader.fieldnames
+            
+            if columns_to_clean is None:
+                columns_to_clean = fieldnames
+            
+            with open(output_file, 'w', newline='', encoding='utf-8') as outfile:
+                writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+                writer.writeheader()
+                
+                for row in reader:
+                    cleaned_row = {}
+                    for field in fieldnames:
+                        value = row.get(field, '')
+                        if field in columns_to_clean:
+                            cleaned_row[field] = clean_text(value)
+                        else:
+                            cleaned_row[field] = value
+                    writer.writerow(cleaned_row)
+                    
+        print(f"Successfully cleaned data. Output saved to {output_file}")
+        
+    except FileNotFoundError:
+        print(f"Error: Input file '{input_file}' not found.")
+    except Exception as e:
+        print(f"Error processing file: {str(e)}")
+
+def validate_email(email: str) -> bool:
+    """
+    Validate email format using regex.
+    
+    Args:
+        email: Email address to validate
+        
+    Returns:
+        True if email is valid, False otherwise
+    """
+    if not isinstance(email, str):
+        return False
+    
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, email))
+
+def remove_duplicates(data: List[Dict[str, Any]], key_field: str) -> List[Dict[str, Any]]:
+    """
+    Remove duplicate rows based on a key field.
+    
+    Args:
+        data: List of dictionaries representing rows
+        key_field: Field name to use for duplicate detection
+        
+    Returns:
+        List with duplicates removed
+    """
+    seen = set()
+    unique_data = []
+    
+    for row in data:
+        key_value = row.get(key_field)
+        if key_value not in seen:
+            seen.add(key_value)
+            unique_data.append(row)
+    
+    return unique_data
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = [
+        {"id": 1, "name": "John Doe  ", "email": "john@example.com"},
+        {"id": 2, "name": "Jane Smith", "email": "jane@example.com"},
+        {"id": 1, "name": "John Doe", "email": "john@example.com"}  # Duplicate
+    ]
+    
+    # Test duplicate removal
+    unique_data = remove_duplicates(sample_data, "id")
+    print(f"Original: {len(sample_data)} rows, Unique: {len(unique_data)} rows")
+    
+    # Test email validation
+    test_emails = ["test@example.com", "invalid-email", "another@test.co.uk"]
+    for email in test_emails:
+        is_valid = validate_email(email)
+        print(f"{email}: {'Valid' if is_valid else 'Invalid'}")
