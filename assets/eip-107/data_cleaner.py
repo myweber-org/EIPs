@@ -594,3 +594,11 @@ def clean_csv_file(input_path: str, output_path: str, **kwargs) -> dict:
     cleaned_df.to_csv(output_path, index=False)
     
     return cleaner.get_cleaning_report()
+def remove_duplicates_preserve_order(iterable):
+    seen = set()
+    result = []
+    for item in iterable:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
