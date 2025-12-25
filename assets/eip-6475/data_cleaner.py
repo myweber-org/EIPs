@@ -415,4 +415,86 @@ if __name__ == "__main__":
     cleaned_df = clean_data('sample_data.csv')
     if cleaned_df is not None:
         cleaned_df.to_csv('cleaned_data.csv', index=False)
-        print("Data cleaning complete. Saved to cleaned_data.csv")
+        print("Data cleaning complete. Saved to cleaned_data.csv")import pandas as pd
+import numpy as np
+
+def remove_duplicates(df, subset=None):
+    """
+    Remove duplicate rows from DataFrame.
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def fill_missing_values(df, strategy='mean', columns=None):
+    """
+    Fill missing values using specified strategy.
+    """
+    if columns is None:
+        columns = df.columns
+    
+    df_filled = df.copy()
+    
+    for col in columns:
+        if df[col].dtype in [np.float64, np.int64]:
+            if strategy == 'mean':
+                fill_value = df[col].mean()
+            elif strategy == 'median':
+                fill_value = df[col].median()
+            elif strategy == 'mode':
+                fill_value = df[col].mode()[0]
+            else:
+                fill_value = 0
+            
+            df_filled[col] = df[col].fillna(fill_value)
+        else:
+            df_filled[col] = df[col].fillna('Unknown')
+    
+    return df_filled
+
+def normalize_column(df, column, method='minmax'):
+    """
+    Normalize a column using specified method.
+    """
+    if method == 'minmax':
+        min_val = df[column].min()
+        max_val = df[column].max()
+        if max_val != min_val:
+            df[column] = (df[column] - min_val) / (max_val - min_val)
+    elif method == 'zscore':
+        mean_val = df[column].mean()
+        std_val = df[column].std()
+        if std_val != 0:
+            df[column] = (df[column] - mean_val) / std_val
+    
+    return df
+
+def clean_dataframe(df, operations=None):
+    """
+    Apply multiple cleaning operations to DataFrame.
+    """
+    if operations is None:
+        operations = ['remove_duplicates', 'fill_missing']
+    
+    cleaned_df = df.copy()
+    
+    if 'remove_duplicates' in operations:
+        cleaned_df = remove_duplicates(cleaned_df)
+    
+    if 'fill_missing' in operations:
+        cleaned_df = fill_missing_values(cleaned_df)
+    
+    return cleaned_df
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, 2, 4, 5],
+        'B': [1.0, np.nan, 3.0, np.nan, 5.0],
+        'C': ['a', 'b', 'b', 'd', 'e']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned = clean_dataframe(df)
+    print("\nCleaned DataFrame:")
+    print(cleaned)
