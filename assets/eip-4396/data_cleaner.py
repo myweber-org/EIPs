@@ -90,3 +90,76 @@ if __name__ == "__main__":
     output_file = "cleaned_data.csv"
     
     process_file(input_file, output_file)
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_duplicates=True, fill_missing=True):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        initial_rows = len(cleaned_df)
+        cleaned_df = cleaned_df.drop_duplicates()
+        removed = initial_rows - len(cleaned_df)
+        print(f"Removed {removed} duplicate rows")
+    
+    if fill_missing:
+        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            if cleaned_df[col].isnull().any():
+                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].median())
+                print(f"Filled missing values in column '{col}' with median")
+        
+        categorical_cols = cleaned_df.select_dtypes(include=['object']).columns
+        for col in categorical_cols:
+            if cleaned_df[col].isnull().any():
+                cleaned_df[col] = cleaned_df[col].fillna('Unknown')
+                print(f"Filled missing values in column '{col}' with 'Unknown'")
+    
+    return cleaned_df
+
+def validate_dataset(df):
+    """
+    Validate the cleaned dataset for common data quality issues.
+    """
+    validation_results = {}
+    
+    validation_results['total_rows'] = len(df)
+    validation_results['total_columns'] = len(df.columns)
+    validation_results['missing_values'] = df.isnull().sum().sum()
+    validation_results['duplicate_rows'] = df.duplicated().sum()
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    validation_results['numeric_columns'] = len(numeric_cols)
+    
+    for col in numeric_cols:
+        validation_results[f'{col}_min'] = df[col].min()
+        validation_results[f'{col}_max'] = df[col].max()
+        validation_results[f'{col}_mean'] = df[col].mean()
+    
+    return validation_results
+
+if __name__ == "__main__":
+    sample_data = {
+        'id': [1, 2, 2, 3, 4, 5, 5],
+        'name': ['Alice', 'Bob', 'Bob', 'Charlie', None, 'Eve', 'Eve'],
+        'age': [25, 30, 30, None, 35, 40, 40],
+        'score': [85.5, 92.0, 92.0, 78.5, 88.0, 95.5, 95.5]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original dataset:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    cleaned_df = clean_dataset(df)
+    print("\nCleaned dataset:")
+    print(cleaned_df)
+    print("\n" + "="*50 + "\n")
+    
+    validation = validate_dataset(cleaned_df)
+    print("Validation results:")
+    for key, value in validation.items():
+        print(f"{key}: {value}")
