@@ -553,4 +553,72 @@ if __name__ == "__main__":
     
     normalized_df = normalize_column(cleaned_df, 'values', method='minmax')
     print("\nNormalized data:")
-    print(normalized_df)
+    print(normalized_df)import csv
+import hashlib
+from pathlib import Path
+
+def get_row_hash(row):
+    """Generate a hash for a CSV row."""
+    row_string = ','.join(str(value) for value in row)
+    return hashlib.md5(row_string.encode()).hexdigest()
+
+def remove_duplicates(input_file, output_file=None):
+    """Remove duplicate rows from a CSV file."""
+    if output_file is None:
+        output_file = input_file.replace('.csv', '_deduplicated.csv')
+    
+    seen_hashes = set()
+    unique_rows = []
+    
+    with open(input_file, 'r', newline='', encoding='utf-8') as infile:
+        reader = csv.reader(infile)
+        headers = next(reader)
+        
+        for row in reader:
+            row_hash = get_row_hash(row)
+            if row_hash not in seen_hashes:
+                seen_hashes.add(row_hash)
+                unique_rows.append(row)
+    
+    with open(output_file, 'w', newline='', encoding='utf-8') as outfile:
+        writer = csv.writer(outfile)
+        writer.writerow(headers)
+        writer.writerows(unique_rows)
+    
+    return len(unique_rows)
+
+def process_directory(directory_path):
+    """Process all CSV files in a directory."""
+    path = Path(directory_path)
+    csv_files = list(path.glob('*.csv'))
+    
+    results = {}
+    for csv_file in csv_files:
+        original_count = sum(1 for _ in open(csv_file, 'r', encoding='utf-8')) - 1
+        unique_count = remove_duplicates(str(csv_file))
+        results[csv_file.name] = {
+            'original': original_count,
+            'unique': unique_count,
+            'removed': original_count - unique_count
+        }
+    
+    return results
+
+if __name__ == '__main__':
+    import sys
+    
+    if len(sys.argv) > 1:
+        target = sys.argv[1]
+        if Path(target).is_dir():
+            results = process_directory(target)
+            for filename, stats in results.items():
+                print(f"{filename}: {stats['original']} -> {stats['unique']} rows (removed {stats['removed']})")
+        else:
+            original_count = sum(1 for _ in open(target, 'r', encoding='utf-8')) - 1
+            unique_count = remove_duplicates(target)
+            print(f"Processed {target}")
+            print(f"Original: {original_count} rows")
+            print(f"Unique: {unique_count} rows")
+            print(f"Removed: {original_count - unique_count} duplicate rows")
+    else:
+        print("Usage: python data_cleaner.py <file_or_directory>")
