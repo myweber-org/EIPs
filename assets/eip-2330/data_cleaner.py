@@ -1,133 +1,146 @@
+
 import pandas as pd
 import numpy as np
+from typing import Optional, Union, List
 
-def remove_duplicates(df, subset=None, keep='first'):
+def remove_outliers_iqr(
+    df: pd.DataFrame,
+    columns: Optional[Union[str, List[str]]] = None,
+    factor: float = 1.5
+) -> pd.DataFrame:
     """
-    Remove duplicate rows from a DataFrame.
+    Remove outliers from specified columns using IQR method.
     
-    Args:
-        df: pandas DataFrame
-        subset: column label or sequence of labels to consider for duplicates
-        keep: {'first', 'last', False} which duplicates to keep
+    Parameters:
+    df: Input DataFrame
+    columns: Column name or list of column names to process
+    factor: IQR multiplier for outlier detection
     
     Returns:
-        DataFrame with duplicates removed
+    DataFrame with outliers removed
     """
-    if df.empty:
-        return df
+    df_clean = df.copy()
     
-    original_shape = df.shape
-    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
-    removed_count = original_shape[0] - cleaned_df.shape[0]
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    elif isinstance(columns, str):
+        columns = [columns]
     
-    print(f"Removed {removed_count} duplicate rows")
-    print(f"Original shape: {original_shape}")
-    print(f"Cleaned shape: {cleaned_df.shape}")
+    for col in columns:
+        if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
+            Q1 = df[col].quantile(0.25)
+            Q3 = df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - factor * IQR
+            upper_bound = Q3 + factor * IQR
+            
+            mask = (df_clean[col] >= lower_bound) & (df_clean[col] <= upper_bound)
+            df_clean = df_clean[mask]
     
-    return cleaned_df
+    return df_clean.reset_index(drop=True)
 
-def clean_missing_values(df, strategy='mean', columns=None):
+def handle_missing_values(
+    df: pd.DataFrame,
+    strategy: str = 'mean',
+    columns: Optional[List[str]] = None
+) -> pd.DataFrame:
     """
     Handle missing values in DataFrame.
     
-    Args:
-        df: pandas DataFrame
-        strategy: {'mean', 'median', 'mode', 'drop', 'fill'}
-        columns: list of columns to apply cleaning to
+    Parameters:
+    df: Input DataFrame
+    strategy: Imputation strategy ('mean', 'median', 'mode', 'drop')
+    columns: Specific columns to process
     
     Returns:
-        DataFrame with missing values handled
+    DataFrame with handled missing values
     """
-    if df.empty:
-        return df
+    df_filled = df.copy()
     
     if columns is None:
-        columns = df.columns
-    
-    df_cleaned = df.copy()
+        columns = df.columns.tolist()
     
     for col in columns:
-        if col in df.columns:
-            if strategy == 'drop':
-                df_cleaned = df_cleaned.dropna(subset=[col])
-            elif strategy == 'mean' and pd.api.types.is_numeric_dtype(df[col]):
-                df_cleaned[col] = df_cleaned[col].fillna(df_cleaned[col].mean())
-            elif strategy == 'median' and pd.api.types.is_numeric_dtype(df[col]):
-                df_cleaned[col] = df_cleaned[col].fillna(df_cleaned[col].median())
-            elif strategy == 'mode':
-                df_cleaned[col] = df_cleaned[col].fillna(df_cleaned[col].mode()[0])
-            elif strategy == 'fill':
-                df_cleaned[col] = df_cleaned[col].fillna(0)
+        if col not in df.columns:
+            continue
+            
+        if strategy == 'drop':
+            df_filled = df_filled.dropna(subset=[col])
+        elif strategy in ['mean', 'median']:
+            if pd.api.types.is_numeric_dtype(df[col]):
+                if strategy == 'mean':
+                    fill_value = df[col].mean()
+                else:
+                    fill_value = df[col].median()
+                df_filled[col] = df_filled[col].fillna(fill_value)
+        elif strategy == 'mode':
+            if not df[col].empty:
+                fill_value = df[col].mode()[0] if not df[col].mode().empty else None
+                df_filled[col] = df_filled[col].fillna(fill_value)
     
-    return df_cleaned
+    return df_filled.reset_index(drop=True)
 
-def validate_data(df, rules):
+def normalize_data(
+    df: pd.DataFrame,
+    method: str = 'minmax',
+    columns: Optional[List[str]] = None
+) -> pd.DataFrame:
     """
-    Validate DataFrame against specified rules.
+    Normalize numerical columns in DataFrame.
     
-    Args:
-        df: pandas DataFrame
-        rules: dictionary of validation rules
+    Parameters:
+    df: Input DataFrame
+    method: Normalization method ('minmax', 'zscore')
+    columns: Specific columns to normalize
     
     Returns:
-        Dictionary with validation results
+    DataFrame with normalized columns
     """
-    results = {
-        'passed': True,
-        'errors': [],
-        'warnings': []
-    }
+    df_norm = df.copy()
     
-    for column, rule in rules.items():
-        if column in df.columns:
-            if 'min' in rule and df[column].min() < rule['min']:
-                results['passed'] = False
-                results['errors'].append(f"{column}: value below minimum {rule['min']}")
-            
-            if 'max' in rule and df[column].max() > rule['max']:
-                results['passed'] = False
-                results['errors'].append(f"{column}: value above maximum {rule['max']}")
-            
-            if 'unique' in rule and rule['unique']:
-                if df[column].nunique() != len(df):
-                    results['warnings'].append(f"{column}: contains duplicate values")
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns.tolist()
     
-    return results
+    for col in columns:
+        if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
+            if method == 'minmax':
+                min_val = df[col].min()
+                max_val = df[col].max()
+                if max_val > min_val:
+                    df_norm[col] = (df[col] - min_val) / (max_val - min_val)
+            elif method == 'zscore':
+                mean_val = df[col].mean()
+                std_val = df[col].std()
+                if std_val > 0:
+                    df_norm[col] = (df[col] - mean_val) / std_val
+    
+    return df_norm
 
-def main():
-    # Example usage
-    data = {
-        'id': [1, 2, 2, 3, 4, 4, 5],
-        'value': [10, 20, 20, 30, None, 50, 60],
-        'category': ['A', 'B', 'B', 'C', 'D', 'D', 'E']
-    }
+def validate_dataframe(
+    df: pd.DataFrame,
+    required_columns: Optional[List[str]] = None,
+    min_rows: int = 1
+) -> bool:
+    """
+    Validate DataFrame structure and content.
     
-    df = pd.DataFrame(data)
-    print("Original DataFrame:")
-    print(df)
-    print()
+    Parameters:
+    df: DataFrame to validate
+    required_columns: List of columns that must be present
+    min_rows: Minimum number of rows required
     
-    # Remove duplicates
-    df_clean = remove_duplicates(df, subset=['id', 'category'])
-    print()
+    Returns:
+    Boolean indicating if DataFrame is valid
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False
     
-    # Clean missing values
-    df_clean = clean_missing_values(df_clean, strategy='mean')
-    print("DataFrame after cleaning:")
-    print(df_clean)
-    print()
+    if len(df) < min_rows:
+        return False
     
-    # Validate data
-    validation_rules = {
-        'id': {'min': 1, 'max': 100},
-        'value': {'min': 0, 'max': 100}
-    }
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            return False
     
-    validation_results = validate_data(df_clean, validation_rules)
-    print("Validation Results:")
-    print(f"Passed: {validation_results['passed']}")
-    print(f"Errors: {validation_results['errors']}")
-    print(f"Warnings: {validation_results['warnings']}")
-
-if __name__ == "__main__":
-    main()
+    return True
