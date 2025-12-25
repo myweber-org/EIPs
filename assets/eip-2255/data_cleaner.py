@@ -380,4 +380,30 @@ def validate_dataframe(df, required_columns=None, min_rows=1):
         if missing_columns:
             return False, f"Missing required columns: {missing_columns}"
     
-    return True, "DataFrame is valid"
+    return True, "DataFrame is valid"import pandas as pd
+
+def clean_dataset(df, column_name):
+    """
+    Remove duplicate rows and normalize string values in specified column.
+    """
+    # Remove duplicates
+    df_cleaned = df.drop_duplicates().reset_index(drop=True)
+    
+    # Normalize strings: strip whitespace and convert to lowercase
+    if column_name in df_cleaned.columns:
+        df_cleaned[column_name] = df_cleaned[column_name].astype(str).str.strip().str.lower()
+    
+    return df_cleaned
+
+def validate_email_column(df, email_column):
+    """
+    Validate email format in specified column.
+    """
+    if email_column not in df.columns:
+        raise ValueError(f"Column '{email_column}' not found in DataFrame")
+    
+    # Simple email validation regex
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    valid_emails = df[email_column].str.match(email_pattern, na=False)
+    
+    return df[valid_emails].reset_index(drop=True)
