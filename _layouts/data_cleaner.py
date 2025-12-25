@@ -435,4 +435,39 @@ def load_and_clean_data(filepath, cleaning_steps=None):
             elif step['action'] == 'normalize':
                 cleaner.normalize_data(**step.get('params', {}))
     
-    return cleaner.get_cleaned_data(), cleaner.get_summary()
+    return cleaner.get_cleaned_data(), cleaner.get_summary()def remove_duplicates(input_list):
+    """
+    Remove duplicate elements from a list while preserving order.
+    Returns a new list with unique elements.
+    """
+    seen = set()
+    result = []
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+def clean_numeric_strings(string_list):
+    """
+    Clean a list of strings by converting numeric strings to integers.
+    Non-numeric strings are kept as-is.
+    """
+    cleaned = []
+    for s in string_list:
+        s = s.strip()
+        if s.isdigit():
+            cleaned.append(int(s))
+        else:
+            cleaned.append(s)
+    return cleaned
+
+if __name__ == "__main__":
+    sample_data = [1, 2, 2, 3, 4, 4, 5, "5", " 6 ", "abc"]
+    print("Original:", sample_data)
+    
+    unique_data = remove_duplicates(sample_data)
+    print("After deduplication:", unique_data)
+    
+    cleaned_data = clean_numeric_strings(unique_data)
+    print("After cleaning:", cleaned_data)
