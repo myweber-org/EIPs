@@ -200,3 +200,63 @@ def validate_data(df, required_columns=None):
             return False, f"Missing required columns: {missing_cols}"
     
     return True, "Data validation passed"
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+def load_and_clean_data(filepath):
+    """
+    Load CSV data and perform cleaning operations.
+    """
+    try:
+        df = pd.read_csv(filepath)
+        print(f"Loaded data with shape: {df.shape}")
+    except FileNotFoundError:
+        print(f"Error: File not found at {filepath}")
+        return None
+    
+    # Remove duplicate rows
+    initial_count = len(df)
+    df = df.drop_duplicates()
+    duplicates_removed = initial_count - len(df)
+    print(f"Removed {duplicates_removed} duplicate rows")
+    
+    # Handle missing values
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        if df[col].isnull().sum() > 0:
+            df[col].fillna(df[col].median(), inplace=True)
+    
+    # Remove outliers using z-score method
+    z_scores = np.abs(stats.zscore(df[numeric_cols]))
+    outlier_mask = (z_scores < 3).all(axis=1)
+    df_clean = df[outlier_mask]
+    outliers_removed = len(df) - len(df_clean)
+    print(f"Removed {outliers_removed} outliers using z-score method")
+    
+    # Normalize numeric columns
+    for col in numeric_cols:
+        if df_clean[col].std() > 0:
+            df_clean[col] = (df_clean[col] - df_clean[col].mean()) / df_clean[col].std()
+    
+    print(f"Final cleaned data shape: {df_clean.shape}")
+    return df_clean
+
+def save_cleaned_data(df, output_path):
+    """
+    Save cleaned DataFrame to CSV.
+    """
+    if df is not None:
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to {output_path}")
+        return True
+    return False
+
+if __name__ == "__main__":
+    # Example usage
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    
+    cleaned_df = load_and_clean_data(input_file)
+    if cleaned_df is not None:
+        save_cleaned_data(cleaned_df, output_file)
