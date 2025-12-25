@@ -698,3 +698,45 @@ if __name__ == "__main__":
     normalized_df = normalize_data(cleaned_df, method='minmax')
     print("\nNormalized data sample:")
     print(normalized_df.head())
+import re
+from typing import List, Optional
+
+def remove_duplicates(input_list: List) -> List:
+    """
+    Remove duplicate items from a list while preserving order.
+    """
+    seen = set()
+    result = []
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+def validate_email(email: str) -> bool:
+    """
+    Validate an email address format.
+    """
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(pattern, email) is not None
+
+def sanitize_string(text: str, max_length: Optional[int] = None) -> str:
+    """
+    Sanitize a string by stripping whitespace and optionally truncating.
+    """
+    cleaned = text.strip()
+    if max_length and len(cleaned) > max_length:
+        cleaned = cleaned[:max_length]
+    return cleaned
+
+def normalize_numbers(numbers: List[float]) -> List[float]:
+    """
+    Normalize a list of numbers to range [0, 1].
+    """
+    if not numbers:
+        return []
+    min_val = min(numbers)
+    max_val = max(numbers)
+    if max_val == min_val:
+        return [0.0] * len(numbers)
+    return [(x - min_val) / (max_val - min_val) for x in numbers]
