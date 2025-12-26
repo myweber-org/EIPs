@@ -272,3 +272,59 @@ if __name__ == "__main__":
     
     is_valid, message = validate_dataframe(cleaned_df, required_columns=['Name', 'Email', 'Age'])
     print(f"\nValidation: {message}")
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+def load_data(filepath):
+    return pd.read_csv(filepath)
+
+def remove_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+def remove_outliers_zscore(df, column, threshold=3):
+    z_scores = np.abs(stats.zscore(df[column]))
+    return df[z_scores < threshold]
+
+def normalize_minmax(df, column):
+    min_val = df[column].min()
+    max_val = df[column].max()
+    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
+    return df
+
+def normalize_zscore(df, column):
+    mean_val = df[column].mean()
+    std_val = df[column].std()
+    df[column + '_standardized'] = (df[column] - mean_val) / std_val
+    return df
+
+def clean_dataset(filepath, numeric_columns, method='iqr', normalize=True):
+    df = load_data(filepath)
+    
+    for col in numeric_columns:
+        if method == 'iqr':
+            df = remove_outliers_iqr(df, col)
+        elif method == 'zscore':
+            df = remove_outliers_zscore(df, col)
+        
+        if normalize:
+            df = normalize_minmax(df, col)
+    
+    return df
+
+def save_cleaned_data(df, output_path):
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to {output_path}")
+
+if __name__ == "__main__":
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    numeric_cols = ['age', 'income', 'score']
+    
+    cleaned_df = clean_dataset(input_file, numeric_cols, method='iqr', normalize=True)
+    save_cleaned_data(cleaned_df, output_file)
