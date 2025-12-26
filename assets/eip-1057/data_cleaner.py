@@ -132,3 +132,72 @@ def validate_dataframe(df):
     }
     
     return validation_report
+import pandas as pd
+import numpy as np
+from typing import Optional
+
+class DataCleaner:
+    def __init__(self, df: pd.DataFrame):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_duplicates(self, subset: Optional[list] = None) -> pd.DataFrame:
+        self.df = self.df.drop_duplicates(subset=subset, keep='first')
+        return self.df
+    
+    def handle_missing_values(self, strategy: str = 'mean', fill_value: Optional[float] = None) -> pd.DataFrame:
+        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+        
+        if strategy == 'mean':
+            self.df[numeric_cols] = self.df[numeric_cols].fillna(self.df[numeric_cols].mean())
+        elif strategy == 'median':
+            self.df[numeric_cols] = self.df[numeric_cols].fillna(self.df[numeric_cols].median())
+        elif strategy == 'mode':
+            self.df[numeric_cols] = self.df[numeric_cols].fillna(self.df[numeric_cols].mode().iloc[0])
+        elif strategy == 'constant' and fill_value is not None:
+            self.df[numeric_cols] = self.df[numeric_cols].fillna(fill_value)
+        elif strategy == 'drop':
+            self.df = self.df.dropna(subset=numeric_cols)
+        
+        return self.df
+    
+    def normalize_numeric(self, method: str = 'minmax') -> pd.DataFrame:
+        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+        
+        if method == 'minmax':
+            for col in numeric_cols:
+                min_val = self.df[col].min()
+                max_val = self.df[col].max()
+                if max_val > min_val:
+                    self.df[col] = (self.df[col] - min_val) / (max_val - min_val)
+        elif method == 'zscore':
+            for col in numeric_cols:
+                mean_val = self.df[col].mean()
+                std_val = self.df[col].std()
+                if std_val > 0:
+                    self.df[col] = (self.df[col] - mean_val) / std_val
+        
+        return self.df
+    
+    def get_cleaning_report(self) -> dict:
+        removed_rows = self.original_shape[0] - self.df.shape[0]
+        removed_cols = self.original_shape[1] - self.df.shape[1]
+        
+        report = {
+            'original_shape': self.original_shape,
+            'cleaned_shape': self.df.shape,
+            'rows_removed': removed_rows,
+            'columns_removed': removed_cols,
+            'missing_values': self.df.isnull().sum().to_dict(),
+            'data_types': self.df.dtypes.astype(str).to_dict()
+        }
+        
+        return report
+    
+    def save_cleaned_data(self, filepath: str, format: str = 'csv') -> None:
+        if format == 'csv':
+            self.df.to_csv(filepath, index=False)
+        elif format == 'excel':
+            self.df.to_excel(filepath, index=False)
+        elif format == 'parquet':
+            self.df.to_parquet(filepath, index=False)
