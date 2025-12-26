@@ -1,70 +1,96 @@
-import numpy as np
+
 import pandas as pd
+import numpy as np
 
-def remove_outliers_iqr(df, column):
+def clean_dataframe(df, drop_duplicates=True, standardize_columns=True):
     """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
+    Clean a pandas DataFrame by removing duplicates and standardizing column names.
     
-    Parameters:
-    df (pd.DataFrame): The input DataFrame.
-    column (str): The column name to clean.
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        drop_duplicates (bool): Whether to remove duplicate rows.
+        standardize_columns (bool): Whether to standardize column names.
     
     Returns:
-    pd.DataFrame: DataFrame with outliers removed.
+        pd.DataFrame: Cleaned DataFrame.
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    cleaned_df = df.copy()
     
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
+    if drop_duplicates:
+        initial_rows = len(cleaned_df)
+        cleaned_df = cleaned_df.drop_duplicates()
+        removed = initial_rows - len(cleaned_df)
+        print(f"Removed {removed} duplicate rows.")
     
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
+    if standardize_columns:
+        cleaned_df.columns = cleaned_df.columns.str.strip().str.lower().str.replace(' ', '_')
+        print("Column names standardized.")
     
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    
-    return filtered_df
+    return cleaned_df
 
-def calculate_summary_statistics(df, column):
+def validate_dataframe(df, required_columns=None):
     """
-    Calculate summary statistics for a DataFrame column.
+    Validate DataFrame structure and content.
     
-    Parameters:
-    df (pd.DataFrame): The input DataFrame.
-    column (str): The column name to analyze.
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list): List of required column names.
     
     Returns:
-    dict: Dictionary containing summary statistics.
+        dict: Validation results.
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    stats = {
-        'mean': df[column].mean(),
-        'median': df[column].median(),
-        'std': df[column].std(),
-        'min': df[column].min(),
-        'max': df[column].max(),
-        'count': df[column].count(),
-        'missing': df[column].isnull().sum()
+    validation_results = {
+        'is_valid': True,
+        'missing_columns': [],
+        'null_counts': {},
+        'dtypes': {}
     }
     
-    return stats
+    if required_columns:
+        missing = [col for col in required_columns if col not in df.columns]
+        if missing:
+            validation_results['is_valid'] = False
+            validation_results['missing_columns'] = missing
+    
+    for column in df.columns:
+        null_count = df[column].isnull().sum()
+        validation_results['null_counts'][column] = null_count
+        validation_results['dtypes'][column] = str(df[column].dtype)
+    
+    return validation_results
+
+def sample_data():
+    """
+    Create sample data for testing.
+    
+    Returns:
+        pd.DataFrame: Sample DataFrame with test data.
+    """
+    data = {
+        'User ID': [1, 2, 3, 1, 2, 4],
+        'First Name': ['John', 'Jane', 'Bob', 'John', 'Jane', 'Alice'],
+        'Last Name': ['Doe', 'Smith', 'Johnson', 'Doe', 'Smith', 'Brown'],
+        'Email': ['john@example.com', 'jane@example.com', 'bob@example.com', 
+                  'john@example.com', 'jane@example.com', 'alice@example.com'],
+        'Age': [25, 30, 35, 25, 30, 28],
+        'Salary': [50000, 60000, 70000, 50000, 60000, 55000]
+    }
+    
+    return pd.DataFrame(data)
 
 if __name__ == "__main__":
-    sample_data = {
-        'values': [10, 12, 12, 13, 12, 11, 14, 13, 15, 102, 12, 14, 13, 12, 11, 10, 14, 13, 12, 11]
-    }
-    
-    df = pd.DataFrame(sample_data)
+    # Example usage
+    df = sample_data()
     print("Original DataFrame:")
     print(df)
-    print("\nOriginal Statistics:")
-    print(calculate_summary_statistics(df, 'values'))
+    print("\n" + "="*50 + "\n")
     
-    cleaned_df = remove_outliers_iqr(df, 'values')
+    cleaned_df = clean_dataframe(df)
     print("\nCleaned DataFrame:")
     print(cleaned_df)
-    print("\nCleaned Statistics:")
-    print(calculate_summary_statistics(cleaned_df, 'values'))
+    print("\n" + "="*50 + "\n")
+    
+    validation = validate_dataframe(cleaned_df, required_columns=['user_id', 'email'])
+    print("Validation Results:")
+    for key, value in validation.items():
+        print(f"{key}: {value}")
