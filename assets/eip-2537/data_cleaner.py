@@ -752,4 +752,95 @@ def validate_data(data, required_columns, check_missing=True, check_duplicates=T
         duplicate_rows = data.duplicated().sum()
         validation_report['duplicate_rows'] = duplicate_rows
     
-    return validation_report
+    return validation_reportimport pandas as pd
+import numpy as np
+
+def clean_missing_data(df, strategy='mean', columns=None):
+    """
+    Clean missing data in a pandas DataFrame.
+
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    strategy (str): Strategy for handling missing values.
+                    Options: 'mean', 'median', 'mode', 'drop', 'fill'.
+    columns (list): List of column names to apply cleaning. If None, applies to all columns.
+
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    if df.empty:
+        return df
+
+    if columns is None:
+        columns = df.columns
+
+    df_clean = df.copy()
+
+    for col in columns:
+        if col not in df_clean.columns:
+            continue
+
+        if df_clean[col].isnull().sum() == 0:
+            continue
+
+        if strategy == 'drop':
+            df_clean = df_clean.dropna(subset=[col])
+        elif strategy == 'mean':
+            if pd.api.types.is_numeric_dtype(df_clean[col]):
+                df_clean[col].fillna(df_clean[col].mean(), inplace=True)
+        elif strategy == 'median':
+            if pd.api.types.is_numeric_dtype(df_clean[col]):
+                df_clean[col].fillna(df_clean[col].median(), inplace=True)
+        elif strategy == 'mode':
+            df_clean[col].fillna(df_clean[col].mode()[0] if not df_clean[col].mode().empty else np.nan, inplace=True)
+        elif strategy == 'fill':
+            df_clean[col].fillna(method='ffill', inplace=True)
+            df_clean[col].fillna(method='bfill', inplace=True)
+        else:
+            raise ValueError(f"Unknown strategy: {strategy}")
+
+    return df_clean
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+    required_columns (list): List of required column names.
+
+    Returns:
+    bool: True if validation passes, False otherwise.
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False
+
+    if df.empty:
+        return False
+
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False
+
+    return True
+
+def load_and_clean_csv(file_path, **kwargs):
+    """
+    Load CSV file and clean missing data.
+
+    Parameters:
+    file_path (str): Path to CSV file.
+    **kwargs: Additional arguments passed to clean_missing_data.
+
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    try:
+        df = pd.read_csv(file_path)
+        if validate_dataframe(df):
+            return clean_missing_data(df, **kwargs)
+        return df
+    except Exception as e:
+        print(f"Error loading or cleaning file: {e}")
+        return pd.DataFrame()
