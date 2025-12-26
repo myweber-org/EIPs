@@ -722,4 +722,104 @@ if __name__ == "__main__":
     
     cleaned_data = cleaner.get_data()
     print(f"\nCleaned data shape: {cleaned_data.shape}")
-    print(f"First 5 rows:\n{cleaned_data.head()}")
+    print(f"First 5 rows:\n{cleaned_data.head()}")import pandas as pd
+import numpy as np
+
+def clean_csv_data(file_path, output_path=None):
+    """
+    Load a CSV file, perform basic cleaning operations,
+    and optionally save the cleaned data.
+    """
+    try:
+        df = pd.read_csv(file_path)
+        print(f"Original shape: {df.shape}")
+        
+        # Remove duplicate rows
+        df = df.drop_duplicates()
+        print(f"After removing duplicates: {df.shape}")
+        
+        # Fill missing numeric values with column median
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            if df[col].isnull().sum() > 0:
+                median_val = df[col].median()
+                df[col] = df[col].fillna(median_val)
+                print(f"Filled missing values in {col} with median: {median_val}")
+        
+        # Fill missing categorical values with mode
+        categorical_cols = df.select_dtypes(include=['object']).columns
+        for col in categorical_cols:
+            if df[col].isnull().sum() > 0:
+                mode_val = df[col].mode()[0] if not df[col].mode().empty else 'Unknown'
+                df[col] = df[col].fillna(mode_val)
+                print(f"Filled missing values in {col} with mode: {mode_val}")
+        
+        # Remove columns with too many missing values (threshold: 50%)
+        missing_threshold = 0.5
+        cols_to_drop = []
+        for col in df.columns:
+            missing_ratio = df[col].isnull().sum() / len(df)
+            if missing_ratio > missing_threshold:
+                cols_to_drop.append(col)
+        
+        if cols_to_drop:
+            df = df.drop(columns=cols_to_drop)
+            print(f"Dropped columns with >{missing_threshold*100}% missing values: {cols_to_drop}")
+        
+        print(f"Final cleaned shape: {df.shape}")
+        
+        # Save cleaned data if output path is provided
+        if output_path:
+            df.to_csv(output_path, index=False)
+            print(f"Cleaned data saved to: {output_path}")
+        
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: File not found at {file_path}")
+        return None
+    except pd.errors.EmptyDataError:
+        print("Error: The CSV file is empty")
+        return None
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        return None
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate the structure and content of a DataFrame.
+    """
+    if df is None or df.empty:
+        print("DataFrame is empty or None")
+        return False
+    
+    print(f"DataFrame validation:")
+    print(f"  - Shape: {df.shape}")
+    print(f"  - Columns: {list(df.columns)}")
+    print(f"  - Missing values per column:")
+    for col in df.columns:
+        missing_count = df[col].isnull().sum()
+        if missing_count > 0:
+            print(f"    {col}: {missing_count} missing values")
+    
+    # Check for required columns if specified
+    if required_columns:
+        missing_required = [col for col in required_columns if col not in df.columns]
+        if missing_required:
+            print(f"  - Missing required columns: {missing_required}")
+            return False
+    
+    return True
+
+# Example usage
+if __name__ == "__main__":
+    # Test with a sample file path (this would need to exist)
+    sample_file = "sample_data.csv"
+    cleaned_df = clean_csv_data(sample_file, "cleaned_data.csv")
+    
+    if cleaned_df is not None:
+        is_valid = validate_dataframe(cleaned_df)
+        if is_valid:
+            print("Data cleaning completed successfully")
+        else:
+            print("Data validation failed")
