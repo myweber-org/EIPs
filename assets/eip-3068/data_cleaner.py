@@ -607,4 +607,77 @@ def get_data_summary(df):
         'max': df.select_dtypes(include=[np.number]).max()
     })
     
-    return summary
+    return summaryimport pandas as pd
+import numpy as np
+
+def clean_missing_data(file_path, strategy='mean', columns=None):
+    """
+    Load a CSV file and handle missing values using specified strategy.
+    
+    Args:
+        file_path (str): Path to the CSV file.
+        strategy (str): Method for handling missing values. 
+                       Options: 'mean', 'median', 'mode', 'drop'.
+        columns (list): Specific columns to clean. If None, clean all columns.
+    
+    Returns:
+        pandas.DataFrame: Cleaned dataframe.
+    """
+    
+    try:
+        df = pd.read_csv(file_path)
+    except FileNotFoundError:
+        print(f"Error: File not found at {file_path}")
+        return None
+    
+    if columns is None:
+        columns = df.columns
+    
+    for col in columns:
+        if col not in df.columns:
+            print(f"Warning: Column '{col}' not found in dataframe")
+            continue
+            
+        if df[col].isnull().any():
+            if strategy == 'mean' and pd.api.types.is_numeric_dtype(df[col]):
+                fill_value = df[col].mean()
+            elif strategy == 'median' and pd.api.types.is_numeric_dtype(df[col]):
+                fill_value = df[col].median()
+            elif strategy == 'mode':
+                fill_value = df[col].mode()[0] if not df[col].mode().empty else np.nan
+            elif strategy == 'drop':
+                df = df.dropna(subset=[col])
+                continue
+            else:
+                print(f"Warning: Invalid strategy '{strategy}' for column '{col}'")
+                continue
+                
+            df[col] = df[col].fillna(fill_value)
+            print(f"Filled missing values in column '{col}' using {strategy}")
+    
+    return df
+
+def save_cleaned_data(df, output_path):
+    """
+    Save cleaned dataframe to CSV file.
+    
+    Args:
+        df (pandas.DataFrame): Dataframe to save.
+        output_path (str): Path for output CSV file.
+    """
+    if df is not None:
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to {output_path}")
+
+if __name__ == "__main__":
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    
+    cleaned_df = clean_missing_data(input_file, strategy='median')
+    
+    if cleaned_df is not None:
+        save_cleaned_data(cleaned_df, output_file)
+        print(f"Original shape: {pd.read_csv(input_file).shape}")
+        print(f"Cleaned shape: {cleaned_df.shape}")
+        print("Missing values after cleaning:")
+        print(cleaned_df.isnull().sum())
