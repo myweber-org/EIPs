@@ -794,4 +794,69 @@ def clean_dataset(df, numeric_columns):
         if col in cleaned_df.columns:
             cleaned_df = remove_outliers_iqr(cleaned_df, col)
     cleaned_df = cleaned_df.reset_index(drop=True)
-    return cleaned_df
+    return cleaned_dfimport numpy as np
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specified column using the Interquartile Range method.
+    
+    Parameters:
+    data (np.ndarray): Input data array
+    column (int): Index of column to process
+    
+    Returns:
+    np.ndarray: Data with outliers removed
+    """
+    if data.size == 0:
+        return data
+    
+    col_data = data[:, column]
+    q1 = np.percentile(col_data, 25)
+    q3 = np.percentile(col_data, 75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - 1.5 * iqr
+    upper_bound = q3 + 1.5 * iqr
+    
+    mask = (col_data >= lower_bound) & (col_data <= upper_bound)
+    return data[mask]
+
+def calculate_statistics(data, column):
+    """
+    Calculate basic statistics for a column after outlier removal.
+    
+    Parameters:
+    data (np.ndarray): Input data array
+    column (int): Index of column to analyze
+    
+    Returns:
+    dict: Dictionary containing statistical measures
+    """
+    if data.size == 0:
+        return {}
+    
+    col_data = data[:, column]
+    stats = {
+        'mean': np.mean(col_data),
+        'median': np.median(col_data),
+        'std': np.std(col_data),
+        'min': np.min(col_data),
+        'max': np.max(col_data),
+        'count': len(col_data)
+    }
+    return stats
+
+def process_dataset(data, column_index):
+    """
+    Complete pipeline for processing a dataset column.
+    
+    Parameters:
+    data (np.ndarray): Input data array
+    column_index (int): Index of column to process
+    
+    Returns:
+    tuple: Cleaned data and statistics dictionary
+    """
+    cleaned_data = remove_outliers_iqr(data, column_index)
+    stats = calculate_statistics(cleaned_data, column_index)
+    return cleaned_data, stats
