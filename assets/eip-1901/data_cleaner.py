@@ -376,4 +376,68 @@ if __name__ == "__main__":
     print("Original shape:", sample_data.shape)
     print("Cleaned shape:", cleaned_data.shape)
     print("\nSummary statistics:")
-    print(summary_stats)
+    print(summary_stats)import pandas as pd
+
+def clean_dataset(df, column_names):
+    """
+    Clean a pandas DataFrame by removing duplicates and normalizing specified string columns.
+    
+    Args:
+        df: pandas DataFrame to clean.
+        column_names: List of column names to normalize (strip whitespace, lowercase).
+    
+    Returns:
+        Cleaned pandas DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    # Remove duplicate rows
+    cleaned_df = cleaned_df.drop_duplicates()
+    
+    # Normalize string columns
+    for col in column_names:
+        if col in cleaned_df.columns:
+            cleaned_df[col] = cleaned_df[col].astype(str).str.strip().str.lower()
+    
+    # Reset index after cleaning
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    return cleaned_df
+
+def validate_email_column(df, email_column):
+    """
+    Validate email addresses in a specified column using a simple regex pattern.
+    
+    Args:
+        df: pandas DataFrame containing the email column.
+        email_column: Name of the column containing email addresses.
+    
+    Returns:
+        DataFrame with an additional boolean column indicating valid emails.
+    """
+    import re
+    
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    
+    df['valid_email'] = df[email_column].apply(lambda x: bool(re.match(pattern, str(x))))
+    
+    return df
+
+def save_cleaned_data(df, output_path, format='csv'):
+    """
+    Save the cleaned DataFrame to a file.
+    
+    Args:
+        df: pandas DataFrame to save.
+        output_path: Path where the file will be saved.
+        format: File format ('csv' or 'excel').
+    
+    Returns:
+        None
+    """
+    if format == 'csv':
+        df.to_csv(output_path, index=False)
+    elif format == 'excel':
+        df.to_excel(output_path, index=False)
+    else:
+        raise ValueError("Unsupported format. Use 'csv' or 'excel'.")
