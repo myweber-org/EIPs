@@ -403,4 +403,66 @@ if __name__ == "__main__":
         stats = calculate_summary_statistics(cleaned_df, column)
         print(f"\nStatistics for {column}:")
         for key, value in stats.items():
-            print(f"  {key}: {value:.2f}")
+            print(f"  {key}: {value:.2f}")import pandas as pd
+import numpy as np
+
+def load_and_clean_data(filepath):
+    """
+    Load a CSV file and perform basic data cleaning.
+    """
+    try:
+        df = pd.read_csv(filepath)
+    except FileNotFoundError:
+        print(f"Error: File not found at {filepath}")
+        return None
+    except Exception as e:
+        print(f"Error loading file: {e}")
+        return None
+
+    print(f"Original shape: {df.shape}")
+
+    # Remove duplicate rows
+    df = df.drop_duplicates()
+    print(f"After removing duplicates: {df.shape}")
+
+    # Handle missing values: drop rows where all values are NaN
+    df = df.dropna(how='all')
+    # For numeric columns, fill missing values with column median
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    df[numeric_cols] = df[numeric_cols].apply(lambda x: x.fillna(x.median()))
+
+    # Remove outliers using IQR method for numeric columns
+    for col in numeric_cols:
+        Q1 = df[col].quantile(0.25)
+        Q3 = df[col].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+        df = df[(df[col] >= lower_bound) & (df[col] <= upper_bound)]
+
+    print(f"After outlier removal: {df.shape}")
+
+    # Normalize numeric columns to range [0, 1]
+    for col in numeric_cols:
+        if df[col].max() != df[col].min():  # Avoid division by zero
+            df[col] = (df[col] - df[col].min()) / (df[col].max() - df[col].min())
+
+    print("Data cleaning completed.")
+    return df
+
+def save_cleaned_data(df, output_filepath):
+    """
+    Save the cleaned DataFrame to a CSV file.
+    """
+    if df is not None:
+        df.to_csv(output_filepath, index=False)
+        print(f"Cleaned data saved to {output_filepath}")
+    else:
+        print("No data to save.")
+
+if __name__ == "__main__":
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+
+    cleaned_df = load_and_clean_data(input_file)
+    save_cleaned_data(cleaned_df, output_file)
