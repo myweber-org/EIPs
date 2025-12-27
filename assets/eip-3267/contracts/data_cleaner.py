@@ -1,6 +1,6 @@
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 def remove_outliers_iqr(df, column):
     """
@@ -8,7 +8,7 @@ def remove_outliers_iqr(df, column):
     
     Parameters:
     df (pd.DataFrame): Input DataFrame
-    column (str): Column name to process
+    column (str): Column name to clean
     
     Returns:
     pd.DataFrame: DataFrame with outliers removed
@@ -25,80 +25,58 @@ def remove_outliers_iqr(df, column):
     
     filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
     
-    return filtered_df
+    return filtered_df.reset_index(drop=True)
 
-def calculate_summary_statistics(df):
+def calculate_summary_stats(df, column):
     """
-    Calculate summary statistics for numeric columns.
+    Calculate summary statistics for a column.
     
     Parameters:
     df (pd.DataFrame): Input DataFrame
+    column (str): Column name
     
     Returns:
-    pd.DataFrame: Summary statistics
+    dict: Dictionary containing summary statistics
     """
-    numeric_cols = df.select_dtypes(include=[np.number]).columns
-    if len(numeric_cols) == 0:
-        return pd.DataFrame()
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    stats = df[numeric_cols].agg(['count', 'mean', 'std', 'min', 'max'])
-    return stats.T
+    stats = {
+        'mean': df[column].mean(),
+        'median': df[column].median(),
+        'std': df[column].std(),
+        'min': df[column].min(),
+        'max': df[column].max(),
+        'count': df[column].count(),
+        'missing': df[column].isnull().sum()
+    }
+    
+    return stats
 
-def handle_missing_values(df, strategy='mean'):
+def example_usage():
     """
-    Handle missing values in numeric columns.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    strategy (str): Imputation strategy ('mean', 'median', 'mode', or 'drop')
-    
-    Returns:
-    pd.DataFrame: DataFrame with handled missing values
+    Example usage of the data cleaning functions.
     """
-    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    np.random.seed(42)
     
-    if strategy == 'drop':
-        return df.dropna(subset=numeric_cols)
+    data = {
+        'id': range(100),
+        'value': np.random.normal(100, 15, 100)
+    }
     
-    for col in numeric_cols:
-        if df[col].isnull().any():
-            if strategy == 'mean':
-                fill_value = df[col].mean()
-            elif strategy == 'median':
-                fill_value = df[col].median()
-            elif strategy == 'mode':
-                fill_value = df[col].mode()[0]
-            else:
-                raise ValueError(f"Unknown strategy: {strategy}")
-            
-            df[col] = df[col].fillna(fill_value)
+    df = pd.DataFrame(data)
     
-    return df
+    print("Original DataFrame shape:", df.shape)
+    print("Original summary statistics:")
+    print(calculate_summary_stats(df, 'value'))
+    
+    cleaned_df = remove_outliers_iqr(df, 'value')
+    
+    print("\nCleaned DataFrame shape:", cleaned_df.shape)
+    print("Cleaned summary statistics:")
+    print(calculate_summary_stats(cleaned_df, 'value'))
+    
+    return cleaned_df
 
-def normalize_data(df, columns=None):
-    """
-    Normalize numeric columns using min-max scaling.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    columns (list): List of columns to normalize. If None, normalize all numeric columns.
-    
-    Returns:
-    pd.DataFrame: DataFrame with normalized columns
-    """
-    if columns is None:
-        columns = df.select_dtypes(include=[np.number]).columns
-    
-    normalized_df = df.copy()
-    
-    for col in columns:
-        if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
-            col_min = df[col].min()
-            col_max = df[col].max()
-            
-            if col_max != col_min:
-                normalized_df[col] = (df[col] - col_min) / (col_max - col_min)
-            else:
-                normalized_df[col] = 0
-    
-    return normalized_df
+if __name__ == "__main__":
+    cleaned_data = example_usage()
