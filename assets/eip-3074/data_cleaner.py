@@ -1082,3 +1082,108 @@ def get_data_summary(df):
         summary = summary.join(numeric_stats, how='left')
     
     return summary
+import pandas as pd
+import numpy as np
+
+def clean_csv_data(file_path, fill_strategy='mean'):
+    """
+    Load a CSV file, handle missing values, and return cleaned DataFrame.
+    
+    Args:
+        file_path (str): Path to the CSV file.
+        fill_strategy (str): Strategy for filling missing values.
+            Options: 'mean', 'median', 'zero', 'ffill'.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    try:
+        df = pd.read_csv(file_path)
+        print(f"Loaded data with shape: {df.shape}")
+        
+        missing_count = df.isnull().sum().sum()
+        if missing_count > 0:
+            print(f"Found {missing_count} missing values")
+            
+            if fill_strategy == 'mean':
+                df = df.fillna(df.mean(numeric_only=True))
+            elif fill_strategy == 'median':
+                df = df.fillna(df.median(numeric_only=True))
+            elif fill_strategy == 'zero':
+                df = df.fillna(0)
+            elif fill_strategy == 'ffill':
+                df = df.fillna(method='ffill')
+            else:
+                raise ValueError(f"Unknown fill strategy: {fill_strategy}")
+            
+            print(f"Missing values filled using '{fill_strategy}' strategy")
+        
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: File not found at {file_path}")
+        return None
+    except Exception as e:
+        print(f"Error during data cleaning: {e}")
+        return None
+
+def remove_outliers_iqr(df, column, multiplier=1.5):
+    """
+    Remove outliers from a DataFrame column using IQR method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        column (str): Column name to process.
+        multiplier (float): IQR multiplier for outlier detection.
+    
+    Returns:
+        pd.DataFrame: DataFrame with outliers removed.
+    """
+    if column not in df.columns:
+        print(f"Column '{column}' not found in DataFrame")
+        return df
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - multiplier * IQR
+    upper_bound = Q3 + multiplier * IQR
+    
+    original_count = len(df)
+    df_clean = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    removed_count = original_count - len(df_clean)
+    
+    print(f"Removed {removed_count} outliers from column '{column}'")
+    
+    return df_clean
+
+def save_cleaned_data(df, output_path):
+    """
+    Save cleaned DataFrame to CSV file.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to save.
+        output_path (str): Path for output CSV file.
+    
+    Returns:
+        bool: True if successful, False otherwise.
+    """
+    try:
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to: {output_path}")
+        return True
+    except Exception as e:
+        print(f"Error saving data: {e}")
+        return False
+
+if __name__ == "__main__":
+    # Example usage
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    
+    cleaned_df = clean_csv_data(input_file, fill_strategy='median')
+    
+    if cleaned_df is not None:
+        cleaned_df = remove_outliers_iqr(cleaned_df, 'value_column')
+        save_cleaned_data(cleaned_df, output_file)
