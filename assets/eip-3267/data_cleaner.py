@@ -83,3 +83,120 @@ if __name__ == "__main__":
     
     is_valid = validate_data(cleaned, required_columns=['A', 'B'], min_rows=3)
     print(f"\nData is valid: {is_valid}")
+import pandas as pd
+import numpy as np
+
+def remove_missing_rows(df, columns=None):
+    """
+    Remove rows with missing values from specified columns or entire DataFrame.
+    
+    Args:
+        df: pandas DataFrame
+        columns: list of column names or None for all columns
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    if columns:
+        return df.dropna(subset=columns)
+    return df.dropna()
+
+def fill_missing_with_mean(df, columns):
+    """
+    Fill missing values in specified columns with column mean.
+    
+    Args:
+        df: pandas DataFrame
+        columns: list of column names
+    
+    Returns:
+        DataFrame with filled values
+    """
+    df_filled = df.copy()
+    for col in columns:
+        if col in df.columns:
+            df_filled[col] = df_filled[col].fillna(df_filled[col].mean())
+    return df_filled
+
+def detect_outliers_iqr(df, column, multiplier=1.5):
+    """
+    Detect outliers using Interquartile Range method.
+    
+    Args:
+        df: pandas DataFrame
+        column: column name to check for outliers
+        multiplier: IQR multiplier (default 1.5)
+    
+    Returns:
+        Boolean Series indicating outliers
+    """
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - multiplier * IQR
+    upper_bound = Q3 + multiplier * IQR
+    
+    return (df[column] < lower_bound) | (df[column] > upper_bound)
+
+def remove_outliers(df, column, multiplier=1.5):
+    """
+    Remove outliers from specified column using IQR method.
+    
+    Args:
+        df: pandas DataFrame
+        column: column name
+        multiplier: IQR multiplier
+    
+    Returns:
+        DataFrame without outliers
+    """
+    outliers = detect_outliers_iqr(df, column, multiplier)
+    return df[~outliers].reset_index(drop=True)
+
+def standardize_column(df, column):
+    """
+    Standardize a column to have mean=0 and std=1.
+    
+    Args:
+        df: pandas DataFrame
+        column: column name
+    
+    Returns:
+        DataFrame with standardized column
+    """
+    df_standardized = df.copy()
+    if column in df.columns:
+        mean_val = df[column].mean()
+        std_val = df[column].std()
+        if std_val > 0:
+            df_standardized[column] = (df[column] - mean_val) / std_val
+    return df_standardized
+
+def clean_dataset(df, missing_strategy='remove', outlier_columns=None):
+    """
+    Comprehensive data cleaning function.
+    
+    Args:
+        df: pandas DataFrame
+        missing_strategy: 'remove' or 'mean'
+        outlier_columns: list of columns to remove outliers from
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    # Handle missing values
+    if missing_strategy == 'remove':
+        cleaned_df = remove_missing_rows(cleaned_df)
+    elif missing_strategy == 'mean':
+        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+        cleaned_df = fill_missing_with_mean(cleaned_df, numeric_cols)
+    
+    # Remove outliers from specified columns
+    if outlier_columns:
+        for col in outlier_columns:
+            if col in cleaned_df.columns:
+                cleaned_df = remove_outliers(cleaned_df, col)
+    
+    return cleaned_df
