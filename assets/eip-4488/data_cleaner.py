@@ -226,3 +226,42 @@ if __name__ == "__main__":
     print(f"Data cleaning complete. Original shape: {pd.read_csv(input_file).shape}")
     print(f"Cleaned data shape: {cleaned_df.shape}")
     print(f"Saved to: {output_file}")
+import pandas as pd
+import re
+
+def clean_dataframe(df, columns_to_clean=None):
+    """
+    Clean a pandas DataFrame by removing duplicate rows and normalizing string columns.
+    """
+    df_clean = df.copy()
+    
+    # Remove duplicate rows
+    df_clean = df_clean.drop_duplicates()
+    
+    # If specific columns are provided, clean only those; otherwise clean all object columns
+    if columns_to_clean is None:
+        columns_to_clean = df_clean.select_dtypes(include=['object']).columns
+    
+    for col in columns_to_clean:
+        if col in df_clean.columns and df_clean[col].dtype == 'object':
+            df_clean[col] = df_clean[col].apply(lambda x: normalize_string(x) if pd.notnull(x) else x)
+    
+    return df_clean
+
+def normalize_string(s):
+    """
+    Normalize a string by converting to lowercase, removing extra whitespace,
+    and stripping special characters (except basic punctuation).
+    """
+    s = str(s)
+    s = s.lower().strip()
+    s = re.sub(r'\s+', ' ', s)
+    s = re.sub(r'[^\w\s.,!?-]', '', s)
+    return s
+
+def validate_email(email):
+    """
+    Simple email validation using regex.
+    """
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, str(email))) if pd.notnull(email) else False
