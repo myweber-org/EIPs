@@ -1187,3 +1187,11 @@ if __name__ == "__main__":
     if cleaned_df is not None:
         cleaned_df = remove_outliers_iqr(cleaned_df, 'value_column')
         save_cleaned_data(cleaned_df, output_file)
+def remove_duplicates_preserve_order(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
