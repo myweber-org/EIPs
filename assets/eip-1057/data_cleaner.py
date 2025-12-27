@@ -200,4 +200,145 @@ class DataCleaner:
         elif format == 'excel':
             self.df.to_excel(filepath, index=False)
         elif format == 'parquet':
-            self.df.to_parquet(filepath, index=False)
+            self.df.to_parquet(filepath, index=False)import csv
+import re
+from typing import List, Dict, Any, Optional
+
+def clean_csv_data(input_file: str, output_file: str, columns_to_clean: Optional[List[str]] = None) -> None:
+    """
+    Clean data in a CSV file by removing extra whitespace and standardizing text.
+    
+    Args:
+        input_file: Path to the input CSV file
+        output_file: Path to the output cleaned CSV file
+        columns_to_clean: List of column names to clean. If None, clean all columns.
+    """
+    
+    def clean_string(value: str) -> str:
+        """Remove extra whitespace and standardize text."""
+        if not isinstance(value, str):
+            return value
+        
+        # Remove leading/trailing whitespace
+        cleaned = value.strip()
+        
+        # Replace multiple spaces with single space
+        cleaned = re.sub(r'\s+', ' ', cleaned)
+        
+        # Standardize capitalization for common terms
+        cleaned = cleaned.lower()
+        
+        return cleaned
+    
+    try:
+        with open(input_file, 'r', newline='', encoding='utf-8') as infile:
+            reader = csv.DictReader(infile)
+            fieldnames = reader.fieldnames
+            
+            if fieldnames is None:
+                raise ValueError("CSV file has no headers")
+            
+            rows = list(reader)
+        
+        # Clean the data
+        cleaned_rows = []
+        for row in rows:
+            cleaned_row = {}
+            for key, value in row.items():
+                if columns_to_clean is None or key in columns_to_clean:
+                    if isinstance(value, str):
+                        cleaned_row[key] = clean_string(value)
+                    else:
+                        cleaned_row[key] = value
+                else:
+                    cleaned_row[key] = value
+            cleaned_rows.append(cleaned_row)
+        
+        # Write cleaned data to output file
+        with open(output_file, 'w', newline='', encoding='utf-8') as outfile:
+            writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(cleaned_rows)
+            
+        print(f"Data cleaning complete. Cleaned file saved to: {output_file}")
+        
+    except FileNotFoundError:
+        print(f"Error: Input file '{input_file}' not found.")
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+
+def validate_email_format(email: str) -> bool:
+    """
+    Validate email format using regex pattern.
+    
+    Args:
+        email: Email address to validate
+        
+    Returns:
+        True if email format is valid, False otherwise
+    """
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, email))
+
+def remove_duplicates(data: List[Dict[str, Any]], key_columns: List[str]) -> List[Dict[str, Any]]:
+    """
+    Remove duplicate rows based on specified key columns.
+    
+    Args:
+        data: List of dictionaries representing rows
+        key_columns: List of column names to use for duplicate detection
+        
+    Returns:
+        List of unique rows
+    """
+    seen = set()
+    unique_data = []
+    
+    for row in data:
+        # Create a tuple of values from key columns
+        key_tuple = tuple(str(row.get(col, '')) for col in key_columns)
+        
+        if key_tuple not in seen:
+            seen.add(key_tuple)
+            unique_data.append(row)
+    
+    return unique_data
+
+def standardize_phone_number(phone: str) -> str:
+    """
+    Standardize phone number format to (XXX) XXX-XXXX.
+    
+    Args:
+        phone: Phone number string
+        
+    Returns:
+        Standardized phone number or original string if cannot be standardized
+    """
+    if not isinstance(phone, str):
+        return phone
+    
+    # Remove all non-digit characters
+    digits = re.sub(r'\D', '', phone)
+    
+    # Check if we have 10 digits (US format)
+    if len(digits) == 10:
+        return f"({digits[:3]}) {digits[3:6]}-{digits[6:]}"
+    
+    return phone
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = [
+        {"name": "John Doe  ", "email": "john@example.com", "phone": "123-456-7890"},
+        {"name": "Jane Smith", "email": "jane@example.com", "phone": "555 123 4567"},
+        {"name": "John Doe", "email": "john@example.com", "phone": "1234567890"}
+    ]
+    
+    # Test duplicate removal
+    unique_data = remove_duplicates(sample_data, ["email"])
+    print(f"Unique records: {len(unique_data)}")
+    
+    # Test phone standardization
+    for record in unique_data:
+        record["phone"] = standardize_phone_number(record["phone"])
+        print(f"Standardized: {record}")
