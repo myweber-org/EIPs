@@ -101,3 +101,30 @@ def clean_dataset(df, outlier_threshold=1.5, normalize=True, fill_missing=True):
     summary['outliers_removed'] = removed
     
     return cleaner.get_cleaned_data(), summary
+import pandas as pd
+import re
+
+def clean_dataframe(df, column_name):
+    """
+    Remove duplicate rows and normalize string values in a specified column.
+    """
+    # Remove duplicates
+    df_cleaned = df.drop_duplicates().reset_index(drop=True)
+    
+    # Normalize strings: lowercase and remove extra whitespace
+    if column_name in df_cleaned.columns:
+        df_cleaned[column_name] = df_cleaned[column_name].apply(
+            lambda x: re.sub(r'\s+', ' ', str(x).strip().lower()) if pd.notnull(x) else x
+        )
+    
+    return df_cleaned
+
+def validate_email_column(df, email_column):
+    """
+    Validate email addresses in a column and return a boolean series.
+    """
+    if email_column not in df.columns:
+        raise ValueError(f"Column '{email_column}' not found in DataFrame")
+    
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return df[email_column].str.match(email_pattern, na=False)
