@@ -1108,3 +1108,120 @@ if __name__ == "__main__":
     normalized_df = normalize_column(cleaned_df, 'A', method='minmax')
     print("\nDataFrame with normalized column A:")
     print(normalized_df)
+import pandas as pd
+import numpy as np
+from pathlib import Path
+
+class DataCleaner:
+    def __init__(self, file_path):
+        self.file_path = Path(file_path)
+        self.df = None
+        
+    def load_data(self):
+        if not self.file_path.exists():
+            raise FileNotFoundError(f"File not found: {self.file_path}")
+        
+        self.df = pd.read_csv(self.file_path)
+        print(f"Loaded {len(self.df)} rows and {len(self.df.columns)} columns")
+        return self.df
+    
+    def check_missing_values(self):
+        if self.df is None:
+            self.load_data()
+        
+        missing = self.df.isnull().sum()
+        missing_percent = (missing / len(self.df)) * 100
+        
+        missing_report = pd.DataFrame({
+            'missing_count': missing,
+            'missing_percent': missing_percent
+        })
+        
+        return missing_report[missing_report['missing_count'] > 0]
+    
+    def fill_missing_values(self, strategy='mean', custom_values=None):
+        if self.df is None:
+            self.load_data()
+        
+        df_filled = self.df.copy()
+        
+        for column in df_filled.columns:
+            if df_filled[column].isnull().any():
+                if custom_values and column in custom_values:
+                    df_filled[column].fillna(custom_values[column], inplace=True)
+                elif strategy == 'mean' and pd.api.types.is_numeric_dtype(df_filled[column]):
+                    df_filled[column].fillna(df_filled[column].mean(), inplace=True)
+                elif strategy == 'median' and pd.api.types.is_numeric_dtype(df_filled[column]):
+                    df_filled[column].fillna(df_filled[column].median(), inplace=True)
+                elif strategy == 'mode':
+                    df_filled[column].fillna(df_filled[column].mode()[0], inplace=True)
+                elif strategy == 'ffill':
+                    df_filled[column].fillna(method='ffill', inplace=True)
+                elif strategy == 'bfill':
+                    df_filled[column].fillna(method='bfill', inplace=True)
+                else:
+                    df_filled[column].fillna(0, inplace=True)
+        
+        return df_filled
+    
+    def remove_duplicates(self, subset=None, keep='first'):
+        if self.df is None:
+            self.load_data()
+        
+        initial_count = len(self.df)
+        self.df = self.df.drop_duplicates(subset=subset, keep=keep)
+        removed_count = initial_count - len(self.df)
+        
+        print(f"Removed {removed_count} duplicate rows")
+        return self.df
+    
+    def save_cleaned_data(self, output_path=None):
+        if self.df is None:
+            raise ValueError("No data to save. Load data first.")
+        
+        if output_path is None:
+            output_path = self.file_path.parent / f"cleaned_{self.file_path.name}"
+        
+        self.df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to: {output_path}")
+        return output_path
+    
+    def get_summary_statistics(self):
+        if self.df is None:
+            self.load_data()
+        
+        return self.df.describe(include='all')
+
+def clean_csv_file(input_file, output_file=None, fill_strategy='mean'):
+    cleaner = DataCleaner(input_file)
+    cleaner.load_data()
+    
+    missing_report = cleaner.check_missing_values()
+    if not missing_report.empty:
+        print("Missing values found:")
+        print(missing_report)
+        cleaner.df = cleaner.fill_missing_values(strategy=fill_strategy)
+    
+    cleaner.remove_duplicates()
+    output_path = cleaner.save_cleaned_data(output_file)
+    
+    return cleaner.df, output_path
+
+if __name__ == "__main__":
+    sample_data = {
+        'id': [1, 2, 3, 4, 5, 6],
+        'name': ['Alice', 'Bob', 'Charlie', 'Alice', 'Bob', None],
+        'age': [25, 30, None, 25, 30, 35],
+        'score': [85.5, 92.0, 78.5, 85.5, None, 88.0]
+    }
+    
+    test_df = pd.DataFrame(sample_data)
+    test_file = Path("test_data.csv")
+    test_df.to_csv(test_file, index=False)
+    
+    cleaned_df, output_file = clean_csv_file(test_file, fill_strategy='median')
+    print(f"\nCleaned data shape: {cleaned_df.shape}")
+    print(f"Output file: {output_file}")
+    
+    test_file.unlink()
+    Path(output_file).unlink()
