@@ -1231,3 +1231,11 @@ if __name__ == "__main__":
     print(f"Original shape: {sample_data.shape}")
     print(f"Cleaned shape: {cleaned.shape}")
     print(f"Removed rows: {sample_data.shape[0] - cleaned.shape[0]}")
+def remove_duplicates(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
