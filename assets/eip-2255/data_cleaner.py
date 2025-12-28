@@ -151,4 +151,72 @@ if __name__ == "__main__":
     cleaned_df = clean_dataset(sample_df, ['value'])
     
     print("\nCleaned dataset shape:", cleaned_df.shape)
-    print("Cleaned summary statistics:", calculate_summary_stats(cleaned_df, 'value'))
+    print("Cleaned summary statistics:", calculate_summary_stats(cleaned_df, 'value'))import pandas as pd
+import re
+
+def clean_text_column(df, column_name):
+    """
+    Standardize text by converting to lowercase, removing extra spaces,
+    and eliminating special characters.
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    
+    df[column_name] = df[column_name].astype(str).str.lower()
+    df[column_name] = df[column_name].apply(lambda x: re.sub(r'[^\w\s]', '', x))
+    df[column_name] = df[column_name].str.strip()
+    df[column_name] = df[column_name].str.replace(r'\s+', ' ', regex=True)
+    
+    return df
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from DataFrame.
+    """
+    return df.drop_duplicates(subset=subset, keep=keep)
+
+def standardize_dates(df, column_name, date_format='%Y-%m-%d'):
+    """
+    Convert date column to standardized format.
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    
+    df[column_name] = pd.to_datetime(df[column_name], errors='coerce')
+    df[column_name] = df[column_name].dt.strftime(date_format)
+    
+    return df
+
+def clean_numeric_column(df, column_name, fill_na=0):
+    """
+    Clean numeric column by converting to numeric type and filling NaN values.
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    
+    df[column_name] = pd.to_numeric(df[column_name], errors='coerce')
+    df[column_name] = df[column_name].fillna(fill_na)
+    
+    return df
+
+def full_clean_pipeline(df, text_columns=None, date_columns=None, numeric_columns=None):
+    """
+    Execute full cleaning pipeline on DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    if text_columns:
+        for col in text_columns:
+            cleaned_df = clean_text_column(cleaned_df, col)
+    
+    if date_columns:
+        for col in date_columns:
+            cleaned_df = standardize_dates(cleaned_df, col)
+    
+    if numeric_columns:
+        for col in numeric_columns:
+            cleaned_df = clean_numeric_column(cleaned_df, col)
+    
+    cleaned_df = remove_duplicates(cleaned_df)
+    
+    return cleaned_df
