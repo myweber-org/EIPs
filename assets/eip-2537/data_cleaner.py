@@ -178,4 +178,87 @@ if __name__ == "__main__":
     print(cleaned_df)
     
     validation_result = validate_data(cleaned_df, required_columns=['id', 'value', 'category'])
-    print(f"\nData validation result: {validation_result}")
+    print(f"\nData validation result: {validation_result}")import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers using the Interquartile Range method.
+    Returns filtered DataFrame.
+    """
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
+
+def remove_outliers_zscore(data, column, threshold=3):
+    """
+    Remove outliers using Z-score method.
+    Returns filtered DataFrame.
+    """
+    z_scores = np.abs(stats.zscore(data[column]))
+    filtered_data = data[z_scores < threshold]
+    return filtered_data
+
+def normalize_minmax(data, column):
+    """
+    Normalize data to [0,1] range using Min-Max scaling.
+    Returns normalized Series.
+    """
+    min_val = data[column].min()
+    max_val = data[column].max()
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def normalize_zscore(data, column):
+    """
+    Normalize data using Z-score standardization.
+    Returns normalized Series.
+    """
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    normalized = (data[column] - mean_val) / std_val
+    return normalized
+
+def handle_missing_values(data, strategy='mean'):
+    """
+    Handle missing values using specified strategy.
+    Returns DataFrame with imputed values.
+    """
+    if strategy == 'mean':
+        return data.fillna(data.mean())
+    elif strategy == 'median':
+        return data.fillna(data.median())
+    elif strategy == 'mode':
+        return data.fillna(data.mode().iloc[0])
+    elif strategy == 'drop':
+        return data.dropna()
+    else:
+        raise ValueError("Invalid strategy. Use 'mean', 'median', 'mode', or 'drop'")
+
+def clean_dataset(data, numeric_columns, outlier_method='iqr', normalize_method='minmax', missing_strategy='mean'):
+    """
+    Comprehensive data cleaning pipeline.
+    Returns cleaned DataFrame.
+    """
+    cleaned_data = data.copy()
+    
+    for col in numeric_columns:
+        if col in cleaned_data.columns:
+            cleaned_data = handle_missing_values(cleaned_data[[col]], strategy=missing_strategy)
+            
+            if outlier_method == 'iqr':
+                cleaned_data = remove_outliers_iqr(cleaned_data, col)
+            elif outlier_method == 'zscore':
+                cleaned_data = remove_outliers_zscore(cleaned_data, col)
+            
+            if normalize_method == 'minmax':
+                cleaned_data[col] = normalize_minmax(cleaned_data, col)
+            elif normalize_method == 'zscore':
+                cleaned_data[col] = normalize_zscore(cleaned_data, col)
+    
+    return cleaned_data
