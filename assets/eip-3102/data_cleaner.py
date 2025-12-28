@@ -1,30 +1,47 @@
 
-import pandas as pd
 import numpy as np
-from scipy import stats
 
-def load_data(filepath):
-    return pd.read_csv(filepath)
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specified column in a dataset using the IQR method.
+    
+    Parameters:
+    data (numpy.ndarray): The dataset.
+    column (int): The index of the column to process.
+    
+    Returns:
+    numpy.ndarray: The dataset with outliers removed from the specified column.
+    """
+    if not isinstance(data, np.ndarray):
+        raise TypeError("Input data must be a numpy array")
+    
+    if column >= data.shape[1] or column < 0:
+        raise IndexError("Column index out of bounds")
+    
+    col_data = data[:, column]
+    Q1 = np.percentile(col_data, 25)
+    Q3 = np.percentile(col_data, 75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    mask = (col_data >= lower_bound) & (col_data <= upper_bound)
+    
+    return data[mask]
 
-def remove_outliers(df, column, threshold=3):
-    z_scores = np.abs(stats.zscore(df[column]))
-    return df[z_scores < threshold]
-
-def normalize_column(df, column):
-    min_val = df[column].min()
-    max_val = df[column].max()
-    df[column] = (df[column] - min_val) / (max_val - min_val)
-    return df
-
-def clean_data(df, numeric_columns):
-    for col in numeric_columns:
-        df = remove_outliers(df, col)
-        df = normalize_column(df, col)
-    return df.dropna()
+def example_usage():
+    """
+    Example usage of the remove_outliers_iqr function.
+    """
+    np.random.seed(42)
+    sample_data = np.random.randn(100, 3)
+    sample_data[0, 0] = 10.0
+    sample_data[1, 0] = -10.0
+    
+    print("Original shape:", sample_data.shape)
+    cleaned_data = remove_outliers_iqr(sample_data, 0)
+    print("Cleaned shape:", cleaned_data.shape)
 
 if __name__ == "__main__":
-    data = load_data("raw_data.csv")
-    numeric_cols = data.select_dtypes(include=[np.number]).columns.tolist()
-    cleaned_data = clean_data(data, numeric_cols)
-    cleaned_data.to_csv("cleaned_data.csv", index=False)
-    print(f"Data cleaning complete. Original: {len(data)} rows, Cleaned: {len(cleaned_data)} rows")
+    example_usage()
