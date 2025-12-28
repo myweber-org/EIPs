@@ -237,3 +237,89 @@ if __name__ == "__main__":
     cleaned_data = example_usage()
     print("\nFirst 5 rows of cleaned data:")
     print(cleaned_data.head())
+import pandas as pd
+import numpy as np
+
+def clean_dataframe(df, column_mapping=None, drop_duplicates=True, fill_na=True):
+    """
+    Clean a pandas DataFrame by standardizing columns, removing duplicates,
+    and handling missing values.
+    """
+    cleaned_df = df.copy()
+    
+    if column_mapping:
+        cleaned_df = cleaned_df.rename(columns=column_mapping)
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    if fill_na:
+        for col in cleaned_df.select_dtypes(include=[np.number]).columns:
+            cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].median())
+        for col in cleaned_df.select_dtypes(include=['object']).columns:
+            cleaned_df[col] = cleaned_df[col].fillna('Unknown')
+    
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None, unique_columns=None):
+    """
+    Validate DataFrame structure and content.
+    """
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            raise ValueError(f"Missing required columns: {missing_columns}")
+    
+    if unique_columns:
+        for col in unique_columns:
+            if col in df.columns and df[col].duplicated().any():
+                raise ValueError(f"Column '{col}' contains duplicate values")
+    
+    return True
+
+def process_data_file(input_path, output_path, config=None):
+    """
+    Main function to process a data file from input to output.
+    """
+    if input_path.endswith('.csv'):
+        df = pd.read_csv(input_path)
+    elif input_path.endswith('.xlsx'):
+        df = pd.read_excel(input_path)
+    else:
+        raise ValueError("Unsupported file format")
+    
+    if config:
+        cleaned_df = clean_dataframe(
+            df,
+            column_mapping=config.get('column_mapping'),
+            drop_duplicates=config.get('drop_duplicates', True),
+            fill_na=config.get('fill_na', True)
+        )
+        
+        if config.get('required_columns'):
+            validate_dataframe(cleaned_df, 
+                             required_columns=config.get('required_columns'),
+                             unique_columns=config.get('unique_columns'))
+    else:
+        cleaned_df = clean_dataframe(df)
+    
+    cleaned_df.to_csv(output_path, index=False)
+    print(f"Data cleaned and saved to {output_path}")
+    return cleaned_df
+
+if __name__ == "__main__":
+    sample_config = {
+        'column_mapping': {'old_name': 'new_name'},
+        'drop_duplicates': True,
+        'fill_na': True,
+        'required_columns': ['id', 'name'],
+        'unique_columns': ['id']
+    }
+    
+    try:
+        result = process_data_file('input_data.csv', 'cleaned_data.csv', sample_config)
+        print(f"Processed {len(result)} records")
+    except Exception as e:
+        print(f"Error processing data: {e}")
