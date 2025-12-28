@@ -227,3 +227,88 @@ if __name__ == "__main__":
     
     is_valid = validate_data(cleaned, required_columns=['A', 'B'], min_rows=3)
     print(f"\nData is valid: {is_valid}")
+import pandas as pd
+import numpy as np
+
+def clean_csv_data(file_path, fill_strategy='mean'):
+    """
+    Load and clean CSV data by handling missing values.
+    
+    Args:
+        file_path (str): Path to the CSV file.
+        fill_strategy (str): Strategy for filling missing values.
+            Options: 'mean', 'median', 'zero', 'drop'.
+    
+    Returns:
+        pandas.DataFrame: Cleaned DataFrame.
+    """
+    try:
+        df = pd.read_csv(file_path)
+    except FileNotFoundError:
+        raise ValueError(f"File not found: {file_path}")
+    
+    if df.empty:
+        return df
+    
+    numeric_columns = df.select_dtypes(include=[np.number]).columns
+    
+    if fill_strategy == 'drop':
+        df_cleaned = df.dropna(subset=numeric_columns)
+    elif fill_strategy == 'zero':
+        df_cleaned = df.copy()
+        df_cleaned[numeric_columns] = df_cleaned[numeric_columns].fillna(0)
+    elif fill_strategy == 'mean':
+        df_cleaned = df.copy()
+        for col in numeric_columns:
+            df_cleaned[col] = df_cleaned[col].fillna(df_cleaned[col].mean())
+    elif fill_strategy == 'median':
+        df_cleaned = df.copy()
+        for col in numeric_columns:
+            df_cleaned[col] = df_cleaned[col].fillna(df_cleaned[col].median())
+    else:
+        raise ValueError(f"Unknown fill strategy: {fill_strategy}")
+    
+    return df_cleaned
+
+def detect_outliers_iqr(df, column, multiplier=1.5):
+    """
+    Detect outliers using the Interquartile Range method.
+    
+    Args:
+        df (pandas.DataFrame): Input DataFrame.
+        column (str): Column name to check for outliers.
+        multiplier (float): IQR multiplier for outlier detection.
+    
+    Returns:
+        pandas.Series: Boolean mask indicating outliers.
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column not found: {column}")
+    
+    if not pd.api.types.is_numeric_dtype(df[column]):
+        raise ValueError(f"Column must be numeric: {column}")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - multiplier * IQR
+    upper_bound = Q3 + multiplier * IQR
+    
+    outliers = (df[column] < lower_bound) | (df[column] > upper_bound)
+    
+    return outliers
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from DataFrame.
+    
+    Args:
+        df (pandas.DataFrame): Input DataFrame.
+        subset (list): Columns to consider for duplicates.
+        keep (str): Which duplicates to keep.
+    
+    Returns:
+        pandas.DataFrame: DataFrame with duplicates removed.
+    """
+    return df.drop_duplicates(subset=subset, keep=keep)
