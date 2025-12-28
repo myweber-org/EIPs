@@ -346,4 +346,74 @@ def clean_dataset(df, numeric_columns):
     for col in numeric_columns:
         if col in cleaned_df.columns:
             cleaned_df = remove_outliers_iqr(cleaned_df, col)
-    return cleaned_df.reset_index(drop=True)
+    return cleaned_df.reset_index(drop=True)import pandas as pd
+import numpy as np
+
+def clean_csv_data(filepath, fill_method='mean', drop_threshold=0.8):
+    """
+    Load and clean CSV data by handling missing values and removing invalid columns.
+    
+    Parameters:
+    filepath (str): Path to the CSV file.
+    fill_method (str): Method for filling missing values ('mean', 'median', 'mode', or 'zero').
+    drop_threshold (float): Threshold for dropping columns with too many missing values (0 to 1).
+    
+    Returns:
+    pandas.DataFrame: Cleaned DataFrame.
+    """
+    
+    df = pd.read_csv(filepath)
+    
+    original_shape = df.shape
+    print(f"Original data shape: {original_shape}")
+    
+    missing_percentage = df.isnull().sum() / len(df)
+    columns_to_drop = missing_percentage[missing_percentage > drop_threshold].index
+    df = df.drop(columns=columns_to_drop)
+    
+    print(f"Dropped {len(columns_to_drop)} columns with >{drop_threshold*100}% missing values")
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    
+    if fill_method == 'mean':
+        df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
+    elif fill_method == 'median':
+        df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].median())
+    elif fill_method == 'mode':
+        df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mode().iloc[0])
+    elif fill_method == 'zero':
+        df[numeric_cols] = df[numeric_cols].fillna(0)
+    else:
+        raise ValueError("fill_method must be 'mean', 'median', 'mode', or 'zero'")
+    
+    non_numeric_cols = df.select_dtypes(exclude=[np.number]).columns
+    df[non_numeric_cols] = df[non_numeric_cols].fillna('Unknown')
+    
+    final_shape = df.shape
+    print(f"Final data shape: {final_shape}")
+    print(f"Removed {original_shape[1] - final_shape[1]} columns, {original_shape[0] - final_shape[0]} rows")
+    
+    return df
+
+def save_cleaned_data(df, output_path):
+    """
+    Save cleaned DataFrame to a new CSV file.
+    
+    Parameters:
+    df (pandas.DataFrame): Cleaned DataFrame.
+    output_path (str): Path to save the cleaned CSV file.
+    """
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to: {output_path}")
+
+if __name__ == "__main__":
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    
+    try:
+        cleaned_df = clean_csv_data(input_file, fill_method='median', drop_threshold=0.7)
+        save_cleaned_data(cleaned_df, output_file)
+    except FileNotFoundError:
+        print(f"Error: File '{input_file}' not found.")
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
