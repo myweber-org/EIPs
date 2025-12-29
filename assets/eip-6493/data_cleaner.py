@@ -50,3 +50,53 @@ if __name__ == "__main__":
     print("Cleaned shape:", cleaned.shape)
     print("Cleaned data summary:")
     print(cleaned[numeric_cols].describe())
+def remove_duplicates(input_list):
+    """
+    Remove duplicate elements from a list while preserving order.
+    Returns a new list with unique elements.
+    """
+    seen = set()
+    result = []
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+def clean_data_with_threshold(data, threshold=None):
+    """
+    Clean data by removing duplicates, optionally filter by count threshold.
+    If threshold is provided, only items appearing less than threshold times are kept.
+    """
+    if not data:
+        return []
+    
+    if threshold is None:
+        return remove_duplicates(data)
+    
+    from collections import Counter
+    counter = Counter(data)
+    result = [item for item in data if counter[item] < threshold]
+    return remove_duplicates(result)
+
+def validate_data(data):
+    """
+    Validate that data is a list and contains only hashable types.
+    Raises TypeError if validation fails.
+    """
+    if not isinstance(data, list):
+        raise TypeError("Input must be a list")
+    
+    for item in data:
+        try:
+            hash(item)
+        except TypeError:
+            raise TypeError(f"Item {item} is not hashable")
+    
+    return True
+
+if __name__ == "__main__":
+    sample_data = [1, 2, 2, 3, 4, 4, 4, 5]
+    print("Original:", sample_data)
+    print("Cleaned:", remove_duplicates(sample_data))
+    print("Threshold 2:", clean_data_with_threshold(sample_data, threshold=2))
