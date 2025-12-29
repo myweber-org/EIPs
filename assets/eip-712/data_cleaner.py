@@ -1,53 +1,61 @@
-import pandas as pd
 
-def clean_dataset(df, drop_na=True, rename_columns=True):
+import numpy as np
+
+def remove_outliers_iqr(data, column):
     """
-    Clean a pandas DataFrame by handling missing values and standardizing column names.
+    Remove outliers from a pandas DataFrame column using the IQR method.
     
-    Args:
-        df (pd.DataFrame): Input DataFrame to clean
-        drop_na (bool): Whether to drop rows with any null values
-        rename_columns (bool): Whether to standardize column names
+    Parameters:
+    data (pd.DataFrame): The DataFrame containing the data.
+    column (str): The column name to process.
     
     Returns:
-        pd.DataFrame: Cleaned DataFrame
+    pd.DataFrame: DataFrame with outliers removed from the specified column.
     """
-    cleaned_df = df.copy()
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
     
-    if drop_na:
-        cleaned_df = cleaned_df.dropna()
-    
-    if rename_columns:
-        cleaned_df.columns = (
-            cleaned_df.columns
-            .str.strip()
-            .str.lower()
-            .str.replace(' ', '_')
-            .str.replace(r'[^\w_]', '', regex=True)
-        )
-    
-    return cleaned_df
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
 
-def validate_dataframe(df, required_columns=None):
+def calculate_summary_statistics(data, column):
     """
-    Validate that a DataFrame meets basic requirements.
+    Calculate summary statistics for a DataFrame column after outlier removal.
     
-    Args:
-        df (pd.DataFrame): DataFrame to validate
-        required_columns (list): List of column names that must be present
+    Parameters:
+    data (pd.DataFrame): The DataFrame containing the data.
+    column (str): The column name to analyze.
     
     Returns:
-        tuple: (is_valid, error_message)
+    dict: Dictionary containing count, mean, std, min, and max.
     """
-    if not isinstance(df, pd.DataFrame):
-        return False, "Input is not a pandas DataFrame"
+    stats = {
+        'count': data[column].count(),
+        'mean': data[column].mean(),
+        'std': data[column].std(),
+        'min': data[column].min(),
+        'max': data[column].max()
+    }
+    return stats
+
+if __name__ == "__main__":
+    import pandas as pd
     
-    if df.empty:
-        return False, "DataFrame is empty"
+    sample_data = pd.DataFrame({
+        'values': [10, 12, 12, 13, 12, 11, 10, 100, 12, 14, 13, 12, 11, 10, 9, 8, 12, 13, 14, 15]
+    })
     
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            return False, f"Missing required columns: {missing_columns}"
+    print("Original data:")
+    print(sample_data)
+    print("\nOriginal statistics:")
+    print(calculate_summary_statistics(sample_data, 'values'))
     
-    return True, "DataFrame is valid"
+    cleaned_data = remove_outliers_iqr(sample_data, 'values')
+    
+    print("\nCleaned data:")
+    print(cleaned_data)
+    print("\nCleaned statistics:")
+    print(calculate_summary_statistics(cleaned_data, 'values'))
