@@ -220,3 +220,72 @@ def full_clean_pipeline(df, text_columns=None, date_columns=None, numeric_column
     cleaned_df = remove_duplicates(cleaned_df)
     
     return cleaned_df
+import pandas as pd
+import numpy as np
+from typing import List, Optional
+
+class DataCleaner:
+    def __init__(self, df: pd.DataFrame):
+        self.df = df.copy()
+        self.original_shape = df.shape
+
+    def remove_duplicates(self, subset: Optional[List[str]] = None, keep: str = 'first') -> 'DataCleaner':
+        self.df = self.df.drop_duplicates(subset=subset, keep=keep)
+        return self
+
+    def handle_missing_values(self, strategy: str = 'drop', fill_value: Optional[float] = None) -> 'DataCleaner':
+        if strategy == 'drop':
+            self.df = self.df.dropna()
+        elif strategy == 'fill':
+            if fill_value is not None:
+                self.df = self.df.fillna(fill_value)
+            else:
+                self.df = self.df.fillna(self.df.mean(numeric_only=True))
+        return self
+
+    def normalize_column(self, column: str) -> 'DataCleaner':
+        if column in self.df.columns and pd.api.types.is_numeric_dtype(self.df[column]):
+            min_val = self.df[column].min()
+            max_val = self.df[column].max()
+            if max_val > min_val:
+                self.df[column] = (self.df[column] - min_val) / (max_val - min_val)
+        return self
+
+    def get_cleaned_data(self) -> pd.DataFrame:
+        return self.df
+
+    def get_summary(self) -> dict:
+        cleaned_shape = self.df.shape
+        return {
+            'original_rows': self.original_shape[0],
+            'original_columns': self.original_shape[1],
+            'cleaned_rows': cleaned_shape[0],
+            'cleaned_columns': cleaned_shape[1],
+            'rows_removed': self.original_shape[0] - cleaned_shape[0],
+            'columns_removed': self.original_shape[1] - cleaned_shape[1]
+        }
+
+def create_sample_data() -> pd.DataFrame:
+    data = {
+        'id': [1, 2, 3, 3, 4, 5],
+        'value': [10.5, np.nan, 15.2, 15.2, np.nan, 20.1],
+        'category': ['A', 'B', 'A', 'A', 'C', 'B']
+    }
+    return pd.DataFrame(data)
+
+if __name__ == "__main__":
+    sample_df = create_sample_data()
+    cleaner = DataCleaner(sample_df)
+    
+    result_df = (cleaner
+                 .remove_duplicates(subset=['id'])
+                 .handle_missing_values(strategy='fill', fill_value=0)
+                 .normalize_column('value')
+                 .get_cleaned_data())
+    
+    print("Original Data:")
+    print(sample_df)
+    print("\nCleaned Data:")
+    print(result_df)
+    print("\nCleaning Summary:")
+    print(cleaner.get_summary())
