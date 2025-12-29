@@ -259,4 +259,69 @@ def example_usage():
         print(f"{col}: Missing {report['missing_percentage']:.2f}%")
 
 if __name__ == "__main__":
-    example_usage()
+    example_usage()import pandas as pd
+
+def clean_dataframe(df, drop_na=True, rename_columns=True):
+    """
+    Clean a pandas DataFrame by removing null values and standardizing column names.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        drop_na (bool): Whether to drop rows with null values. Default is True.
+        rename_columns (bool): Whether to rename columns to lowercase with underscores. Default is True.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    if drop_na:
+        cleaned_df = cleaned_df.dropna()
+    
+    if rename_columns:
+        cleaned_df.columns = (
+            cleaned_df.columns
+            .str.lower()
+            .str.replace(r'[^a-z0-9]+', '_', regex=True)
+            .str.strip('_')
+        )
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate a DataFrame for required columns and data types.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list): List of required column names. Default is None.
+    
+    Returns:
+        tuple: (bool, str) indicating success and message.
+    """
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    return True, "DataFrame is valid"
+
+def sample_dataframe(df, n=5, random_state=42):
+    """
+    Return a random sample from the DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        n (int): Number of samples to return. Default is 5.
+        random_state (int): Random seed for reproducibility. Default is 42.
+    
+    Returns:
+        pd.DataFrame: Sampled DataFrame.
+    """
+    if len(df) <= n:
+        return df
+    
+    return df.sample(n=n, random_state=random_state)
