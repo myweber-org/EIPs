@@ -155,3 +155,117 @@ if __name__ == "__main__":
     import os
     if os.path.exists('test_data.csv'):
         os.remove('test_data.csv')
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+def remove_outliers_iqr(df, columns=None, factor=1.5):
+    """
+    Remove outliers using IQR method
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_clean = df.copy()
+    for col in columns:
+        Q1 = df_clean[col].quantile(0.25)
+        Q3 = df_clean[col].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - factor * IQR
+        upper_bound = Q3 + factor * IQR
+        
+        df_clean = df_clean[(df_clean[col] >= lower_bound) & (df_clean[col] <= upper_bound)]
+    
+    return df_clean
+
+def remove_outliers_zscore(df, columns=None, threshold=3):
+    """
+    Remove outliers using Z-score method
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_clean = df.copy()
+    for col in columns:
+        z_scores = np.abs(stats.zscore(df_clean[col].dropna()))
+        df_clean = df_clean[(z_scores < threshold) | (df_clean[col].isna())]
+    
+    return df_clean
+
+def normalize_minmax(df, columns=None):
+    """
+    Normalize data using Min-Max scaling
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_normalized = df.copy()
+    for col in columns:
+        min_val = df_normalized[col].min()
+        max_val = df_normalized[col].max()
+        
+        if max_val > min_val:
+            df_normalized[col] = (df_normalized[col] - min_val) / (max_val - min_val)
+    
+    return df_normalized
+
+def normalize_zscore(df, columns=None):
+    """
+    Normalize data using Z-score standardization
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_normalized = df.copy()
+    for col in columns:
+        mean_val = df_normalized[col].mean()
+        std_val = df_normalized[col].std()
+        
+        if std_val > 0:
+            df_normalized[col] = (df_normalized[col] - mean_val) / std_val
+    
+    return df_normalized
+
+def clean_dataset(df, outlier_method='iqr', normalize_method='minmax', outlier_params=None, normalize_params=None):
+    """
+    Main function to clean dataset with specified methods
+    """
+    if outlier_params is None:
+        outlier_params = {}
+    if normalize_params is None:
+        normalize_params = {}
+    
+    df_clean = df.copy()
+    
+    if outlier_method == 'iqr':
+        df_clean = remove_outliers_iqr(df_clean, **outlier_params)
+    elif outlier_method == 'zscore':
+        df_clean = remove_outliers_zscore(df_clean, **outlier_params)
+    
+    if normalize_method == 'minmax':
+        df_clean = normalize_minmax(df_clean, **normalize_params)
+    elif normalize_method == 'zscore':
+        df_clean = normalize_zscore(df_clean, **normalize_params)
+    
+    return df_clean
+
+def get_cleaning_summary(original_df, cleaned_df):
+    """
+    Generate summary statistics before and after cleaning
+    """
+    summary = {
+        'original_rows': len(original_df),
+        'cleaned_rows': len(cleaned_df),
+        'rows_removed': len(original_df) - len(cleaned_df),
+        'removal_percentage': (len(original_df) - len(cleaned_df)) / len(original_df) * 100
+    }
+    
+    numeric_cols = original_df.select_dtypes(include=[np.number]).columns
+    
+    for col in numeric_cols:
+        summary[f'{col}_original_mean'] = original_df[col].mean()
+        summary[f'{col}_cleaned_mean'] = cleaned_df[col].mean()
+        summary[f'{col}_original_std'] = original_df[col].std()
+        summary[f'{col}_cleaned_std'] = cleaned_df[col].std()
+    
+    return summary
