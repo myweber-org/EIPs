@@ -96,4 +96,54 @@ def example_usage():
     return cleaned_df
 
 if __name__ == "__main__":
-    cleaned_data = example_usage()
+    cleaned_data = example_usage()import csv
+import re
+
+def clean_string(value):
+    if not isinstance(value, str):
+        return value
+    value = value.strip()
+    value = re.sub(r'\s+', ' ', value)
+    return value
+
+def clean_numeric(value):
+    if isinstance(value, (int, float)):
+        return value
+    if isinstance(value, str):
+        cleaned = re.sub(r'[^\d.-]', '', value)
+        try:
+            if '.' in cleaned:
+                return float(cleaned)
+            else:
+                return int(cleaned)
+        except ValueError:
+            return None
+    return None
+
+def clean_csv_file(input_path, output_path):
+    with open(input_path, 'r', newline='', encoding='utf-8') as infile:
+        reader = csv.DictReader(infile)
+        fieldnames = reader.fieldnames
+        
+        rows = []
+        for row in reader:
+            cleaned_row = {}
+            for key, value in row.items():
+                if any(num_key in key.lower() for num_key in ['price', 'amount', 'quantity', 'total']):
+                    cleaned_row[key] = clean_numeric(value)
+                else:
+                    cleaned_row[key] = clean_string(value)
+            rows.append(cleaned_row)
+    
+    with open(output_path, 'w', newline='', encoding='utf-8') as outfile:
+        writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+    
+    return len(rows)
+
+def validate_email(email):
+    if not isinstance(email, str):
+        return False
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, email.strip()))
