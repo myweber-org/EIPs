@@ -71,3 +71,119 @@ def validate_data(df, required_columns=None, min_rows=1):
             return False
     
     return True
+import pandas as pd
+import numpy as np
+from pathlib import Path
+
+class DataCleaner:
+    def __init__(self, file_path):
+        self.file_path = Path(file_path)
+        self.df = None
+        
+    def load_data(self):
+        if not self.file_path.exists():
+            raise FileNotFoundError(f"File not found: {self.file_path}")
+        
+        self.df = pd.read_csv(self.file_path)
+        return self
+        
+    def remove_duplicates(self):
+        if self.df is not None:
+            self.df = self.df.drop_duplicates()
+        return self
+        
+    def fill_missing_values(self, strategy='mean', fill_value=None):
+        if self.df is not None:
+            numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+            
+            if strategy == 'mean':
+                self.df[numeric_cols] = self.df[numeric_cols].fillna(
+                    self.df[numeric_cols].mean()
+                )
+            elif strategy == 'median':
+                self.df[numeric_cols] = self.df[numeric_cols].fillna(
+                    self.df[numeric_cols].median()
+                )
+            elif strategy == 'mode':
+                self.df[numeric_cols] = self.df[numeric_cols].fillna(
+                    self.df[numeric_cols].mode().iloc[0]
+                )
+            elif strategy == 'constant' and fill_value is not None:
+                self.df[numeric_cols] = self.df[numeric_cols].fillna(fill_value)
+                
+        return self
+        
+    def remove_outliers(self, method='iqr', threshold=1.5):
+        if self.df is not None:
+            numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+            
+            for col in numeric_cols:
+                if method == 'iqr':
+                    Q1 = self.df[col].quantile(0.25)
+                    Q3 = self.df[col].quantile(0.75)
+                    IQR = Q3 - Q1
+                    lower_bound = Q1 - threshold * IQR
+                    upper_bound = Q3 + threshold * IQR
+                    
+                    self.df = self.df[
+                        (self.df[col] >= lower_bound) & 
+                        (self.df[col] <= upper_bound)
+                    ]
+                    
+        return self
+        
+    def standardize_columns(self):
+        if self.df is not None:
+            numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+            
+            for col in numeric_cols:
+                mean = self.df[col].mean()
+                std = self.df[col].std()
+                if std > 0:
+                    self.df[col] = (self.df[col] - mean) / std
+                    
+        return self
+        
+    def save_cleaned_data(self, output_path):
+        if self.df is not None:
+            output_path = Path(output_path)
+            self.df.to_csv(output_path, index=False)
+            return output_path
+        return None
+        
+    def get_summary(self):
+        if self.df is not None:
+            summary = {
+                'original_rows': len(self.df),
+                'columns': list(self.df.columns),
+                'missing_values': self.df.isnull().sum().to_dict(),
+                'data_types': self.df.dtypes.to_dict()
+            }
+            return summary
+        return {}
+
+def clean_csv_file(input_file, output_file, **kwargs):
+    cleaner = DataCleaner(input_file)
+    
+    cleaner.load_data()
+    
+    if kwargs.get('remove_duplicates', True):
+        cleaner.remove_duplicates()
+        
+    if kwargs.get('fill_missing', True):
+        strategy = kwargs.get('fill_strategy', 'mean')
+        fill_value = kwargs.get('fill_value')
+        cleaner.fill_missing_values(strategy=strategy, fill_value=fill_value)
+        
+    if kwargs.get('remove_outliers', False):
+        method = kwargs.get('outlier_method', 'iqr')
+        threshold = kwargs.get('outlier_threshold', 1.5)
+        cleaner.remove_outliers(method=method, threshold=threshold)
+        
+    if kwargs.get('standardize', False):
+        cleaner.standardize_columns()
+        
+    output_path = cleaner.save_cleaned_data(output_file)
+    summary = cleaner.get_summary()
+    
+    return output_path, summary
