@@ -1,113 +1,99 @@
 
-import numpy as np
 import pandas as pd
+import numpy as np
 
-def remove_outliers_iqr(data, column, multiplier=1.5):
+def remove_outliers_iqr(df, column):
     """
-    Remove outliers from a column using the Interquartile Range method.
+    Remove outliers from a DataFrame column using the Interquartile Range method.
     
     Parameters:
-    data (pd.DataFrame): Input dataframe
-    column (str): Column name to process
-    multiplier (float): IQR multiplier for outlier detection
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to clean
     
     Returns:
-    pd.DataFrame: Dataframe with outliers removed
+    pd.DataFrame: DataFrame with outliers removed
     """
-    if column not in data.columns:
-        raise ValueError(f"Column '{column}' not found in dataframe")
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    q1 = data[column].quantile(0.25)
-    q3 = data[column].quantile(0.75)
-    iqr = q3 - q1
-    lower_bound = q1 - multiplier * iqr
-    upper_bound = q3 + multiplier * iqr
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
     
-    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
-    return filtered_data.copy()
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df.reset_index(drop=True)
 
-def normalize_minmax(data, column):
+def calculate_summary_statistics(df, column):
     """
-    Normalize a column using Min-Max scaling to range [0, 1].
+    Calculate summary statistics for a column after outlier removal.
     
     Parameters:
-    data (pd.DataFrame): Input dataframe
-    column (str): Column name to normalize
-    
-    Returns:
-    pd.Series: Normalized values
-    """
-    if column not in data.columns:
-        raise ValueError(f"Column '{column}' not found in dataframe")
-    
-    min_val = data[column].min()
-    max_val = data[column].max()
-    
-    if max_val == min_val:
-        return pd.Series([0.5] * len(data), index=data.index)
-    
-    normalized = (data[column] - min_val) / (max_val - min_val)
-    return normalized
-
-def clean_dataset(data, numeric_columns, outlier_multiplier=1.5):
-    """
-    Clean dataset by removing outliers and normalizing numeric columns.
-    
-    Parameters:
-    data (pd.DataFrame): Input dataframe
-    numeric_columns (list): List of numeric column names to process
-    outlier_multiplier (float): IQR multiplier for outlier detection
-    
-    Returns:
-    pd.DataFrame: Cleaned dataframe
-    """
-    cleaned_data = data.copy()
-    
-    for column in numeric_columns:
-        if column in cleaned_data.columns:
-            cleaned_data = remove_outliers_iqr(cleaned_data, column, outlier_multiplier)
-            cleaned_data[f"{column}_normalized"] = normalize_minmax(cleaned_data, column)
-    
-    return cleaned_data.reset_index(drop=True)
-
-def calculate_statistics(data, column):
-    """
-    Calculate basic statistics for a column.
-    
-    Parameters:
-    data (pd.DataFrame): Input dataframe
+    df (pd.DataFrame): Input DataFrame
     column (str): Column name to analyze
     
     Returns:
-    dict: Dictionary containing statistics
+    dict: Dictionary containing summary statistics
     """
-    if column not in data.columns:
-        raise ValueError(f"Column '{column}' not found in dataframe")
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
     stats = {
-        'mean': data[column].mean(),
-        'median': data[column].median(),
-        'std': data[column].std(),
-        'min': data[column].min(),
-        'max': data[column].max(),
-        'count': data[column].count(),
-        'missing': data[column].isnull().sum()
+        'mean': df[column].mean(),
+        'median': df[column].median(),
+        'std': df[column].std(),
+        'min': df[column].min(),
+        'max': df[column].max(),
+        'count': df[column].count(),
+        'q1': df[column].quantile(0.25),
+        'q3': df[column].quantile(0.75)
     }
     
     return stats
 
+def clean_numeric_data(df, columns=None):
+    """
+    Clean numeric columns by removing outliers and NaN values.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    columns (list): List of column names to clean. If None, clean all numeric columns.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    if columns is None:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        columns = numeric_cols
+    
+    cleaned_df = df.copy()
+    
+    for col in columns:
+        if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+            cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].median())
+    
+    return cleaned_df
+
 if __name__ == "__main__":
-    sample_data = pd.DataFrame({
-        'temperature': [22.5, 23.1, 21.8, 100.2, 22.9, 19.5, 24.3, 20.1],
-        'humidity': [45, 48, 42, 150, 47, 40, 50, 38],
-        'category': ['A', 'B', 'A', 'C', 'B', 'A', 'C', 'B']
-    })
+    sample_data = {
+        'values': [10, 12, 12, 13, 12, 11, 14, 13, 15, 102, 12, 14, 13, 12, 11, 14, 13, 12, 14, 100]
+    }
     
+    df = pd.DataFrame(sample_data)
     print("Original data:")
-    print(sample_data)
-    print("\nStatistics for temperature:")
-    print(calculate_statistics(sample_data, 'temperature'))
+    print(df)
+    print(f"\nOriginal shape: {df.shape}")
     
-    cleaned = clean_dataset(sample_data, ['temperature', 'humidity'])
+    cleaned_df = clean_numeric_data(df, ['values'])
     print("\nCleaned data:")
-    print(cleaned)
+    print(cleaned_df)
+    print(f"\nCleaned shape: {cleaned_df.shape}")
+    
+    stats = calculate_summary_statistics(cleaned_df, 'values')
+    print("\nSummary statistics:")
+    for key, value in stats.items():
+        print(f"{key}: {value:.2f}")
