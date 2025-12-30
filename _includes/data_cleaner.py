@@ -660,3 +660,116 @@ def remove_outliers_iqr(data, column):
     mask = (col_data >= lower_bound) & (col_data <= upper_bound)
     
     return data[mask]
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column, factor=1.5):
+    """
+    Remove outliers using IQR method
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - factor * IQR
+    upper_bound = Q3 + factor * IQR
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    removed_count = len(data) - len(filtered_data)
+    
+    return filtered_data, removed_count
+
+def normalize_minmax(data, columns=None):
+    """
+    Normalize data using min-max scaling
+    """
+    if columns is None:
+        columns = data.select_dtypes(include=[np.number]).columns
+    
+    normalized_data = data.copy()
+    
+    for col in columns:
+        if col in data.columns and pd.api.types.is_numeric_dtype(data[col]):
+            min_val = data[col].min()
+            max_val = data[col].max()
+            
+            if max_val != min_val:
+                normalized_data[col] = (data[col] - min_val) / (max_val - min_val)
+            else:
+                normalized_data[col] = 0
+    
+    return normalized_data
+
+def standardize_zscore(data, columns=None):
+    """
+    Standardize data using z-score normalization
+    """
+    if columns is None:
+        columns = data.select_dtypes(include=[np.number]).columns
+    
+    standardized_data = data.copy()
+    
+    for col in columns:
+        if col in data.columns and pd.api.types.is_numeric_dtype(data[col]):
+            mean_val = data[col].mean()
+            std_val = data[col].std()
+            
+            if std_val > 0:
+                standardized_data[col] = (data[col] - mean_val) / std_val
+            else:
+                standardized_data[col] = 0
+    
+    return standardized_data
+
+def handle_missing_values(data, strategy='mean', columns=None):
+    """
+    Handle missing values using specified strategy
+    """
+    if columns is None:
+        columns = data.select_dtypes(include=[np.number]).columns
+    
+    cleaned_data = data.copy()
+    
+    for col in columns:
+        if col in data.columns and pd.api.types.is_numeric_dtype(data[col]):
+            if data[col].isnull().any():
+                if strategy == 'mean':
+                    fill_value = data[col].mean()
+                elif strategy == 'median':
+                    fill_value = data[col].median()
+                elif strategy == 'mode':
+                    fill_value = data[col].mode()[0] if not data[col].mode().empty else 0
+                elif strategy == 'drop':
+                    cleaned_data = cleaned_data.dropna(subset=[col])
+                    continue
+                else:
+                    raise ValueError(f"Unknown strategy: {strategy}")
+                
+                cleaned_data[col] = data[col].fillna(fill_value)
+    
+    return cleaned_data
+
+def validate_dataframe(data):
+    """
+    Validate DataFrame structure and content
+    """
+    if not isinstance(data, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    if data.empty:
+        raise ValueError("DataFrame is empty")
+    
+    validation_report = {
+        'total_rows': len(data),
+        'total_columns': len(data.columns),
+        'missing_values': data.isnull().sum().sum(),
+        'duplicate_rows': data.duplicated().sum(),
+        'numeric_columns': list(data.select_dtypes(include=[np.number]).columns),
+        'categorical_columns': list(data.select_dtypes(include=['object', 'category']).columns)
+    }
+    
+    return validation_report
