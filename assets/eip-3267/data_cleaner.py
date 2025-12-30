@@ -269,3 +269,110 @@ def get_cleaning_summary(original_df, cleaned_df):
         summary[f'{col}_cleaned_std'] = cleaned_df[col].std()
     
     return summary
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(dataframe, column, threshold=1.5):
+    """
+    Remove outliers using IQR method
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    q1 = dataframe[column].quantile(0.25)
+    q3 = dataframe[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
+                           (dataframe[column] <= upper_bound)]
+    
+    return filtered_df
+
+def normalize_minmax(dataframe, columns=None):
+    """
+    Normalize data using min-max scaling
+    """
+    if columns is None:
+        columns = dataframe.select_dtypes(include=[np.number]).columns
+    
+    normalized_df = dataframe.copy()
+    
+    for col in columns:
+        if col in dataframe.columns and np.issubdtype(dataframe[col].dtype, np.number):
+            col_min = dataframe[col].min()
+            col_max = dataframe[col].max()
+            
+            if col_max != col_min:
+                normalized_df[col] = (dataframe[col] - col_min) / (col_max - col_min)
+            else:
+                normalized_df[col] = 0
+    
+    return normalized_df
+
+def standardize_zscore(dataframe, columns=None):
+    """
+    Standardize data using z-score normalization
+    """
+    if columns is None:
+        columns = dataframe.select_dtypes(include=[np.number]).columns
+    
+    standardized_df = dataframe.copy()
+    
+    for col in columns:
+        if col in dataframe.columns and np.issubdtype(dataframe[col].dtype, np.number):
+            mean_val = dataframe[col].mean()
+            std_val = dataframe[col].std()
+            
+            if std_val > 0:
+                standardized_df[col] = (dataframe[col] - mean_val) / std_val
+            else:
+                standardized_df[col] = 0
+    
+    return standardized_df
+
+def handle_missing_values(dataframe, strategy='mean', columns=None):
+    """
+    Handle missing values using specified strategy
+    """
+    if columns is None:
+        columns = dataframe.select_dtypes(include=[np.number]).columns
+    
+    filled_df = dataframe.copy()
+    
+    for col in columns:
+        if col in dataframe.columns and dataframe[col].isnull().any():
+            if strategy == 'mean':
+                fill_value = dataframe[col].mean()
+            elif strategy == 'median':
+                fill_value = dataframe[col].median()
+            elif strategy == 'mode':
+                fill_value = dataframe[col].mode()[0]
+            elif strategy == 'zero':
+                fill_value = 0
+            else:
+                raise ValueError("Invalid strategy. Use 'mean', 'median', 'mode', or 'zero'")
+            
+            filled_df[col] = dataframe[col].fillna(fill_value)
+    
+    return filled_df
+
+def validate_dataframe(dataframe, required_columns=None, min_rows=1):
+    """
+    Validate dataframe structure and content
+    """
+    if not isinstance(dataframe, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    if len(dataframe) < min_rows:
+        raise ValueError(f"DataFrame must have at least {min_rows} rows")
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in dataframe.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    return True
