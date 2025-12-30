@@ -1,34 +1,51 @@
-
 import pandas as pd
-import numpy as np
-from scipy import stats
 
-def remove_outliers_iqr(df, columns):
-    df_clean = df.copy()
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
+
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    subset (list, optional): Column labels to consider for identifying duplicates.
+    keep (str, optional): Determines which duplicates to keep.
+
+    Returns:
+    pd.DataFrame: DataFrame with duplicates removed.
+    """
+    if df.empty:
+        return df
+    
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+    return cleaned_df
+
+def clean_numeric_columns(df, columns):
+    """
+    Clean numeric columns by converting to appropriate dtype and handling errors.
+
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    columns (list): List of column names to clean.
+
+    Returns:
+    pd.DataFrame: DataFrame with cleaned numeric columns.
+    """
     for col in columns:
-        Q1 = df_clean[col].quantile(0.25)
-        Q3 = df_clean[col].quantile(0.75)
-        IQR = Q3 - Q1
-        lower_bound = Q1 - 1.5 * IQR
-        upper_bound = Q3 + 1.5 * IQR
-        df_clean = df_clean[(df_clean[col] >= lower_bound) & (df_clean[col] <= upper_bound)]
-    return df_clean
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+    return df
 
-def normalize_minmax(df, columns):
-    df_norm = df.copy()
-    for col in columns:
-        min_val = df_norm[col].min()
-        max_val = df_norm[col].max()
-        if max_val != min_val:
-            df_norm[col] = (df_norm[col] - min_val) / (max_val - min_val)
-    return df_norm
+def validate_dataframe(df, required_columns):
+    """
+    Validate that required columns exist in the DataFrame.
 
-def clean_dataset(file_path, numeric_columns):
-    try:
-        df = pd.read_csv(file_path)
-        df_cleaned = remove_outliers_iqr(df, numeric_columns)
-        df_normalized = normalize_minmax(df_cleaned, numeric_columns)
-        return df_normalized
-    except Exception as e:
-        print(f"Error processing file: {e}")
-        return None
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    required_columns (list): List of required column names.
+
+    Returns:
+    bool: True if all required columns exist, False otherwise.
+    """
+    existing_columns = set(df.columns)
+    required_set = set(required_columns)
+    
+    return required_set.issubset(existing_columns)
