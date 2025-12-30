@@ -187,3 +187,107 @@ def clean_csv_file(input_file, output_file, **kwargs):
     summary = cleaner.get_summary()
     
     return output_path, summary
+import pandas as pd
+import numpy as np
+from typing import Optional
+
+def clean_csv_data(
+    input_path: str,
+    output_path: str,
+    missing_strategy: str = 'drop',
+    fill_value: Optional[float] = None
+) -> pd.DataFrame:
+    """
+    Clean CSV data by handling missing values and standardizing columns.
+    
+    Parameters:
+    input_path: Path to input CSV file
+    output_path: Path to save cleaned CSV file
+    missing_strategy: Strategy for handling missing values ('drop', 'fill', 'mean')
+    fill_value: Value to use when missing_strategy is 'fill'
+    
+    Returns:
+    Cleaned DataFrame
+    """
+    try:
+        df = pd.read_csv(input_path)
+        
+        # Remove duplicate rows
+        df = df.drop_duplicates()
+        
+        # Handle missing values
+        if missing_strategy == 'drop':
+            df = df.dropna()
+        elif missing_strategy == 'fill':
+            if fill_value is not None:
+                df = df.fillna(fill_value)
+            else:
+                df = df.fillna(0)
+        elif missing_strategy == 'mean':
+            numeric_cols = df.select_dtypes(include=[np.number]).columns
+            df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
+        
+        # Convert column names to lowercase with underscores
+        df.columns = df.columns.str.lower().str.replace(' ', '_')
+        
+        # Save cleaned data
+        df.to_csv(output_path, index=False)
+        
+        print(f"Data cleaning completed. Cleaned data saved to {output_path}")
+        print(f"Original shape: {df.shape}, Cleaned shape: {df.shape}")
+        
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: File not found at {input_path}")
+        raise
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        raise
+
+def validate_dataframe(df: pd.DataFrame) -> bool:
+    """
+    Validate DataFrame for common data quality issues.
+    
+    Parameters:
+    df: DataFrame to validate
+    
+    Returns:
+    Boolean indicating if data passes validation
+    """
+    if df.empty:
+        print("Validation failed: DataFrame is empty")
+        return False
+    
+    if df.isnull().sum().sum() > len(df) * 0.5:
+        print("Validation warning: More than 50% missing values")
+        return False
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    if len(numeric_cols) > 0:
+        for col in numeric_cols:
+            if df[col].abs().max() > 1e10:
+                print(f"Validation warning: Column {col} has extremely large values")
+    
+    return True
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = pd.DataFrame({
+        'Name': ['Alice', 'Bob', 'Charlie', None],
+        'Age': [25, 30, None, 35],
+        'Score': [85.5, 92.0, 78.5, 88.0]
+    })
+    
+    sample_data.to_csv('sample_data.csv', index=False)
+    
+    cleaned_df = clean_csv_data(
+        input_path='sample_data.csv',
+        output_path='cleaned_data.csv',
+        missing_strategy='mean'
+    )
+    
+    if validate_dataframe(cleaned_df):
+        print("Data validation passed")
+    else:
+        print("Data validation failed")
