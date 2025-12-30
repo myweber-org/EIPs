@@ -2,54 +2,35 @@
 import pandas as pd
 import numpy as np
 
-def clean_dataset(df):
-    """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
-    """
-    # Remove duplicate rows
-    df_cleaned = df.drop_duplicates()
+def remove_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
 
-    # Fill missing numeric values with column median
-    numeric_cols = df_cleaned.select_dtypes(include=[np.number]).columns
-    df_cleaned[numeric_cols] = df_cleaned[numeric_cols].fillna(df_cleaned[numeric_cols].median())
-
-    # Fill missing categorical values with mode
-    categorical_cols = df_cleaned.select_dtypes(include=['object']).columns
-    for col in categorical_cols:
-        if df_cleaned[col].isnull().any():
-            mode_value = df_cleaned[col].mode()[0]
-            df_cleaned[col] = df_cleaned[col].fillna(mode_value)
-
-    return df_cleaned
-
-def validate_data(df):
-    """
-    Validate that the cleaned DataFrame has no missing values.
-    """
-    missing_values = df.isnull().sum().sum()
-    if missing_values == 0:
-        print("Data validation passed: No missing values found.")
-        return True
-    else:
-        print(f"Data validation failed: {missing_values} missing values found.")
-        return False
+def clean_dataset(file_path):
+    try:
+        df = pd.read_csv(file_path)
+        numeric_columns = df.select_dtypes(include=[np.number]).columns
+        
+        for col in numeric_columns:
+            original_count = len(df)
+            df = remove_outliers_iqr(df, col)
+            removed_count = original_count - len(df)
+            if removed_count > 0:
+                print(f"Removed {removed_count} outliers from column: {col}")
+        
+        cleaned_file_path = file_path.replace('.csv', '_cleaned.csv')
+        df.to_csv(cleaned_file_path, index=False)
+        return cleaned_file_path
+    except Exception as e:
+        print(f"Error cleaning dataset: {e}")
+        return None
 
 if __name__ == "__main__":
-    # Example usage
-    sample_data = {
-        'id': [1, 2, 2, 3, 4, 5],
-        'name': ['Alice', 'Bob', 'Bob', None, 'Eve', 'Frank'],
-        'age': [25, 30, 30, 35, None, 40],
-        'score': [85.5, 92.0, 92.0, 78.5, 88.0, None]
-    }
-    
-    df = pd.DataFrame(sample_data)
-    print("Original DataFrame:")
-    print(df)
-    print("\nCleaning data...")
-    
-    cleaned_df = clean_dataset(df)
-    print("\nCleaned DataFrame:")
-    print(cleaned_df)
-    
-    validation_result = validate_data(cleaned_df)
+    input_file = "raw_data.csv"
+    result = clean_dataset(input_file)
+    if result:
+        print(f"Cleaned data saved to: {result}")
