@@ -162,3 +162,90 @@ def get_cleaning_summary(original_df, cleaned_df):
         summary[f'{col}_cleaned_std'] = cleaned_df[col].std()
     
     return summary
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column, factor=1.5):
+    """
+    Remove outliers using IQR method
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - factor * iqr
+    upper_bound = q3 + factor * iqr
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
+
+def remove_outliers_zscore(data, column, threshold=3):
+    """
+    Remove outliers using Z-score method
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    z_scores = np.abs(stats.zscore(data[column]))
+    filtered_data = data[z_scores < threshold]
+    return filtered_data
+
+def normalize_minmax(data, columns=None):
+    """
+    Normalize data using Min-Max scaling
+    """
+    if columns is None:
+        columns = data.select_dtypes(include=[np.number]).columns
+    
+    normalized_data = data.copy()
+    for col in columns:
+        if col in data.columns and np.issubdtype(data[col].dtype, np.number):
+            min_val = data[col].min()
+            max_val = data[col].max()
+            if max_val != min_val:
+                normalized_data[col] = (data[col] - min_val) / (max_val - min_val)
+    
+    return normalized_data
+
+def normalize_zscore(data, columns=None):
+    """
+    Normalize data using Z-score standardization
+    """
+    if columns is None:
+        columns = data.select_dtypes(include=[np.number]).columns
+    
+    standardized_data = data.copy()
+    for col in columns:
+        if col in data.columns and np.issubdtype(data[col].dtype, np.number):
+            mean_val = data[col].mean()
+            std_val = data[col].std()
+            if std_val > 0:
+                standardized_data[col] = (data[col] - mean_val) / std_val
+    
+    return standardized_data
+
+def clean_dataset(data, outlier_method='iqr', normalize_method='minmax', outlier_columns=None, normalize_columns=None):
+    """
+    Main function to clean dataset by removing outliers and normalizing
+    """
+    cleaned_data = data.copy()
+    
+    if outlier_method and outlier_columns:
+        for col in outlier_columns:
+            if col in cleaned_data.columns:
+                if outlier_method == 'iqr':
+                    cleaned_data = remove_outliers_iqr(cleaned_data, col)
+                elif outlier_method == 'zscore':
+                    cleaned_data = remove_outliers_zscore(cleaned_data, col)
+    
+    if normalize_method and normalize_columns:
+        if normalize_method == 'minmax':
+            cleaned_data = normalize_minmax(cleaned_data, normalize_columns)
+        elif normalize_method == 'zscore':
+            cleaned_data = normalize_zscore(cleaned_data, normalize_columns)
+    
+    return cleaned_data
