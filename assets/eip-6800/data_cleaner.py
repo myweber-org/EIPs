@@ -1,6 +1,6 @@
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 def remove_outliers_iqr(df, column):
     """
@@ -8,7 +8,7 @@ def remove_outliers_iqr(df, column):
     
     Parameters:
     df (pd.DataFrame): Input DataFrame
-    column (str): Column name to clean
+    column (str): Column name to process
     
     Returns:
     pd.DataFrame: DataFrame with outliers removed
@@ -29,7 +29,7 @@ def remove_outliers_iqr(df, column):
 
 def calculate_summary_statistics(df, column):
     """
-    Calculate summary statistics for a column after outlier removal.
+    Calculate summary statistics for a DataFrame column.
     
     Parameters:
     df (pd.DataFrame): Input DataFrame
@@ -48,52 +48,71 @@ def calculate_summary_statistics(df, column):
         'min': df[column].min(),
         'max': df[column].max(),
         'count': df[column].count(),
-        'q1': df[column].quantile(0.25),
-        'q3': df[column].quantile(0.75)
+        'missing': df[column].isnull().sum()
     }
     
     return stats
 
-def clean_numeric_data(df, columns=None):
+def normalize_column(df, column, method='minmax'):
     """
-    Clean numeric columns by removing outliers and NaN values.
+    Normalize a column using specified method.
     
     Parameters:
     df (pd.DataFrame): Input DataFrame
-    columns (list): List of column names to clean. If None, clean all numeric columns.
+    column (str): Column name to normalize
+    method (str): Normalization method ('minmax' or 'zscore')
     
     Returns:
-    pd.DataFrame: Cleaned DataFrame
+    pd.DataFrame: DataFrame with normalized column added as new column
     """
-    if columns is None:
-        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-        columns = numeric_cols
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    cleaned_df = df.copy()
+    df_copy = df.copy()
     
-    for col in columns:
-        if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
-            cleaned_df = remove_outliers_iqr(cleaned_df, col)
-            cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].median())
+    if method == 'minmax':
+        min_val = df_copy[column].min()
+        max_val = df_copy[column].max()
+        if max_val == min_val:
+            df_copy[f'{column}_normalized'] = 0.5
+        else:
+            df_copy[f'{column}_normalized'] = (df_copy[column] - min_val) / (max_val - min_val)
     
-    return cleaned_df
+    elif method == 'zscore':
+        mean_val = df_copy[column].mean()
+        std_val = df_copy[column].std()
+        if std_val == 0:
+            df_copy[f'{column}_normalized'] = 0
+        else:
+            df_copy[f'{column}_normalized'] = (df_copy[column] - mean_val) / std_val
+    
+    else:
+        raise ValueError("Method must be either 'minmax' or 'zscore'")
+    
+    return df_copy
 
 if __name__ == "__main__":
+    # Example usage
     sample_data = {
-        'values': [10, 12, 12, 13, 12, 11, 14, 13, 15, 102, 12, 14, 13, 12, 11, 14, 13, 12, 14, 100]
+        'values': [1, 2, 3, 4, 5, 100, 200, 300, 400, 500]
     }
     
     df = pd.DataFrame(sample_data)
-    print("Original data:")
+    print("Original DataFrame:")
     print(df)
-    print(f"\nOriginal shape: {df.shape}")
     
-    cleaned_df = clean_numeric_data(df, ['values'])
-    print("\nCleaned data:")
+    # Remove outliers
+    cleaned_df = remove_outliers_iqr(df, 'values')
+    print("\nDataFrame after outlier removal:")
     print(cleaned_df)
-    print(f"\nCleaned shape: {cleaned_df.shape}")
     
-    stats = calculate_summary_statistics(cleaned_df, 'values')
+    # Calculate statistics
+    stats = calculate_summary_statistics(df, 'values')
     print("\nSummary statistics:")
     for key, value in stats.items():
-        print(f"{key}: {value:.2f}")
+        print(f"{key}: {value}")
+    
+    # Normalize data
+    normalized_df = normalize_column(df, 'values', method='minmax')
+    print("\nDataFrame with normalized column:")
+    print(normalized_df)
