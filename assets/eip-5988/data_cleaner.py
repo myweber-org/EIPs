@@ -96,4 +96,151 @@ if __name__ == "__main__":
     print("\nCleaned DataFrame:")
     print(cleaned_df)
     print("\nCleaned Validation Results:")
-    print(validate_dataframe(cleaned_df))
+    print(validate_dataframe(cleaned_df))import csv
+import os
+
+def clean_csv(input_path, output_path, remove_duplicates=True, strip_whitespace=True):
+    """
+    Clean a CSV file by removing duplicates and stripping whitespace.
+    """
+    if not os.path.exists(input_path):
+        raise FileNotFoundError(f"Input file not found: {input_path}")
+    
+    seen_rows = set()
+    cleaned_rows = []
+    
+    with open(input_path, 'r', newline='', encoding='utf-8') as infile:
+        reader = csv.reader(infile)
+        header = next(reader)
+        cleaned_rows.append(header)
+        
+        for row in reader:
+            if strip_whitespace:
+                row = [cell.strip() if isinstance(cell, str) else cell for cell in row]
+            
+            row_tuple = tuple(row)
+            
+            if remove_duplicates:
+                if row_tuple in seen_rows:
+                    continue
+                seen_rows.add(row_tuple)
+            
+            cleaned_rows.append(row)
+    
+    with open(output_path, 'w', newline='', encoding='utf-8') as outfile:
+        writer = csv.writer(outfile)
+        writer.writerows(cleaned_rows)
+    
+    return len(cleaned_rows) - 1
+
+def validate_csv(file_path, required_columns=None):
+    """
+    Validate CSV structure and required columns.
+    """
+    if not os.path.exists(file_path):
+        return False, f"File does not exist: {file_path}"
+    
+    try:
+        with open(file_path, 'r', newline='', encoding='utf-8') as file:
+            reader = csv.reader(file)
+            header = next(reader)
+            
+            if required_columns:
+                missing_columns = [col for col in required_columns if col not in header]
+                if missing_columns:
+                    return False, f"Missing required columns: {missing_columns}"
+            
+            row_count = 0
+            for row in reader:
+                row_count += 1
+                if len(row) != len(header):
+                    return False, f"Row {row_count} has {len(row)} columns, expected {len(header)}"
+            
+            return True, f"CSV validation passed: {row_count} rows processed"
+    
+    except Exception as e:
+        return False, f"Validation error: {str(e)}"
+
+def merge_csv_files(file_paths, output_path, deduplicate=True):
+    """
+    Merge multiple CSV files into one.
+    """
+    if not file_paths:
+        raise ValueError("No input files provided")
+    
+    all_rows = []
+    header = None
+    seen_rows = set()
+    
+    for file_path in file_paths:
+        if not os.path.exists(file_path):
+            print(f"Warning: File not found, skipping: {file_path}")
+            continue
+        
+        with open(file_path, 'r', newline='', encoding='utf-8') as file:
+            reader = csv.reader(file)
+            current_header = next(reader)
+            
+            if header is None:
+                header = current_header
+            elif header != current_header:
+                print(f"Warning: Header mismatch in {file_path}, skipping file")
+                continue
+            
+            for row in reader:
+                row_tuple = tuple(row)
+                if deduplicate and row_tuple in seen_rows:
+                    continue
+                
+                if deduplicate:
+                    seen_rows.add(row_tuple)
+                all_rows.append(row)
+    
+    if header is None:
+        raise ValueError("No valid CSV files found")
+    
+    with open(output_path, 'w', newline='', encoding='utf-8') as outfile:
+        writer = csv.writer(outfile)
+        writer.writerow(header)
+        writer.writerows(all_rows)
+    
+    return len(all_rows)
+
+def sample_csv(input_path, output_path, sample_size=100, random_seed=42):
+    """
+    Create a random sample from a CSV file.
+    """
+    import random
+    
+    if not os.path.exists(input_path):
+        raise FileNotFoundError(f"Input file not found: {input_path}")
+    
+    with open(input_path, 'r', newline='', encoding='utf-8') as infile:
+        reader = csv.reader(infile)
+        header = next(reader)
+        all_rows = list(reader)
+    
+    if sample_size >= len(all_rows):
+        sampled_rows = all_rows
+    else:
+        random.seed(random_seed)
+        sampled_rows = random.sample(all_rows, sample_size)
+    
+    with open(output_path, 'w', newline='', encoding='utf-8') as outfile:
+        writer = csv.writer(outfile)
+        writer.writerow(header)
+        writer.writerows(sampled_rows)
+    
+    return len(sampled_rows)
+
+if __name__ == "__main__":
+    # Example usage
+    try:
+        rows_cleaned = clean_csv("input.csv", "cleaned.csv")
+        print(f"Cleaned {rows_cleaned} rows")
+        
+        is_valid, message = validate_csv("cleaned.csv", ["id", "name"])
+        print(f"Validation: {is_valid} - {message}")
+        
+    except Exception as e:
+        print(f"Error: {e}")
