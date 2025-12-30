@@ -55,4 +55,40 @@ def validate_data(df, required_columns=None, min_rows=1):
         if missing_cols:
             return False, f"Missing required columns: {missing_cols}"
     
-    return True, "Data validation passed"
+    return True, "Data validation passed"import pandas as pd
+import numpy as np
+
+def clean_data(input_file, output_file):
+    """
+    Load a CSV file, perform basic cleaning operations,
+    and save the cleaned data to a new file.
+    """
+    try:
+        df = pd.read_csv(input_file)
+        print(f"Original data shape: {df.shape}")
+
+        df = df.drop_duplicates()
+        print(f"After removing duplicates: {df.shape}")
+
+        df = df.dropna(subset=['value'])
+        print(f"After dropping rows with missing 'value': {df.shape}")
+
+        df['value'] = df['value'].apply(lambda x: max(0, x))
+        print("Negative values in 'value' column set to 0.")
+
+        df.to_csv(output_file, index=False)
+        print(f"Cleaned data saved to: {output_file}")
+        return True
+
+    except FileNotFoundError:
+        print(f"Error: File '{input_file}' not found.")
+        return False
+    except KeyError:
+        print("Error: Required column 'value' not found in data.")
+        return False
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        return False
+
+if __name__ == "__main__":
+    clean_data('raw_data.csv', 'cleaned_data.csv')
