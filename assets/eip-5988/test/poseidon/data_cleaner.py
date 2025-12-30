@@ -88,4 +88,38 @@ if __name__ == "__main__":
     cleaned = clean_dataset(sample_data)
     print("Cleaned data shape:", cleaned.shape)
     print("Cleaned data summary:")
-    print(cleaned.describe())
+    print(cleaned.describe())import pandas as pd
+
+def clean_dataset(df):
+    """
+    Clean a pandas DataFrame by removing duplicate rows and
+    filling missing values with column means for numeric columns.
+    """
+    # Remove duplicate rows
+    df_cleaned = df.drop_duplicates()
+    
+    # Fill missing values in numeric columns with column mean
+    numeric_cols = df_cleaned.select_dtypes(include=['number']).columns
+    df_cleaned[numeric_cols] = df_cleaned[numeric_cols].fillna(df_cleaned[numeric_cols].mean())
+    
+    return df_cleaned
+
+def validate_data(df, required_columns):
+    """
+    Validate that the DataFrame contains all required columns.
+    """
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        raise ValueError(f"Missing required columns: {missing_columns}")
+    return True
+
+def remove_outliers(df, column, threshold=3):
+    """
+    Remove outliers from a specific column using z-score method.
+    """
+    from scipy import stats
+    import numpy as np
+    
+    z_scores = np.abs(stats.zscore(df[column].dropna()))
+    filtered_entries = z_scores < threshold
+    return df[filtered_entries]
