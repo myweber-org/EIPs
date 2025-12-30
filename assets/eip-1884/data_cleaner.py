@@ -115,3 +115,145 @@ def get_data_summary(df):
         }
     
     return summary
+import pandas as pd
+import numpy as np
+from datetime import datetime
+
+def clean_dataframe(df, date_column='date', id_column='id'):
+    """
+    Clean dataframe by removing duplicates and standardizing date formats.
+    
+    Args:
+        df: pandas DataFrame to clean
+        date_column: name of date column to standardize
+        id_column: name of ID column for duplicate checking
+    
+    Returns:
+        Cleaned pandas DataFrame
+    """
+    # Create a copy to avoid modifying original
+    cleaned_df = df.copy()
+    
+    # Remove duplicate rows based on ID column
+    if id_column in cleaned_df.columns:
+        cleaned_df = cleaned_df.drop_duplicates(subset=[id_column], keep='first')
+    
+    # Standardize date format if date column exists
+    if date_column in cleaned_df.columns:
+        try:
+            # Try to parse dates in multiple formats
+            cleaned_df[date_column] = pd.to_datetime(
+                cleaned_df[date_column], 
+                errors='coerce',
+                format='mixed'
+            )
+            
+            # Format dates to YYYY-MM-DD
+            cleaned_df[date_column] = cleaned_df[date_column].dt.strftime('%Y-%m-%d')
+        except Exception as e:
+            print(f"Error standardizing dates: {e}")
+    
+    # Fill missing numeric values with column mean
+    numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mean())
+    
+    # Fill missing string values with 'Unknown'
+    string_cols = cleaned_df.select_dtypes(include=['object']).columns
+    for col in string_cols:
+        if col != date_column:  # Skip date column
+            cleaned_df[col] = cleaned_df[col].fillna('Unknown')
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate dataframe structure and content.
+    
+    Args:
+        df: pandas DataFrame to validate
+        required_columns: list of required column names
+    
+    Returns:
+        Dictionary with validation results
+    """
+    validation_results = {
+        'is_valid': True,
+        'missing_columns': [],
+        'empty_rows': 0,
+        'null_percentage': {}
+    }
+    
+    # Check required columns
+    if required_columns:
+        missing = [col for col in required_columns if col not in df.columns]
+        if missing:
+            validation_results['missing_columns'] = missing
+            validation_results['is_valid'] = False
+    
+    # Count empty rows
+    validation_results['empty_rows'] = df.isnull().all(axis=1).sum()
+    
+    # Calculate null percentage for each column
+    for column in df.columns:
+        null_count = df[column].isnull().sum()
+        null_pct = (null_count / len(df)) * 100
+        validation_results['null_percentage'][column] = round(null_pct, 2)
+    
+    return validation_results
+
+def export_cleaned_data(df, output_path, format='csv'):
+    """
+    Export cleaned dataframe to file.
+    
+    Args:
+        df: pandas DataFrame to export
+        output_path: path for output file
+        format: output format ('csv', 'excel', 'json')
+    
+    Returns:
+        Boolean indicating success
+    """
+    try:
+        if format.lower() == 'csv':
+            df.to_csv(output_path, index=False)
+        elif format.lower() == 'excel':
+            df.to_excel(output_path, index=False)
+        elif format.lower() == 'json':
+            df.to_json(output_path, orient='records')
+        else:
+            raise ValueError(f"Unsupported format: {format}")
+        
+        print(f"Data successfully exported to {output_path}")
+        return True
+        
+    except Exception as e:
+        print(f"Error exporting data: {e}")
+        return False
+
+# Example usage
+if __name__ == "__main__":
+    # Create sample data
+    sample_data = {
+        'id': [1, 2, 2, 3, 4, 5],
+        'date': ['2023-01-15', '15/02/2023', '2023-03-20', '20-04-2023', None, '2023-05-10'],
+        'value': [100, 200, 200, 300, None, 500],
+        'category': ['A', 'B', 'B', 'C', None, 'A']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    # Clean the data
+    cleaned_df = clean_dataframe(df, date_column='date', id_column='id')
+    print("Cleaned DataFrame:")
+    print(cleaned_df)
+    print("\n" + "="*50 + "\n")
+    
+    # Validate the data
+    validation = validate_dataframe(cleaned_df, required_columns=['id', 'date', 'value'])
+    print("Validation Results:")
+    for key, value in validation.items():
+        print(f"{key}: {value}")
