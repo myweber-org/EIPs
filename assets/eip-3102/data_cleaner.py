@@ -381,3 +381,84 @@ def validate_dataframe(df, required_columns=None, min_rows=1):
         return False, f"DataFrame has fewer than {min_rows} rows"
     
     return True, "DataFrame is valid"
+import pandas as pd
+import re
+
+def clean_dataframe(df, columns_to_clean=None):
+    """
+    Clean a pandas DataFrame by removing duplicates and normalizing string columns.
+    """
+    df_clean = df.copy()
+    
+    # Remove duplicate rows
+    initial_rows = df_clean.shape[0]
+    df_clean = df_clean.drop_duplicates()
+    removed_duplicates = initial_rows - df_clean.shape[0]
+    
+    # Normalize string columns
+    if columns_to_clean is None:
+        # Automatically detect string columns
+        string_columns = df_clean.select_dtypes(include=['object']).columns
+    else:
+        string_columns = [col for col in columns_to_clean if col in df_clean.columns]
+    
+    def normalize_string(text):
+        if pd.isna(text):
+            return text
+        text = str(text)
+        text = text.lower()
+        text = re.sub(r'\s+', ' ', text)
+        text = text.strip()
+        return text
+    
+    for col in string_columns:
+        df_clean[col] = df_clean[col].apply(normalize_string)
+    
+    return df_clean, removed_duplicates
+
+def validate_email_column(df, email_column):
+    """
+    Validate email addresses in a specified column.
+    """
+    if email_column not in df.columns:
+        raise ValueError(f"Column '{email_column}' not found in DataFrame")
+    
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    
+    df['email_valid'] = df[email_column].apply(
+        lambda x: bool(re.match(email_pattern, str(x))) if pd.notna(x) else False
+    )
+    
+    valid_count = df['email_valid'].sum()
+    invalid_count = len(df) - valid_count
+    
+    return df, valid_count, invalid_count
+
+def main():
+    # Example usage
+    data = {
+        'name': ['John Doe', 'Jane Smith', 'John Doe', 'Alice Johnson', 'bob brown  '],
+        'email': ['john@example.com', 'jane@example.com', 'invalid-email', 'alice@example.com', 'bob@example.com'],
+        'age': [25, 30, 25, 35, 40]
+    }
+    
+    df = pd.DataFrame(data)
+    print("Original DataFrame:")
+    print(df)
+    print()
+    
+    # Clean the dataframe
+    df_clean, duplicates_removed = clean_dataframe(df)
+    print(f"Removed {duplicates_removed} duplicate rows")
+    print("Cleaned DataFrame:")
+    print(df_clean)
+    print()
+    
+    # Validate email column
+    df_valid, valid_emails, invalid_emails = validate_email_column(df_clean, 'email')
+    print(f"Valid emails: {valid_emails}, Invalid emails: {invalid_emails}")
+    print("DataFrame with validation column:")
+    print(df_valid[['name', 'email', 'email_valid']])
+
+if __name__ == "__main__":
+    main()
