@@ -1,12 +1,4 @@
 
-def remove_duplicates_preserve_order(sequence):
-    seen = set()
-    result = []
-    for item in sequence:
-        if item not in seen:
-            seen.add(item)
-            result.append(item)
-    return result
 import numpy as np
 import pandas as pd
 
@@ -67,162 +59,26 @@ def example_usage():
     np.random.seed(42)
     
     data = {
-        'id': range(1, 101),
+        'id': range(100),
         'value': np.concatenate([
-            np.random.normal(100, 15, 90),
-            np.array([500, -200, 300, -150, 400, 250, -300, 350, -250, 450])
+            np.random.normal(100, 10, 90),
+            np.array([500, -200, 300, -150, 400])
         ])
     }
     
     df = pd.DataFrame(data)
     
     print("Original data shape:", df.shape)
-    print("Original summary statistics:")
-    original_stats = calculate_summary_statistics(df, 'value')
-    for key, value in original_stats.items():
-        print(f"  {key}: {value:.2f}")
+    print("Original statistics:", calculate_summary_statistics(df, 'value'))
     
     cleaned_df = remove_outliers_iqr(df, 'value')
     
     print("\nCleaned data shape:", cleaned_df.shape)
-    print("Cleaned summary statistics:")
-    cleaned_stats = calculate_summary_statistics(cleaned_df, 'value')
-    for key, value in cleaned_stats.items():
-        print(f"  {key}: {value:.2f}")
-    
-    removed_count = len(df) - len(cleaned_df)
-    print(f"\nRemoved {removed_count} outliers")
+    print("Cleaned statistics:", calculate_summary_statistics(cleaned_df, 'value'))
     
     return cleaned_df
 
 if __name__ == "__main__":
-    cleaned_data = example_usage()import csv
-import re
-
-def clean_string(value):
-    if not isinstance(value, str):
-        return value
-    value = value.strip()
-    value = re.sub(r'\s+', ' ', value)
-    return value
-
-def clean_numeric(value):
-    if isinstance(value, (int, float)):
-        return value
-    if isinstance(value, str):
-        cleaned = re.sub(r'[^\d.-]', '', value)
-        try:
-            if '.' in cleaned:
-                return float(cleaned)
-            else:
-                return int(cleaned)
-        except ValueError:
-            return None
-    return None
-
-def clean_csv_file(input_path, output_path):
-    with open(input_path, 'r', newline='', encoding='utf-8') as infile:
-        reader = csv.DictReader(infile)
-        fieldnames = reader.fieldnames
-        
-        rows = []
-        for row in reader:
-            cleaned_row = {}
-            for key, value in row.items():
-                if any(num_key in key.lower() for num_key in ['price', 'amount', 'quantity', 'total']):
-                    cleaned_row[key] = clean_numeric(value)
-                else:
-                    cleaned_row[key] = clean_string(value)
-            rows.append(cleaned_row)
-    
-    with open(output_path, 'w', newline='', encoding='utf-8') as outfile:
-        writer = csv.DictWriter(outfile, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
-    
-    return len(rows)
-
-def validate_email(email):
-    if not isinstance(email, str):
-        return False
-    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    return bool(re.match(pattern, email.strip()))
-import numpy as np
-import pandas as pd
-
-def remove_outliers_iqr(df, column):
-    """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to process
-    
-    Returns:
-    pd.DataFrame: DataFrame with outliers removed
-    """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    
-    return filtered_df
-
-def calculate_summary_statistics(df, column):
-    """
-    Calculate summary statistics for a column after outlier removal.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to analyze
-    
-    Returns:
-    dict: Dictionary containing summary statistics
-    """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    stats = {
-        'mean': df[column].mean(),
-        'median': df[column].median(),
-        'std': df[column].std(),
-        'min': df[column].min(),
-        'max': df[column].max(),
-        'count': df[column].count()
-    }
-    
-    return stats
-
-def process_dataframe(df, columns_to_clean):
-    """
-    Process multiple columns for outlier removal and return cleaned DataFrame.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    columns_to_clean (list): List of column names to clean
-    
-    Returns:
-    pd.DataFrame: Cleaned DataFrame
-    dict: Dictionary of summary statistics for each column
-    """
-    cleaned_df = df.copy()
-    all_stats = {}
-    
-    for column in columns_to_clean:
-        if column in cleaned_df.columns:
-            original_count = len(cleaned_df)
-            cleaned_df = remove_outliers_iqr(cleaned_df, column)
-            removed_count = original_count - len(cleaned_df)
-            
-            stats = calculate_summary_statistics(cleaned_df, column)
-            stats['outliers_removed'] = removed_count
-            all_stats[column] = stats
-    
-    return cleaned_df, all_stats
+    cleaned_data = example_usage()
+    print("\nFirst 5 rows of cleaned data:")
+    print(cleaned_data.head())
