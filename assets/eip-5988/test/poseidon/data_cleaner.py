@@ -123,3 +123,121 @@ def remove_outliers(df, column, threshold=3):
     z_scores = np.abs(stats.zscore(df[column].dropna()))
     filtered_entries = z_scores < threshold
     return df[filtered_entries]
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean
+        drop_duplicates (bool): Whether to remove duplicate rows
+        fill_missing (str): Strategy for filling missing values ('mean', 'median', 'mode', or 'drop')
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        initial_rows = len(cleaned_df)
+        cleaned_df = cleaned_df.drop_duplicates()
+        removed = initial_rows - len(cleaned_df)
+        print(f"Removed {removed} duplicate rows")
+    
+    if cleaned_df.isnull().sum().sum() > 0:
+        print(f"Found {cleaned_df.isnull().sum().sum()} missing values")
+        
+        if fill_missing == 'drop':
+            cleaned_df = cleaned_df.dropna()
+            print("Removed rows with missing values")
+        else:
+            numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+            
+            for col in numeric_cols:
+                if cleaned_df[col].isnull().sum() > 0:
+                    if fill_missing == 'mean':
+                        fill_value = cleaned_df[col].mean()
+                    elif fill_missing == 'median':
+                        fill_value = cleaned_df[col].median()
+                    elif fill_missing == 'mode':
+                        fill_value = cleaned_df[col].mode()[0]
+                    else:
+                        fill_value = 0
+                    
+                    cleaned_df[col] = cleaned_df[col].fillna(fill_value)
+                    print(f"Filled missing values in '{col}' with {fill_missing}: {fill_value}")
+    
+    categorical_cols = cleaned_df.select_dtypes(include=['object']).columns
+    for col in categorical_cols:
+        if cleaned_df[col].isnull().sum() > 0:
+            cleaned_df[col] = cleaned_df[col].fillna('Unknown')
+            print(f"Filled missing categorical values in '{col}' with 'Unknown'")
+    
+    print(f"Cleaning complete. Final shape: {cleaned_df.shape}")
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None, min_rows=1):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+        required_columns (list): List of column names that must be present
+        min_rows (int): Minimum number of rows required
+    
+    Returns:
+        bool: True if validation passes, False otherwise
+    """
+    if not isinstance(df, pd.DataFrame):
+        print("Error: Input is not a pandas DataFrame")
+        return False
+    
+    if len(df) < min_rows:
+        print(f"Error: DataFrame has fewer than {min_rows} rows")
+        return False
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            print(f"Error: Missing required columns: {missing_cols}")
+            return False
+    
+    return True
+
+def remove_outliers_iqr(df, column, multiplier=1.5):
+    """
+    Remove outliers from a DataFrame column using the IQR method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to process
+        multiplier (float): IQR multiplier for outlier detection
+    
+    Returns:
+        pd.DataFrame: DataFrame with outliers removed
+    """
+    if column not in df.columns:
+        print(f"Error: Column '{column}' not found in DataFrame")
+        return df
+    
+    if not pd.api.types.is_numeric_dtype(df[column]):
+        print(f"Error: Column '{column}' is not numeric")
+        return df
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - multiplier * IQR
+    upper_bound = Q3 + multiplier * IQR
+    
+    initial_count = len(df)
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    removed_count = initial_count - len(filtered_df)
+    
+    if removed_count > 0:
+        print(f"Removed {removed_count} outliers from '{column}' using IQR method")
+    
+    return filtered_df
