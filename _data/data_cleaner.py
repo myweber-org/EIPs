@@ -119,3 +119,30 @@ def calculate_statistics(data, column):
         'count': data[column].count(),
         'missing': data[column].isnull().sum()
     }
+import re
+import string
+
+def remove_punctuation(text):
+    """Remove all punctuation from the input text."""
+    translator = str.maketrans('', '', string.punctuation)
+    return text.translate(translator)
+
+def normalize_whitespace(text):
+    """Replace multiple whitespace characters with a single space."""
+    return re.sub(r'\s+', ' ', text).strip()
+
+def clean_text(text):
+    """Apply a series of cleaning operations to the text."""
+    if not isinstance(text, str):
+        return ''
+    
+    cleaned = text.lower()
+    cleaned = remove_punctuation(cleaned)
+    cleaned = normalize_whitespace(cleaned)
+    
+    return cleaned
+
+def tokenize_text(text):
+    """Split the cleaned text into tokens (words)."""
+    cleaned = clean_text(text)
+    return cleaned.split() if cleaned else []
