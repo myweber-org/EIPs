@@ -248,4 +248,60 @@ def clean_dataset(data, numeric_columns):
         if column in cleaned_data.columns:
             cleaned_data = remove_outliers_iqr(cleaned_data, column)
     
-    return cleaned_data
+    return cleaned_dataimport pandas as pd
+
+def clean_dataset(df):
+    """
+    Clean a pandas DataFrame by removing null values and duplicate rows.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to be cleaned.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    # Remove rows with any null values
+    df_cleaned = df.dropna()
+    
+    # Remove duplicate rows
+    df_cleaned = df_cleaned.drop_duplicates()
+    
+    # Reset index after cleaning
+    df_cleaned = df_cleaned.reset_index(drop=True)
+    
+    return df_cleaned
+
+def validate_data(df, required_columns):
+    """
+    Validate that the DataFrame contains all required columns.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list): List of required column names.
+    
+    Returns:
+        bool: True if all required columns are present, False otherwise.
+    """
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    
+    if missing_columns:
+        print(f"Missing columns: {missing_columns}")
+        return False
+    
+    return True
+
+def sample_data(df, n=5):
+    """
+    Return a random sample of rows from the DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        n (int): Number of rows to sample.
+    
+    Returns:
+        pd.DataFrame: Sampled DataFrame.
+    """
+    if len(df) < n:
+        return df
+    
+    return df.sample(n=n, random_state=42)
