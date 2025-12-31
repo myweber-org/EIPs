@@ -105,4 +105,35 @@ def create_sample_data():
     data['feature_a'][:50] = np.random.normal(300, 10, 50)
     data['feature_b'][:30] = np.random.normal(500, 20, 30)
     
-    return pd.DataFrame(data)
+    return pd.DataFrame(data)import pandas as pd
+import numpy as np
+from scipy import stats
+
+def load_and_clean_data(filepath):
+    df = pd.read_csv(filepath)
+    print(f"Original shape: {df.shape}")
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    df_clean = df.copy()
+    
+    for col in numeric_cols:
+        z_scores = np.abs(stats.zscore(df_clean[col].dropna()))
+        outliers = z_scores > 3
+        df_clean.loc[outliers, col] = np.nan
+        print(f"Removed {outliers.sum()} outliers from {col}")
+    
+    df_clean = df_clean.dropna(subset=numeric_cols)
+    print(f"Shape after outlier removal: {df_clean.shape}")
+    
+    for col in numeric_cols:
+        col_min = df_clean[col].min()
+        col_max = df_clean[col].max()
+        if col_max > col_min:
+            df_clean[col] = (df_clean[col] - col_min) / (col_max - col_min)
+    
+    return df_clean
+
+if __name__ == "__main__":
+    cleaned = load_and_clean_data("sample_data.csv")
+    cleaned.to_csv("cleaned_data.csv", index=False)
+    print("Data cleaning complete. Saved to cleaned_data.csv")
