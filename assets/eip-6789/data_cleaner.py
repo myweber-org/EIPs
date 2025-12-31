@@ -1,135 +1,68 @@
-
 import pandas as pd
 import numpy as np
+from scipy import stats
 
-def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
+def load_and_clean_data(filepath):
     """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
-    
-    Args:
-        df: pandas DataFrame to clean
-        drop_duplicates: If True, remove duplicate rows
-        fill_missing: Strategy for filling missing values ('mean', 'median', 'mode', or 'drop')
-    
-    Returns:
-        Cleaned pandas DataFrame
+    Load a CSV file and perform basic data cleaning operations.
     """
-    cleaned_df = df.copy()
-    
-    if drop_duplicates:
-        initial_rows = len(cleaned_df)
-        cleaned_df = cleaned_df.drop_duplicates()
-        removed = initial_rows - len(cleaned_df)
-        print(f"Removed {removed} duplicate rows")
-    
-    if fill_missing == 'drop':
-        cleaned_df = cleaned_df.dropna()
-        print("Dropped rows with missing values")
-    elif fill_missing in ['mean', 'median', 'mode']:
-        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
-        
-        for col in numeric_cols:
-            if cleaned_df[col].isnull().any():
-                if fill_missing == 'mean':
-                    fill_value = cleaned_df[col].mean()
-                elif fill_missing == 'median':
-                    fill_value = cleaned_df[col].median()
-                else:  # mode
-                    fill_value = cleaned_df[col].mode()[0] if not cleaned_df[col].mode().empty else 0
-                
-                cleaned_df[col] = cleaned_df[col].fillna(fill_value)
-                print(f"Filled missing values in '{col}' with {fill_missing}: {fill_value:.2f}")
-    
-    categorical_cols = cleaned_df.select_dtypes(include=['object']).columns
-    for col in categorical_cols:
-        if cleaned_df[col].isnull().any():
-            cleaned_df[col] = cleaned_df[col].fillna('Unknown')
-            print(f"Filled missing categorical values in '{col}' with 'Unknown'")
-    
-    return cleaned_df
+    try:
+        df = pd.read_csv(filepath)
+        print(f"Data loaded successfully. Shape: {df.shape}")
+    except FileNotFoundError:
+        print(f"Error: File not found at {filepath}")
+        return None
+    except Exception as e:
+        print(f"Error loading file: {e}")
+        return None
 
-def validate_dataset(df, required_columns=None, min_rows=1):
-    """
-    Validate dataset structure and content.
-    
-    Args:
-        df: pandas DataFrame to validate
-        required_columns: List of column names that must be present
-        min_rows: Minimum number of rows required
-    
-    Returns:
-        Tuple of (is_valid, error_message)
-    """
-    if len(df) < min_rows:
-        return False, f"Dataset must have at least {min_rows} rows"
-    
-    if required_columns:
-        missing_cols = [col for col in required_columns if col not in df.columns]
-        if missing_cols:
-            return False, f"Missing required columns: {missing_cols}"
-    
-    return True, "Dataset validation passed"
+    # Remove duplicate rows
+    initial_count = len(df)
+    df.drop_duplicates(inplace=True)
+    duplicates_removed = initial_count - len(df)
+    print(f"Removed {duplicates_removed} duplicate rows.")
 
-def remove_outliers(df, column, method='iqr', threshold=1.5):
+    # Handle missing values for numeric columns
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        if df[col].isnull().sum() > 0:
+            df[col].fillna(df[col].median(), inplace=True)
+            print(f"Filled missing values in column '{col}' with median.")
+
+    # Remove outliers using Z-score for numeric columns
+    z_scores = np.abs(stats.zscore(df[numeric_cols]))
+    outlier_mask = (z_scores < 3).all(axis=1)
+    outliers_removed = len(df) - outlier_mask.sum()
+    df = df[outlier_mask]
+    print(f"Removed {outliers_removed} outliers based on Z-score (|Z| > 3).")
+
+    # Normalize numeric columns to range [0, 1]
+    for col in numeric_cols:
+        min_val = df[col].min()
+        max_val = df[col].max()
+        if max_val > min_val:
+            df[col] = (df[col] - min_val) / (max_val - min_val)
+            print(f"Normalized column '{col}' to range [0, 1].")
+        else:
+            print(f"Column '{col}' has constant values, skipping normalization.")
+
+    print(f"Final data shape: {df.shape}")
+    return df
+
+def save_cleaned_data(df, output_filepath):
     """
-    Remove outliers from a specific column using IQR or Z-score method.
-    
-    Args:
-        df: pandas DataFrame
-        column: Column name to check for outliers
-        method: 'iqr' for Interquartile Range or 'zscore' for Z-score
-        threshold: Threshold value for outlier detection
-    
-    Returns:
-        DataFrame with outliers removed
+    Save the cleaned DataFrame to a CSV file.
     """
-    if column not in df.columns:
-        print(f"Column '{column}' not found in DataFrame")
-        return df
-    
-    if not np.issubdtype(df[column].dtype, np.number):
-        print(f"Column '{column}' is not numeric")
-        return df
-    
-    data = df[column].copy()
-    
-    if method == 'iqr':
-        Q1 = data.quantile(0.25)
-        Q3 = data.quantile(0.75)
-        IQR = Q3 - Q1
-        lower_bound = Q1 - threshold * IQR
-        upper_bound = Q3 + threshold * IQR
-        mask = (data >= lower_bound) & (data <= upper_bound)
-    else:  # zscore
-        mean = data.mean()
-        std = data.std()
-        z_scores = np.abs((data - mean) / std)
-        mask = z_scores <= threshold
-    
-    outliers_removed = len(df) - mask.sum()
-    print(f"Removed {outliers_removed} outliers from column '{column}'")
-    
-    return df[mask]
+    try:
+        df.to_csv(output_filepath, index=False)
+        print(f"Cleaned data saved to {output_filepath}")
+    except Exception as e:
+        print(f"Error saving file: {e}")
 
 if __name__ == "__main__":
-    sample_data = {
-        'id': [1, 2, 3, 3, 4, 5, 6, 7],
-        'value': [10.5, 20.3, np.nan, 15.0, 25.1, 1000.0, 30.2, np.nan],
-        'category': ['A', 'B', 'A', 'A', 'C', None, 'B', 'D'],
-        'score': [85, 92, 78, 78, 88, 150, 91, 82]
-    }
-    
-    df = pd.DataFrame(sample_data)
-    print("Original dataset:")
-    print(df)
-    print("\n" + "="*50 + "\n")
-    
-    cleaned = clean_dataset(df, fill_missing='median')
-    print("\nCleaned dataset:")
-    print(cleaned)
-    
-    is_valid, message = validate_dataset(cleaned, required_columns=['id', 'value'])
-    print(f"\nValidation: {message}")
-    
-    no_outliers = remove_outliers(cleaned, 'score', method='iqr')
-    print(f"\nDataset after outlier removal: {len(no_outliers)} rows")
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+
+    cleaned_df = load_and_clean_data(input_file)
+    if cleaned_df is not None:
+        save_cleaned_data(cleaned_df, output_file)
