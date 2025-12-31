@@ -1,64 +1,72 @@
-
 import pandas as pd
-import re
 
-def clean_dataframe(df, column_mapping=None, remove_duplicates=True, normalize_text=True):
+def remove_duplicates(df, subset=None, keep='first'):
     """
-    Clean a pandas DataFrame by removing duplicates and normalizing text columns.
+    Remove duplicate rows from a DataFrame.
     
     Args:
-        df (pd.DataFrame): Input DataFrame to clean
-        column_mapping (dict): Optional dictionary mapping old column names to new ones
-        remove_duplicates (bool): Whether to remove duplicate rows
-        normalize_text (bool): Whether to normalize text columns (strip, lowercase)
+        df (pd.DataFrame): Input DataFrame.
+        subset (list, optional): Column labels to consider for duplicates.
+        keep (str, optional): Which duplicates to keep.
     
     Returns:
-        pd.DataFrame: Cleaned DataFrame
+        pd.DataFrame: DataFrame with duplicates removed.
     """
-    cleaned_df = df.copy()
+    if df.empty:
+        return df
     
-    if column_mapping:
-        cleaned_df = cleaned_df.rename(columns=column_mapping)
-    
-    if remove_duplicates:
-        initial_rows = len(cleaned_df)
-        cleaned_df = cleaned_df.drop_duplicates()
-        removed = initial_rows - len(cleaned_df)
-        print(f"Removed {removed} duplicate rows")
-    
-    if normalize_text:
-        text_columns = cleaned_df.select_dtypes(include=['object']).columns
-        for col in text_columns:
-            cleaned_df[col] = cleaned_df[col].astype(str).str.strip().str.lower()
-            cleaned_df[col] = cleaned_df[col].apply(lambda x: re.sub(r'\s+', ' ', x))
-        print(f"Normalized {len(text_columns)} text columns")
-    
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
     return cleaned_df
 
-def validate_email_column(df, email_column):
+def clean_numeric_column(df, column_name, fill_method='mean'):
     """
-    Validate email addresses in a specified column.
+    Clean a numeric column by handling missing values.
     
     Args:
-        df (pd.DataFrame): Input DataFrame
-        email_column (str): Name of the column containing email addresses
+        df (pd.DataFrame): Input DataFrame.
+        column_name (str): Name of the column to clean.
+        fill_method (str): Method to fill missing values.
     
     Returns:
-        pd.DataFrame: DataFrame with validation results
+        pd.DataFrame: DataFrame with cleaned column.
     """
-    if email_column not in df.columns:
-        raise ValueError(f"Column '{email_column}' not found in DataFrame")
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
     
-    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    if fill_method == 'mean':
+        fill_value = df[column_name].mean()
+    elif fill_method == 'median':
+        fill_value = df[column_name].median()
+    elif fill_method == 'zero':
+        fill_value = 0
+    else:
+        raise ValueError("Invalid fill_method. Choose from 'mean', 'median', or 'zero'")
     
-    validation_df = df.copy()
-    validation_df['email_valid'] = validation_df[email_column].apply(
-        lambda x: bool(re.match(email_pattern, str(x)))
-    )
+    df_cleaned = df.copy()
+    df_cleaned[column_name] = df_cleaned[column_name].fillna(fill_value)
     
-    valid_count = validation_df['email_valid'].sum()
-    total_count = len(validation_df)
+    return df_cleaned
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
     
-    print(f"Email validation: {valid_count}/{total_count} valid emails ({valid_count/total_count*100:.1f}%)")
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list, optional): List of required column names.
     
-    return validation_df
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "DataFrame is valid"
