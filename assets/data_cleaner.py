@@ -82,3 +82,43 @@ if __name__ == "__main__":
     cleaned_data = example_usage()
     print("\nFirst 5 rows of cleaned data:")
     print(cleaned_data.head())
+def remove_duplicates(data_list):
+    """
+    Remove duplicate entries from a list while preserving order.
+    Returns a new list with unique elements.
+    """
+    seen = set()
+    result = []
+    for item in data_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+def clean_numeric_data(values, default=0):
+    """
+    Clean numeric data by converting strings to floats,
+    handling None values, and replacing invalid entries with default.
+    """
+    cleaned = []
+    for val in values:
+        if val is None:
+            cleaned.append(default)
+        elif isinstance(val, str):
+            try:
+                cleaned.append(float(val))
+            except ValueError:
+                cleaned.append(default)
+        else:
+            cleaned.append(float(val))
+    return cleaned
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = [1, 2, 2, 3, 4, 4, 5]
+    print("Original:", sample_data)
+    print("Cleaned:", remove_duplicates(sample_data))
+    
+    numeric_data = ["1.5", "invalid", None, 3.2, "4.7"]
+    print("Numeric data:", numeric_data)
+    print("Cleaned numeric:", clean_numeric_data(numeric_data))
