@@ -39,3 +39,11 @@ def process_features(df, feature_columns, method='standardize'):
             elif method == 'standardize':
                 processed_df[col] = standardize_zscore(processed_df, col)
     return processed_df
+def remove_duplicates_preserve_order(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
