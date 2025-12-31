@@ -138,3 +138,139 @@ if __name__ == "__main__":
     print("\nDataFrame with cleaned numeric columns:")
     print(numeric_df)
     print(f"\nScore column dtype: {numeric_df['score'].dtype}")
+import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(dataframe, column, multiplier=1.5):
+    """
+    Remove outliers from a DataFrame column using the IQR method.
+    
+    Args:
+        dataframe: pandas DataFrame
+        column: Column name to process
+        multiplier: IQR multiplier (default 1.5)
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = dataframe[column].quantile(0.25)
+    q3 = dataframe[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - multiplier * iqr
+    upper_bound = q3 + multiplier * iqr
+    
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
+                           (dataframe[column] <= upper_bound)]
+    
+    return filtered_df
+
+def normalize_minmax(dataframe, columns=None):
+    """
+    Normalize specified columns using min-max scaling.
+    
+    Args:
+        dataframe: pandas DataFrame
+        columns: List of columns to normalize (default: all numeric columns)
+    
+    Returns:
+        DataFrame with normalized columns
+    """
+    if columns is None:
+        columns = dataframe.select_dtypes(include=[np.number]).columns.tolist()
+    
+    normalized_df = dataframe.copy()
+    
+    for col in columns:
+        if col in dataframe.columns and pd.api.types.is_numeric_dtype(dataframe[col]):
+            min_val = normalized_df[col].min()
+            max_val = normalized_df[col].max()
+            
+            if max_val > min_val:
+                normalized_df[col] = (normalized_df[col] - min_val) / (max_val - min_val)
+            else:
+                normalized_df[col] = 0
+    
+    return normalized_df
+
+def clean_dataset(dataframe, numeric_columns=None, outlier_multiplier=1.5):
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Args:
+        dataframe: Input DataFrame
+        numeric_columns: List of numeric columns to process
+        outlier_multiplier: IQR multiplier for outlier removal
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    if numeric_columns is None:
+        numeric_columns = dataframe.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_df = dataframe.copy()
+    
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col, outlier_multiplier)
+    
+    cleaned_df = normalize_minmax(cleaned_df, numeric_columns)
+    
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    return cleaned_df
+
+def calculate_statistics(dataframe, columns=None):
+    """
+    Calculate basic statistics for specified columns.
+    
+    Args:
+        dataframe: pandas DataFrame
+        columns: List of columns to analyze
+    
+    Returns:
+        Dictionary with statistics
+    """
+    if columns is None:
+        columns = dataframe.select_dtypes(include=[np.number]).columns.tolist()
+    
+    stats = {}
+    
+    for col in columns:
+        if col in dataframe.columns and pd.api.types.is_numeric_dtype(dataframe[col]):
+            stats[col] = {
+                'mean': dataframe[col].mean(),
+                'median': dataframe[col].median(),
+                'std': dataframe[col].std(),
+                'min': dataframe[col].min(),
+                'max': dataframe[col].max(),
+                'count': dataframe[col].count()
+            }
+    
+    return stats
+
+if __name__ == "__main__":
+    sample_data = {
+        'feature_a': np.random.normal(100, 15, 1000),
+        'feature_b': np.random.exponential(50, 1000),
+        'category': np.random.choice(['A', 'B', 'C'], 1000)
+    }
+    
+    df = pd.DataFrame(sample_data)
+    
+    print("Original dataset shape:", df.shape)
+    print("\nOriginal statistics:")
+    stats = calculate_statistics(df)
+    for col, col_stats in stats.items():
+        print(f"{col}: {col_stats}")
+    
+    cleaned_df = clean_dataset(df, ['feature_a', 'feature_b'])
+    
+    print("\nCleaned dataset shape:", cleaned_df.shape)
+    print("\nCleaned statistics:")
+    cleaned_stats = calculate_statistics(cleaned_df)
+    for col, col_stats in cleaned_stats.items():
+        print(f"{col}: {col_stats}")
