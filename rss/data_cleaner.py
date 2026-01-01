@@ -71,3 +71,78 @@ if __name__ == "__main__":
     print("Cleaned shape:", cleaned_data.shape)
     print("\nSummary statistics:")
     print(cleaned_data.describe())
+import pandas as pd
+
+def clean_dataset(df, id_column=None):
+    """
+    Clean a pandas DataFrame by removing duplicates and standardizing column names.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        id_column (str, optional): Column name to use for identifying duplicates.
+                                   If None, checks all columns.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    # Create a copy to avoid modifying the original
+    cleaned_df = df.copy()
+    
+    # Standardize column names: lowercase and replace spaces with underscores
+    cleaned_df.columns = cleaned_df.columns.str.lower().str.replace(' ', '_')
+    
+    # Remove duplicate rows
+    if id_column and id_column in cleaned_df.columns:
+        cleaned_df = cleaned_df.drop_duplicates(subset=[id_column])
+    else:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    # Reset index after cleaning
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and required columns.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list, optional): List of required column names.
+    
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "DataFrame is valid"
+
+# Example usage (commented out for production)
+# if __name__ == "__main__":
+#     # Create sample data
+#     sample_data = {
+#         'User ID': [1, 2, 2, 3, 4],
+#         'First Name': ['John', 'Jane', 'Jane', 'Bob', 'Alice'],
+#         'Last Name': ['Doe', 'Smith', 'Smith', 'Johnson', 'Brown'],
+#         'Email': ['john@example.com', 'jane@example.com', 'jane@example.com', 'bob@example.com', 'alice@example.com']
+#     }
+#     
+#     df = pd.DataFrame(sample_data)
+#     print("Original DataFrame:")
+#     print(df)
+#     print("\nCleaned DataFrame:")
+#     cleaned = clean_dataset(df, id_column='User ID')
+#     print(cleaned)
+#     
+#     # Validate
+#     is_valid, message = validate_dataframe(cleaned, required_columns=['user_id', 'email'])
+#     print(f"\nValidation: {is_valid} - {message}")
