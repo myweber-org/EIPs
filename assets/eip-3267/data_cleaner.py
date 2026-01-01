@@ -104,4 +104,110 @@ if __name__ == "__main__":
     cleaned_df = clean_dataset(sample_df, ['value'])
     
     print("\nCleaned dataset shape:", cleaned_df.shape)
-    print("Cleaned summary stats:", calculate_summary_stats(cleaned_df, 'value'))
+    print("Cleaned summary stats:", calculate_summary_stats(cleaned_df, 'value'))import pandas as pd
+import numpy as np
+
+def clean_csv_data(filepath, strategy='mean', columns=None):
+    """
+    Load a CSV file and handle missing values using specified strategy.
+    
+    Args:
+        filepath (str): Path to the CSV file.
+        strategy (str): Method for handling missing values. 
+                       Options: 'mean', 'median', 'mode', 'drop'.
+        columns (list): Specific columns to clean. If None, clean all columns.
+    
+    Returns:
+        pandas.DataFrame: Cleaned DataFrame.
+    """
+    try:
+        df = pd.read_csv(filepath)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found: {filepath}")
+    
+    if columns is None:
+        columns = df.columns
+    
+    for col in columns:
+        if col in df.columns:
+            if df[col].isnull().any():
+                if strategy == 'mean':
+                    fill_value = df[col].mean()
+                elif strategy == 'median':
+                    fill_value = df[col].median()
+                elif strategy == 'mode':
+                    fill_value = df[col].mode()[0]
+                elif strategy == 'drop':
+                    df = df.dropna(subset=[col])
+                    continue
+                else:
+                    raise ValueError(f"Unknown strategy: {strategy}")
+                
+                df[col] = df[col].fillna(fill_value)
+    
+    return df
+
+def detect_outliers_iqr(df, column):
+    """
+    Detect outliers in a column using the Interquartile Range method.
+    
+    Args:
+        df (pandas.DataFrame): Input DataFrame.
+        column (str): Column name to analyze.
+    
+    Returns:
+        pandas.Series: Boolean series indicating outliers.
+    """
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    return (df[column] < lower_bound) | (df[column] > upper_bound)
+
+def normalize_column(df, column, method='minmax'):
+    """
+    Normalize a column using specified method.
+    
+    Args:
+        df (pandas.DataFrame): Input DataFrame.
+        column (str): Column name to normalize.
+        method (str): Normalization method. Options: 'minmax', 'zscore'.
+    
+    Returns:
+        pandas.DataFrame: DataFrame with normalized column.
+    """
+    if method == 'minmax':
+        min_val = df[column].min()
+        max_val = df[column].max()
+        df[column] = (df[column] - min_val) / (max_val - min_val)
+    elif method == 'zscore':
+        mean_val = df[column].mean()
+        std_val = df[column].std()
+        df[column] = (df[column] - mean_val) / std_val
+    else:
+        raise ValueError(f"Unknown normalization method: {method}")
+    
+    return df
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'A': [1, 2, np.nan, 4, 5],
+        'B': [10, np.nan, 30, 40, 50],
+        'C': [100, 200, 300, np.nan, 500]
+    })
+    
+    sample_data.to_csv('sample_data.csv', index=False)
+    
+    cleaned = clean_csv_data('sample_data.csv', strategy='mean')
+    print("Cleaned DataFrame:")
+    print(cleaned)
+    
+    outliers = detect_outliers_iqr(cleaned, 'A')
+    print(f"\nOutliers in column A: {outliers.sum()}")
+    
+    normalized = normalize_column(cleaned.copy(), 'B', method='minmax')
+    print("\nNormalized column B:")
+    print(normalized['B'].head())
