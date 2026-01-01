@@ -447,3 +447,11 @@ def clean_numeric_data(df, columns=None):
                 print(f"Warning: Could not clean column '{column}': {e}")
     
     return cleaned_df
+def remove_duplicates(input_list):
+    seen = set()
+    result = []
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
