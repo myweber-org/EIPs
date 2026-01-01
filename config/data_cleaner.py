@@ -1,62 +1,74 @@
-import pandas as pd
-import re
 
-def clean_text_column(df, column_name):
+def remove_duplicates(data_list):
     """
-    Standardize text by converting to lowercase, removing extra spaces,
-    and stripping special characters except basic punctuation.
-    """
-    if column_name not in df.columns:
-        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    Remove duplicate entries from a list while preserving order.
     
-    df[column_name] = df[column_name].astype(str).str.lower()
-    df[column_name] = df[column_name].apply(lambda x: re.sub(r'\s+', ' ', x))
-    df[column_name] = df[column_name].apply(lambda x: re.sub(r'[^\w\s.,!?-]', '', x))
-    df[column_name] = df[column_name].str.strip()
-    return df
+    Args:
+        data_list (list): Input list that may contain duplicates.
+    
+    Returns:
+        list: List with duplicates removed.
+    """
+    seen = set()
+    result = []
+    
+    for item in data_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    
+    return result
 
-def remove_duplicate_rows(df, subset=None, keep='first'):
+def clean_numeric_data(values, threshold=None):
     """
-    Remove duplicate rows from DataFrame.
+    Clean numeric data by removing None values and optionally filtering by threshold.
+    
+    Args:
+        values (list): List of numeric values.
+        threshold (float, optional): Maximum allowed value. Values above this are removed.
+    
+    Returns:
+        list: Cleaned list of numeric values.
     """
-    return df.drop_duplicates(subset=subset, keep=keep)
+    cleaned = [v for v in values if v is not None]
+    
+    if threshold is not None:
+        cleaned = [v for v in cleaned if v <= threshold]
+    
+    return cleaned
 
-def standardize_dates(df, column_name, date_format='%Y-%m-%d'):
+def validate_email_list(emails):
     """
-    Attempt to standardize date column to specified format.
+    Validate and clean a list of email addresses.
+    
+    Args:
+        emails (list): List of email strings.
+    
+    Returns:
+        tuple: (valid_emails, invalid_emails)
     """
-    df[column_name] = pd.to_datetime(df[column_name], errors='coerce').dt.strftime(date_format)
-    return df
-
-def clean_dataset(df, text_columns=None, date_columns=None, deduplicate=True):
-    """
-    Main cleaning function that applies multiple cleaning operations.
-    """
-    df_clean = df.copy()
+    import re
     
-    if text_columns:
-        for col in text_columns:
-            df_clean = clean_text_column(df_clean, col)
+    valid = []
+    invalid = []
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     
-    if date_columns:
-        for col in date_columns:
-            df_clean = standardize_dates(df_clean, col)
+    for email in emails:
+        if isinstance(email, str) and re.match(pattern, email):
+            valid.append(email.lower().strip())
+        else:
+            invalid.append(email)
     
-    if deduplicate:
-        df_clean = remove_duplicate_rows(df_clean)
-    
-    return df_clean
+    return valid, invalid
 
 if __name__ == "__main__":
-    sample_data = {
-        'name': ['John Doe', 'Jane Smith', 'John Doe', 'Alice Johnson  '],
-        'email': ['JOHN@example.com', 'jane@test.com', 'john@example.com', 'alice@sample.org'],
-        'date': ['2023-01-15', '15/02/2023', 'Jan 20, 2023', '2023.03.10']
-    }
+    # Example usage
+    sample_data = [1, 2, 2, 3, 4, 4, 5]
+    cleaned = remove_duplicates(sample_data)
+    print(f"Original: {sample_data}")
+    print(f"Cleaned: {cleaned}")
     
-    df = pd.DataFrame(sample_data)
-    print("Original dataset:")
-    print(df)
-    print("\nCleaned dataset:")
-    cleaned_df = clean_dataset(df, text_columns=['name', 'email'], date_columns=['date'])
-    print(cleaned_df)
+    emails = ["test@example.com", "invalid-email", "user@domain.org", "another@test.co.uk"]
+    valid_emails, invalid_emails = validate_email_list(emails)
+    print(f"Valid emails: {valid_emails}")
+    print(f"Invalid emails: {invalid_emails}")
