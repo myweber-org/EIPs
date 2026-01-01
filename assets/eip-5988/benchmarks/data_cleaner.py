@@ -1,142 +1,100 @@
+import csv
+import logging
+from typing import List, Dict, Any, Optional
 
-import pandas as pd
+logger = logging.getLogger(__name__)
 
-def clean_dataset(df, column_mapping=None, drop_duplicates=True, normalize_text=True):
-    """
-    Clean a pandas DataFrame by removing duplicates and normalizing text columns.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame to clean.
-        column_mapping (dict, optional): Dictionary mapping original column names to new names.
-        drop_duplicates (bool): Whether to remove duplicate rows.
-        normalize_text (bool): Whether to normalize text columns (strip whitespace, lowercase).
-    
-    Returns:
-        pd.DataFrame: Cleaned DataFrame.
-    """
-    df_clean = df.copy()
-    
-    # Rename columns if mapping provided
-    if column_mapping:
-        df_clean = df_clean.rename(columns=column_mapping)
-    
-    # Remove duplicate rows
-    if drop_duplicates:
-        initial_rows = len(df_clean)
-        df_clean = df_clean.drop_duplicates()
-        removed = initial_rows - len(df_clean)
-        print(f"Removed {removed} duplicate rows.")
-    
-    # Normalize text columns
-    if normalize_text:
-        text_columns = df_clean.select_dtypes(include=['object']).columns
-        for col in text_columns:
-            df_clean[col] = df_clean[col].astype(str).str.strip().str.lower()
-        print(f"Normalized {len(text_columns)} text columns.")
-    
-    # Reset index after cleaning
-    df_clean = df_clean.reset_index(drop=True)
-    
-    return df_clean
+def read_csv_file(file_path: str) -> List[Dict[str, Any]]:
+    """Read a CSV file and return a list of dictionaries."""
+    data = []
+    try:
+        with open(file_path, 'r', newline='', encoding='utf-8') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                data.append(row)
+        logger.info(f"Successfully read {len(data)} rows from {file_path}")
+    except FileNotFoundError:
+        logger.error(f"File not found: {file_path}")
+        raise
+    except Exception as e:
+        logger.error(f"Error reading CSV file {file_path}: {e}")
+        raise
+    return data
 
-def validate_data(df, required_columns=None, allow_na_columns=None):
-    """
-    Validate DataFrame structure and content.
-    
-    Args:
-        df (pd.DataFrame): DataFrame to validate.
-        required_columns (list): List of columns that must be present.
-        allow_na_columns (list): List of columns where NA values are allowed.
-    
-    Returns:
-        dict: Dictionary containing validation results.
-    """
-    validation_result = {
-        'is_valid': True,
-        'missing_columns': [],
-        'na_counts': {},
-        'total_rows': len(df),
-        'total_columns': len(df.columns)
-    }
-    
-    # Check required columns
-    if required_columns:
-        missing = [col for col in required_columns if col not in df.columns]
-        if missing:
-            validation_result['missing_columns'] = missing
-            validation_result['is_valid'] = False
-    
-    # Check NA values
-    na_counts = df.isna().sum()
-    validation_result['na_counts'] = na_counts.to_dict()
-    
-    # Check if NA values are in disallowed columns
-    if allow_na_columns is not None:
-        disallowed_na = [col for col in df.columns 
-                        if col not in allow_na_columns and na_counts[col] > 0]
-        if disallowed_na:
-            validation_result['is_valid'] = False
-    
-    return validation_result
+def remove_empty_rows(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Remove rows where all values are empty strings or None."""
+    cleaned_data = []
+    for row in data:
+        if any(value not in (None, "") for value in row.values()):
+            cleaned_data.append(row)
+    logger.info(f"Removed {len(data) - len(cleaned_data)} empty rows")
+    return cleaned_data
 
-# Example usage
-if __name__ == "__main__":
-    # Create sample data
-    sample_data = {
-        'Name': ['John Doe', 'Jane Smith', 'John Doe', ' Bob Johnson ', 'ALICE'],
-        'Age': [25, 30, 25, 35, None],
-        'Email': ['john@example.com', 'jane@example.com', 
-                 'john@example.com', 'bob@example.com', 'alice@example.com'],
-        'City': ['New York', 'Los Angeles', 'New York', ' Chicago ', 'BOSTON']
-    }
+def standardize_column_names(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Standardize column names to lowercase with underscores."""
+    if not data:
+        return data
     
-    df = pd.DataFrame(sample_data)
-    print("Original DataFrame:")
-    print(df)
-    print("\n" + "="*50 + "\n")
+    standardized_data = []
+    for row in data:
+        new_row = {}
+        for key, value in row.items():
+            new_key = key.strip().lower().replace(' ', '_')
+            new_row[new_key] = value
+        standardized_data.append(new_row)
+    logger.info("Column names standardized")
+    return standardized_data
+
+def convert_numeric_values(data: List[Dict[str, Any]], columns: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+    """Convert specified columns to numeric values where possible."""
+    if not data:
+        return data
     
-    # Clean the data
-    cleaned_df = clean_dataset(df, drop_duplicates=True, normalize_text=True)
-    print("Cleaned DataFrame:")
-    print(cleaned_df)
+    if columns is None:
+        columns = list(data[0].keys())
     
-    # Validate the cleaned data
-    validation = validate_data(
-        cleaned_df, 
-        required_columns=['Name', 'Email'],
-        allow_na_columns=['Age']
-    )
-    print("\nValidation Results:")
-    print(validation)
-import numpy as np
-import pandas as pd
+    converted_data = []
+    for row in data:
+        new_row = row.copy()
+        for col in columns:
+            if col in new_row:
+                try:
+                    value = new_row[col]
+                    if value is None or value == "":
+                        new_row[col] = None
+                    else:
+                        new_row[col] = float(value)
+                except (ValueError, TypeError):
+                    pass
+        converted_data.append(new_row)
+    logger.info(f"Attempted numeric conversion on columns: {columns}")
+    return converted_data
 
-def remove_outliers_iqr(df, column):
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+def write_csv_file(data: List[Dict[str, Any]], file_path: str) -> None:
+    """Write data to a CSV file."""
+    if not data:
+        logger.warning("No data to write")
+        return
+    
+    try:
+        with open(file_path, 'w', newline='', encoding='utf-8') as csvfile:
+            fieldnames = list(data[0].keys())
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(data)
+        logger.info(f"Successfully wrote {len(data)} rows to {file_path}")
+    except Exception as e:
+        logger.error(f"Error writing CSV file {file_path}: {e}")
+        raise
 
-def normalize_minmax(df, column):
-    min_val = df[column].min()
-    max_val = df[column].max()
-    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
-    return df
-
-def clean_dataset(df, numeric_columns):
-    cleaned_df = df.copy()
-    for col in numeric_columns:
-        if col in cleaned_df.columns:
-            cleaned_df = remove_outliers_iqr(cleaned_df, col)
-            cleaned_df = normalize_minmax(cleaned_df, col)
-    return cleaned_df
-
-def process_csv(input_path, output_path, numeric_columns=None):
-    df = pd.read_csv(input_path)
-    if numeric_columns is None:
-        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
-    cleaned_df = clean_dataset(df, numeric_columns)
-    cleaned_df.to_csv(output_path, index=False)
-    return cleaned_df
+def clean_csv_data(input_file: str, output_file: str) -> None:
+    """Complete data cleaning pipeline for CSV files."""
+    logger.info(f"Starting data cleaning for {input_file}")
+    
+    data = read_csv_file(input_file)
+    data = remove_empty_rows(data)
+    data = standardize_column_names(data)
+    data = convert_numeric_values(data)
+    
+    write_csv_file(data, output_file)
+    logger.info(f"Data cleaning completed. Output saved to {output_file}")
