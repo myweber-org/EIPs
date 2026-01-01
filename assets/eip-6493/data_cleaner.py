@@ -69,4 +69,56 @@ def validate_dataframe(df, required_columns=None):
         if missing_columns:
             return False, f"Missing required columns: {missing_columns}"
     
-    return True, "DataFrame is valid"
+    return True, "DataFrame is valid"import re
+import pandas as pd
+from typing import Optional, List, Dict, Any
+
+def clean_string(text: str) -> str:
+    """
+    Clean a string by removing extra whitespace and converting to lowercase.
+    """
+    if not isinstance(text, str):
+        return ''
+    cleaned = re.sub(r'\s+', ' ', text.strip())
+    return cleaned.lower()
+
+def validate_email(email: str) -> bool:
+    """
+    Validate an email address format.
+    """
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, email))
+
+def remove_duplicates(data: List[Any]) -> List[Any]:
+    """
+    Remove duplicates from a list while preserving order.
+    """
+    seen = set()
+    result = []
+    for item in data:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+def normalize_column_names(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Normalize DataFrame column names to lowercase with underscores.
+    """
+    df.columns = [col.strip().lower().replace(' ', '_') for col in df.columns]
+    return df
+
+def filter_by_threshold(data: List[float], threshold: float) -> List[float]:
+    """
+    Filter numeric values above a given threshold.
+    """
+    return [value for value in data if isinstance(value, (int, float)) and value > threshold]
+
+def count_unique_items(items: List[Any]) -> Dict[Any, int]:
+    """
+    Count occurrences of unique items in a list.
+    """
+    counts = {}
+    for item in items:
+        counts[item] = counts.get(item, 0) + 1
+    return counts
