@@ -1,42 +1,73 @@
+
 import pandas as pd
+import numpy as np
 
-def clean_data(df):
+def remove_outliers_iqr(df, column):
     """
-    Clean the input DataFrame by removing duplicates and filling missing values.
+    Remove outliers from a DataFrame column using the Interquartile Range method.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    column (str): Column name to process.
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed.
     """
-    # Remove duplicate rows
-    df_cleaned = df.drop_duplicates()
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    # Fill missing numeric values with column mean
-    numeric_cols = df_cleaned.select_dtypes(include=['number']).columns
-    df_cleaned[numeric_cols] = df_cleaned[numeric_cols].fillna(df_cleaned[numeric_cols].mean())
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
     
-    # Fill missing categorical values with mode
-    categorical_cols = df_cleaned.select_dtypes(include=['object']).columns
-    for col in categorical_cols:
-        if df_cleaned[col].isnull().any():
-            mode_value = df_cleaned[col].mode()[0]
-            df_cleaned[col] = df_cleaned[col].fillna(mode_value)
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
     
-    return df_cleaned
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df.reset_index(drop=True)
 
-def main():
-    # Example usage
-    data = {
-        'id': [1, 2, 2, 3, 4],
-        'name': ['Alice', 'Bob', 'Bob', None, 'Eve'],
-        'age': [25, 30, 30, None, 35],
-        'score': [85.5, 92.0, 92.0, 78.5, None]
-    }
+def clean_dataset(df, numeric_columns=None):
+    """
+    Clean dataset by removing outliers from all numeric columns.
     
-    df = pd.DataFrame(data)
-    print("Original DataFrame:")
-    print(df)
-    print("\n")
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    numeric_columns (list): List of numeric column names. If None, uses all numeric columns.
     
-    cleaned_df = clean_data(df)
-    print("Cleaned DataFrame:")
-    print(cleaned_df)
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    if numeric_columns is None:
+        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_df = df.copy()
+    
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            original_len = len(cleaned_df)
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+            removed_count = original_len - len(cleaned_df)
+            print(f"Removed {removed_count} outliers from column '{col}'")
+    
+    return cleaned_df
 
 if __name__ == "__main__":
-    main()
+    # Example usage
+    np.random.seed(42)
+    sample_data = pd.DataFrame({
+        'A': np.random.normal(100, 15, 1000),
+        'B': np.random.exponential(50, 1000),
+        'C': np.random.uniform(0, 1, 1000),
+        'category': np.random.choice(['X', 'Y', 'Z'], 1000)
+    })
+    
+    # Add some outliers
+    sample_data.loc[1000:1005, 'A'] = 500
+    sample_data.loc[1006:1010, 'B'] = 1000
+    
+    print("Original shape:", sample_data.shape)
+    cleaned_data = clean_dataset(sample_data)
+    print("Cleaned shape:", cleaned_data.shape)
+    print("\nSummary statistics:")
+    print(cleaned_data.describe())
