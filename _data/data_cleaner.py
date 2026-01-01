@@ -303,3 +303,11 @@ if __name__ == "__main__":
     for col in cleaned_df.columns:
         stats = calculate_summary_statistics(cleaned_df, col)
         print(f"{col}: {stats}")
+def deduplicate_list(input_list):
+    seen = set()
+    result = []
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
