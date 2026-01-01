@@ -1,83 +1,68 @@
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
-def clean_dataframe(df, drop_duplicates=True, fill_missing=True):
+def remove_outliers_iqr(df, column):
     """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    Remove outliers from a DataFrame column using the Interquartile Range method.
     
-    Args:
-        df (pd.DataFrame): Input DataFrame to clean
-        drop_duplicates (bool): Whether to remove duplicate rows
-        fill_missing (bool): Whether to fill missing values with column mean
+    Parameters:
+    df (pd.DataFrame): The input DataFrame.
+    column (str): The column name to process.
     
     Returns:
-        pd.DataFrame: Cleaned DataFrame
+    pd.DataFrame: DataFrame with outliers removed.
     """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df
+
+def clean_dataset(df, numeric_columns=None):
+    """
+    Clean a dataset by removing outliers from specified numeric columns.
+    
+    Parameters:
+    df (pd.DataFrame): The input DataFrame.
+    numeric_columns (list): List of numeric column names to clean.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    if numeric_columns is None:
+        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
     cleaned_df = df.copy()
     
-    if drop_duplicates:
-        initial_rows = len(cleaned_df)
-        cleaned_df = cleaned_df.drop_duplicates()
-        removed = initial_rows - len(cleaned_df)
-        print(f"Removed {removed} duplicate rows")
-    
-    if fill_missing:
-        for column in cleaned_df.select_dtypes(include=[np.number]).columns:
-            if cleaned_df[column].isnull().any():
-                mean_value = cleaned_df[column].mean()
-                cleaned_df[column] = cleaned_df[column].fillna(mean_value)
-                print(f"Filled missing values in '{column}' with mean: {mean_value:.2f}")
+    for col in numeric_columns:
+        if col in cleaned_df.columns and pd.api.types.is_numeric_dtype(cleaned_df[col]):
+            try:
+                cleaned_df = remove_outliers_iqr(cleaned_df, col)
+            except Exception as e:
+                print(f"Warning: Could not process column '{col}': {e}")
     
     return cleaned_df
 
-def validate_dataframe(df):
-    """
-    Validate DataFrame for common data quality issues.
-    
-    Args:
-        df (pd.DataFrame): DataFrame to validate
-    
-    Returns:
-        dict: Dictionary containing validation results
-    """
-    validation_results = {
-        'total_rows': len(df),
-        'total_columns': len(df.columns),
-        'missing_values': df.isnull().sum().sum(),
-        'duplicate_rows': df.duplicated().sum(),
-        'numeric_columns': list(df.select_dtypes(include=[np.number]).columns),
-        'categorical_columns': list(df.select_dtypes(include=['object']).columns)
-    }
-    
-    return validation_results
-
-def save_cleaned_data(df, output_path):
-    """
-    Save cleaned DataFrame to CSV file.
-    
-    Args:
-        df (pd.DataFrame): DataFrame to save
-        output_path (str): Path for output CSV file
-    """
-    df.to_csv(output_path, index=False)
-    print(f"Cleaned data saved to: {output_path}")
-
 if __name__ == "__main__":
     sample_data = {
-        'id': [1, 2, 2, 3, 4, 5],
-        'value': [10.5, 20.3, 20.3, np.nan, 40.1, 50.0],
-        'category': ['A', 'B', 'B', 'C', 'D', 'E']
+        'A': [1, 2, 3, 4, 5, 100],
+        'B': [10, 20, 30, 40, 50, 200],
+        'C': ['a', 'b', 'c', 'd', 'e', 'f']
     }
     
     df = pd.DataFrame(sample_data)
     print("Original DataFrame:")
     print(df)
-    print("\nValidation Results:")
-    print(validate_dataframe(df))
     
-    cleaned_df = clean_dataframe(df)
+    cleaned = clean_dataset(df, ['A', 'B'])
     print("\nCleaned DataFrame:")
-    print(cleaned_df)
-    
-    save_cleaned_data(cleaned_df, 'cleaned_data.csv')
+    print(cleaned)
