@@ -121,4 +121,38 @@ if __name__ == "__main__":
     
     numeric_data = ["1.5", "invalid", None, 3.2, "4.7"]
     print("Numeric data:", numeric_data)
-    print("Cleaned numeric:", clean_numeric_data(numeric_data))
+    print("Cleaned numeric:", clean_numeric_data(numeric_data))import pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_duplicates=True, fill_na=True, fill_value=0):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling null values.
+    """
+    df_clean = df.copy()
+    
+    if drop_duplicates:
+        df_clean = df_clean.drop_duplicates()
+    
+    if fill_na:
+        df_clean = df_clean.fillna(fill_value)
+    
+    return df_clean
+
+def validate_data(df, required_columns):
+    """
+    Validate that the DataFrame contains all required columns.
+    """
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        raise ValueError(f"Missing required columns: {missing_columns}")
+    return True
+
+def remove_outliers(df, column, threshold=3):
+    """
+    Remove outliers from a specific column using z-score method.
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    z_scores = np.abs((df[column] - df[column].mean()) / df[column].std())
+    return df[z_scores < threshold]
