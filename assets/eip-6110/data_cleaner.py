@@ -631,3 +631,93 @@ if __name__ == "__main__":
     normalized_df = normalize_column(df, 'values', method='minmax')
     print("\nNormalized data:")
     print(normalized_df)
+import pandas as pd
+
+def clean_dataset(df, columns_to_check=None, fill_na_method='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        columns_to_check (list, optional): List of column names to check for duplicates.
+            If None, checks all columns. Defaults to None.
+        fill_na_method (str, optional): Method to fill missing values.
+            Options: 'mean', 'median', 'mode', or 'drop'. Defaults to 'mean'.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    # Create a copy to avoid modifying the original DataFrame
+    cleaned_df = df.copy()
+    
+    # Remove duplicates
+    if columns_to_check is None:
+        cleaned_df = cleaned_df.drop_duplicates()
+    else:
+        cleaned_df = cleaned_df.drop_duplicates(subset=columns_to_check)
+    
+    # Handle missing values
+    if fill_na_method == 'drop':
+        cleaned_df = cleaned_df.dropna()
+    else:
+        numeric_cols = cleaned_df.select_dtypes(include=['number']).columns
+        
+        for col in numeric_cols:
+            if cleaned_df[col].isna().any():
+                if fill_na_method == 'mean':
+                    cleaned_df[col].fillna(cleaned_df[col].mean(), inplace=True)
+                elif fill_na_method == 'median':
+                    cleaned_df[col].fillna(cleaned_df[col].median(), inplace=True)
+                elif fill_na_method == 'mode':
+                    cleaned_df[col].fillna(cleaned_df[col].mode()[0], inplace=True)
+    
+    # Reset index after cleaning
+    cleaned_df.reset_index(drop=True, inplace=True)
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate that a DataFrame meets basic requirements.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list, optional): List of required column names.
+    
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
+    
+    return True, "DataFrame is valid"
+
+# Example usage (commented out for production)
+# if __name__ == "__main__":
+#     # Create sample data
+#     data = {
+#         'id': [1, 2, 2, 3, 4, 5],
+#         'value': [10.5, 20.3, 20.3, None, 40.1, 50.0],
+#         'category': ['A', 'B', 'B', 'C', None, 'A']
+#     }
+#     
+#     df = pd.DataFrame(data)
+#     print("Original DataFrame:")
+#     print(df)
+#     
+#     # Clean the data
+#     cleaned = clean_dataset(df, columns_to_check=['id'], fill_na_method='mean')
+#     print("\nCleaned DataFrame:")
+#     print(cleaned)
+#     
+#     # Validate
+#     is_valid, message = validate_dataframe(cleaned, required_columns=['id', 'value'])
+#     print(f"\nValidation: {is_valid}, Message: {message}")
