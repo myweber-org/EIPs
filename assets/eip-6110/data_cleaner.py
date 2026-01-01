@@ -785,4 +785,106 @@ def validate_dataframe(df, required_columns=None):
         if missing_columns:
             return False, f"Missing required columns: {missing_columns}"
     
-    return True, "DataFrame is valid"
+    return True, "DataFrame is valid"import csv
+import re
+from typing import List, Dict, Optional
+
+def clean_string(value: str) -> str:
+    """Remove extra whitespace and normalize string."""
+    if not isinstance(value, str):
+        return str(value)
+    cleaned = re.sub(r'\s+', ' ', value.strip())
+    return cleaned
+
+def clean_numeric(value: str) -> Optional[float]:
+    """Convert string to float, handling common issues."""
+    if not value:
+        return None
+    cleaned = value.replace(',', '').replace('$', '').strip()
+    try:
+        return float(cleaned)
+    except ValueError:
+        return None
+
+def validate_email(email: str) -> bool:
+    """Basic email validation."""
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, email.strip()))
+
+def process_csv_file(input_path: str, output_path: str) -> Dict[str, int]:
+    """Process CSV file with data cleaning operations."""
+    stats = {
+        'rows_processed': 0,
+        'rows_cleaned': 0,
+        'invalid_emails': 0
+    }
+    
+    try:
+        with open(input_path, 'r', newline='', encoding='utf-8') as infile, \
+             open(output_path, 'w', newline='', encoding='utf-8') as outfile:
+            
+            reader = csv.DictReader(infile)
+            fieldnames = reader.fieldnames
+            
+            if fieldnames:
+                writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+                writer.writeheader()
+                
+                for row in reader:
+                    stats['rows_processed'] += 1
+                    cleaned_row = {}
+                    
+                    for key, value in row.items():
+                        if 'email' in key.lower() and value:
+                            if not validate_email(value):
+                                stats['invalid_emails'] += 1
+                                cleaned_row[key] = ''
+                                continue
+                        
+                        if any(num_key in key.lower() for num_key in ['price', 'amount', 'quantity']):
+                            cleaned_row[key] = clean_numeric(value)
+                        else:
+                            cleaned_row[key] = clean_string(value)
+                    
+                    writer.writerow(cleaned_row)
+                    stats['rows_cleaned'] += 1
+                    
+    except FileNotFoundError:
+        print(f"Error: Input file '{input_path}' not found.")
+    except Exception as e:
+        print(f"Error processing CSV: {str(e)}")
+    
+    return stats
+
+def get_column_summary(csv_path: str, column_name: str) -> Dict:
+    """Generate summary statistics for a specific column."""
+    summary = {
+        'total_count': 0,
+        'unique_values': set(),
+        'null_count': 0
+    }
+    
+    try:
+        with open(csv_path, 'r', newline='', encoding='utf-8') as file:
+            reader = csv.DictReader(file)
+            
+            for row in reader:
+                summary['total_count'] += 1
+                value = row.get(column_name, '')
+                
+                if not value or value.strip() == '':
+                    summary['null_count'] += 1
+                else:
+                    summary['unique_values'].add(value.strip())
+            
+            summary['unique_count'] = len(summary['unique_values'])
+            summary['unique_values'] = list(summary['unique_values'])[:10]
+            
+    except Exception as e:
+        print(f"Error generating summary: {str(e)}")
+    
+    return summary
+
+if __name__ == "__main__":
+    sample_stats = process_csv_file('input_data.csv', 'cleaned_data.csv')
+    print(f"Processing complete: {sample_stats}")
