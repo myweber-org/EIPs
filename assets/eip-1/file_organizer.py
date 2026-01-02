@@ -35,3 +35,79 @@ def organize_files_by_extension(directory_path):
 if __name__ == "__main__":
     target_directory = input("Enter the directory path to organize: ").strip()
     organize_files_by_extension(target_directory)
+import os
+import shutil
+
+def organize_files(directory):
+    """
+    Organize files in the given directory into subdirectories based on their extensions.
+    """
+    # Define categories and their associated file extensions
+    categories = {
+        'Images': ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg'],
+        'Documents': ['.pdf', '.docx', '.txt', '.xlsx', '.pptx', '.md'],
+        'Archives': ['.zip', '.tar', '.gz', '.rar', '.7z'],
+        'Audio': ['.mp3', '.wav', '.aac', '.flac'],
+        'Video': ['.mp4', '.mkv', '.avi', '.mov', '.wmv'],
+        'Code': ['.py', '.js', '.html', '.css', '.java', '.cpp', '.c'],
+        'Executables': ['.exe', '.msi', '.sh', '.bat']
+    }
+
+    # Ensure the directory exists
+    if not os.path.isdir(directory):
+        print(f"Error: Directory '{directory}' does not exist.")
+        return
+
+    # Get all files in the directory
+    try:
+        files = [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))]
+    except PermissionError:
+        print(f"Error: Permission denied for directory '{directory}'.")
+        return
+
+    moved_count = 0
+
+    for filename in files:
+        file_path = os.path.join(directory, filename)
+        # Get the file extension
+        _, ext = os.path.splitext(filename)
+        ext = ext.lower()
+
+        # Find the category for the extension
+        target_category = None
+        for category, extensions in categories.items():
+            if ext in extensions:
+                target_category = category
+                break
+
+        # If no category found, put in 'Other'
+        if target_category is None:
+            target_category = 'Other'
+
+        # Create target directory if it doesn't exist
+        target_dir = os.path.join(directory, target_category)
+        if not os.path.exists(target_dir):
+            try:
+                os.makedirs(target_dir)
+            except OSError as e:
+                print(f"Error creating directory '{target_dir}': {e}")
+                continue
+
+        # Move the file
+        try:
+            shutil.move(file_path, os.path.join(target_dir, filename))
+            moved_count += 1
+            print(f"Moved: {filename} -> {target_category}/")
+        except shutil.Error as e:
+            print(f"Error moving file '{filename}': {e}")
+        except PermissionError:
+            print(f"Permission denied moving file '{filename}'.")
+
+    print(f"\nOrganization complete. Moved {moved_count} file(s).")
+
+if __name__ == "__main__":
+    # Example usage: organize files in the current directory
+    target_directory = input("Enter the directory path to organize (or press Enter for current directory): ").strip()
+    if not target_directory:
+        target_directory = os.getcwd()
+    organize_files(target_directory)
