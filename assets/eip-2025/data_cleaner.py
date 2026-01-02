@@ -7,11 +7,11 @@ def remove_outliers_iqr(df, column):
     Remove outliers from a DataFrame column using the Interquartile Range method.
     
     Parameters:
-    df (pd.DataFrame): Input DataFrame.
-    column (str): Column name to process.
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to process
     
     Returns:
-    pd.DataFrame: DataFrame with outliers removed.
+    pd.DataFrame: DataFrame with outliers removed
     """
     if column not in df.columns:
         raise ValueError(f"Column '{column}' not found in DataFrame")
@@ -27,58 +27,51 @@ def remove_outliers_iqr(df, column):
     
     return filtered_df
 
-def calculate_summary_statistics(df, column):
-    """
-    Calculate summary statistics for a DataFrame column.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame.
-    column (str): Column name to analyze.
-    
-    Returns:
-    dict: Dictionary containing summary statistics.
-    """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    stats = {
-        'mean': df[column].mean(),
-        'median': df[column].median(),
-        'std': df[column].std(),
-        'min': df[column].min(),
-        'max': df[column].max(),
-        'count': df[column].count(),
-        'missing': df[column].isnull().sum()
-    }
-    
-    return stats
-
 def clean_numeric_data(df, columns=None):
     """
     Clean numeric data by removing outliers from specified columns.
     If no columns specified, clean all numeric columns.
     
     Parameters:
-    df (pd.DataFrame): Input DataFrame.
-    columns (list): List of column names to clean. Defaults to all numeric columns.
+    df (pd.DataFrame): Input DataFrame
+    columns (list): List of column names to clean
     
     Returns:
-    pd.DataFrame: Cleaned DataFrame.
+    pd.DataFrame: Cleaned DataFrame
     """
     if columns is None:
         numeric_cols = df.select_dtypes(include=[np.number]).columns
         columns = list(numeric_cols)
     
     cleaned_df = df.copy()
-    
-    for column in columns:
-        if column in cleaned_df.columns:
-            try:
-                cleaned_df = remove_outliers_iqr(cleaned_df, column)
-            except Exception as e:
-                print(f"Warning: Could not clean column '{column}': {e}")
+    for col in columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
     
     return cleaned_df
+
+def calculate_statistics(df):
+    """
+    Calculate basic statistics for numeric columns.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    
+    Returns:
+    pd.DataFrame: Statistics summary
+    """
+    numeric_df = df.select_dtypes(include=[np.number])
+    
+    stats = {
+        'mean': numeric_df.mean(),
+        'median': numeric_df.median(),
+        'std': numeric_df.std(),
+        'min': numeric_df.min(),
+        'max': numeric_df.max(),
+        'count': numeric_df.count()
+    }
+    
+    return pd.DataFrame(stats)
 
 if __name__ == "__main__":
     sample_data = {
@@ -88,13 +81,11 @@ if __name__ == "__main__":
     }
     
     df = pd.DataFrame(sample_data)
+    print("Original data shape:", df.shape)
     
-    print("Original DataFrame shape:", df.shape)
-    print("\nOriginal summary for column 'A':")
-    print(calculate_summary_statistics(df, 'A'))
+    cleaned_df = clean_numeric_data(df)
+    print("Cleaned data shape:", cleaned_df.shape)
     
-    cleaned_df = clean_numeric_data(df, ['A', 'B'])
-    
-    print("\nCleaned DataFrame shape:", cleaned_df.shape)
-    print("\nCleaned summary for column 'A':")
-    print(calculate_summary_statistics(cleaned_df, 'A'))
+    stats = calculate_statistics(cleaned_df)
+    print("\nStatistics after cleaning:")
+    print(stats)
