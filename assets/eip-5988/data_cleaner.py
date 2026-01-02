@@ -1,135 +1,94 @@
+import csv
+import re
+from typing import List, Dict, Any
 
-import pandas as pd
-import numpy as np
+def clean_csv_data(input_file: str, output_file: str, columns_to_clean: List[str]) -> None:
+    """
+    Clean specified columns in a CSV file by removing non-alphanumeric characters
+    and converting to lowercase.
+    """
+    cleaned_rows = []
+    
+    with open(input_file, 'r', encoding='utf-8') as infile:
+        reader = csv.DictReader(infile)
+        fieldnames = reader.fieldnames
+        
+        for row in reader:
+            cleaned_row = {}
+            for key, value in row.items():
+                if key in columns_to_clean and value:
+                    # Remove non-alphanumeric characters except spaces
+                    cleaned_value = re.sub(r'[^a-zA-Z0-9\s]', '', value)
+                    # Convert to lowercase and strip whitespace
+                    cleaned_value = cleaned_value.lower().strip()
+                    cleaned_row[key] = cleaned_value
+                else:
+                    cleaned_row[key] = value
+            cleaned_rows.append(cleaned_row)
+    
+    with open(output_file, 'w', encoding='utf-8', newline='') as outfile:
+        writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(cleaned_rows)
 
-def remove_outliers_iqr(df, column):
+def validate_email_column(input_file: str, email_column: str) -> List[Dict[str, Any]]:
     """
-    Remove outliers from a DataFrame column using the Interquartile Range (IQR) method.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to process
-    
-    Returns:
-    pd.DataFrame: DataFrame with outliers removed
+    Validate email addresses in a specific column and return rows with invalid emails.
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    invalid_rows = []
+    email_pattern = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
     
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
+    with open(input_file, 'r', encoding='utf-8') as infile:
+        reader = csv.DictReader(infile)
+        
+        for row_number, row in enumerate(reader, start=2):  # Start at 2 for header row
+            email = row.get(email_column, '')
+            if email and not email_pattern.match(email):
+                invalid_rows.append({
+                    'row_number': row_number,
+                    'email': email,
+                    'full_row': row
+                })
     
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    
-    return filtered_df
+    return invalid_rows
 
-def clean_dataset(df, numeric_columns=None):
+def remove_duplicate_rows(input_file: str, output_file: str, key_columns: List[str]) -> None:
     """
-    Clean dataset by removing outliers from all numeric columns.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    numeric_columns (list): List of numeric column names. If None, uses all numeric columns.
-    
-    Returns:
-    pd.DataFrame: Cleaned DataFrame
+    Remove duplicate rows based on specified key columns.
     """
-    if numeric_columns is None:
-        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    seen = set()
+    unique_rows = []
     
-    cleaned_df = df.copy()
+    with open(input_file, 'r', encoding='utf-8') as infile:
+        reader = csv.DictReader(infile)
+        fieldnames = reader.fieldnames
+        
+        for row in reader:
+            # Create a tuple of values from key columns for comparison
+            key_tuple = tuple(row[col] for col in key_columns)
+            
+            if key_tuple not in seen:
+                seen.add(key_tuple)
+                unique_rows.append(row)
     
-    for column in numeric_columns:
-        if column in df.columns:
-            original_count = len(cleaned_df)
-            cleaned_df = remove_outliers_iqr(cleaned_df, column)
-            removed_count = original_count - len(cleaned_df)
-            print(f"Removed {removed_count} outliers from column '{column}'")
-    
-    return cleaned_df
+    with open(output_file, 'w', encoding='utf-8', newline='') as outfile:
+        writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(unique_rows)
 
 if __name__ == "__main__":
-    sample_data = {
-        'A': np.random.normal(100, 15, 1000),
-        'B': np.random.exponential(50, 1000),
-        'C': np.random.uniform(0, 200, 1000)
-    }
+    # Example usage
+    input_csv = "raw_data.csv"
+    cleaned_csv = "cleaned_data.csv"
     
-    df = pd.DataFrame(sample_data)
-    df.loc[::100, 'A'] = 500
+    # Clean name and address columns
+    clean_csv_data(input_csv, cleaned_csv, ['name', 'address'])
     
-    print(f"Original dataset shape: {df.shape}")
-    cleaned_df = clean_dataset(df)
-    print(f"Cleaned dataset shape: {cleaned_df.shape}")import pandas as pd
-import re
-
-def clean_dataframe(df, text_columns=None, drop_duplicates=True):
-    """
-    Clean a DataFrame by removing duplicates and standardizing text columns.
+    # Validate email column
+    invalid_emails = validate_email_column(cleaned_csv, 'email')
+    if invalid_emails:
+        print(f"Found {len(invalid_emails)} invalid email addresses")
     
-    Args:
-        df (pd.DataFrame): Input DataFrame to clean.
-        text_columns (list): List of column names to standardize text.
-        drop_duplicates (bool): Whether to drop duplicate rows.
-    
-    Returns:
-        pd.DataFrame: Cleaned DataFrame.
-    """
-    cleaned_df = df.copy()
-    
-    if drop_duplicates:
-        initial_rows = len(cleaned_df)
-        cleaned_df = cleaned_df.drop_duplicates()
-        removed = initial_rows - len(cleaned_df)
-        print(f"Removed {removed} duplicate rows.")
-    
-    if text_columns:
-        for col in text_columns:
-            if col in cleaned_df.columns:
-                cleaned_df[col] = cleaned_df[col].apply(_standardize_text)
-    
-    return cleaned_df
-
-def _standardize_text(text):
-    """
-    Standardize text by converting to lowercase and removing extra whitespace.
-    
-    Args:
-        text (str): Input text.
-    
-    Returns:
-        str: Standardized text.
-    """
-    if isinstance(text, str):
-        text = text.lower()
-        text = re.sub(r'\s+', ' ', text)
-        text = text.strip()
-    return text
-
-def validate_email_column(df, email_column):
-    """
-    Validate email addresses in a DataFrame column.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame.
-        email_column (str): Name of the column containing email addresses.
-    
-    Returns:
-        pd.DataFrame: DataFrame with an additional 'email_valid' column.
-    """
-    if email_column not in df.columns:
-        raise ValueError(f"Column '{email_column}' not found in DataFrame.")
-    
-    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    df['email_valid'] = df[email_column].apply(
-        lambda x: bool(re.match(email_pattern, str(x))) if pd.notnull(x) else False
-    )
-    
-    valid_count = df['email_valid'].sum()
-    print(f"Found {valid_count} valid email addresses out of {len(df)} rows.")
-    
-    return df
+    # Remove duplicates based on email and phone
+    final_csv = "final_data.csv"
+    remove_duplicate_rows(cleaned_csv, final_csv, ['email', 'phone'])
