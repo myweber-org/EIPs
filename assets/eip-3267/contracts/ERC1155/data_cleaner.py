@@ -403,3 +403,61 @@ if __name__ == "__main__":
     
     if cleaned_df is not None:
         save_cleaned_data(cleaned_df, output_file)
+import pandas as pd
+
+def clean_dataset(df, drop_duplicates=True, fill_na=None):
+    """
+    Clean a pandas DataFrame by handling missing values and duplicates.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        drop_duplicates (bool): Whether to drop duplicate rows.
+        fill_na (str or dict): Method to fill missing values.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    if fill_na is not None:
+        if isinstance(fill_na, dict):
+            cleaned_df.fillna(fill_na, inplace=True)
+        else:
+            cleaned_df.fillna(method=fill_na, inplace=True)
+    
+    if drop_duplicates:
+        cleaned_df.drop_duplicates(inplace=True)
+    
+    return cleaned_df
+
+def validate_data(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list): List of required column names.
+    
+    Returns:
+        dict: Validation results with status and messages.
+    """
+    validation_result = {
+        'is_valid': True,
+        'messages': []
+    }
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            validation_result['is_valid'] = False
+            validation_result['messages'].append(f"Missing columns: {missing_columns}")
+    
+    if df.empty:
+        validation_result['is_valid'] = False
+        validation_result['messages'].append("DataFrame is empty")
+    
+    null_counts = df.isnull().sum()
+    if null_counts.sum() > 0:
+        validation_result['messages'].append(f"Null values found: {null_counts.to_dict()}")
+    
+    return validation_result
