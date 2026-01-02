@@ -250,3 +250,139 @@ def clean_dataset(df, outlier_threshold=1.5, normalize=True, fill_missing=True):
         cleaner.normalize_minmax()
     
     return cleaner.get_cleaned_data(), cleaner.get_summary()
+import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(df, column, multiplier=1.5):
+    """
+    Remove outliers using the Interquartile Range method.
+    
+    Parameters:
+    df (pd.DataFrame): Input dataframe
+    column (str): Column name to process
+    multiplier (float): IQR multiplier for outlier detection
+    
+    Returns:
+    pd.DataFrame: Dataframe with outliers removed
+    """
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - multiplier * IQR
+    upper_bound = Q3 + multiplier * IQR
+    
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+def normalize_minmax(df, column):
+    """
+    Normalize data using min-max scaling to [0, 1] range.
+    
+    Parameters:
+    df (pd.DataFrame): Input dataframe
+    column (str): Column name to normalize
+    
+    Returns:
+    pd.Series: Normalized column values
+    """
+    min_val = df[column].min()
+    max_val = df[column].max()
+    
+    if max_val == min_val:
+        return df[column].apply(lambda x: 0.5)
+    
+    return (df[column] - min_val) / (max_val - min_val)
+
+def standardize_zscore(df, column):
+    """
+    Standardize data using z-score normalization.
+    
+    Parameters:
+    df (pd.DataFrame): Input dataframe
+    column (str): Column name to standardize
+    
+    Returns:
+    pd.Series: Standardized column values
+    """
+    mean_val = df[column].mean()
+    std_val = df[column].std()
+    
+    if std_val == 0:
+        return df[column].apply(lambda x: 0)
+    
+    return (df[column] - mean_val) / std_val
+
+def clean_dataset(df, numeric_columns, outlier_multiplier=1.5, normalization_method='minmax'):
+    """
+    Main function to clean dataset by removing outliers and normalizing numeric columns.
+    
+    Parameters:
+    df (pd.DataFrame): Input dataframe
+    numeric_columns (list): List of numeric column names to process
+    outlier_multiplier (float): IQR multiplier for outlier detection
+    normalization_method (str): Normalization method ('minmax' or 'zscore')
+    
+    Returns:
+    pd.DataFrame: Cleaned dataframe
+    """
+    cleaned_df = df.copy()
+    
+    for column in numeric_columns:
+        if column in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, column, outlier_multiplier)
+            
+            if normalization_method == 'minmax':
+                cleaned_df[f'{column}_normalized'] = normalize_minmax(cleaned_df, column)
+            elif normalization_method == 'zscore':
+                cleaned_df[f'{column}_standardized'] = standardize_zscore(cleaned_df, column)
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns):
+    """
+    Validate dataframe structure and required columns.
+    
+    Parameters:
+    df (pd.DataFrame): Dataframe to validate
+    required_columns (list): List of required column names
+    
+    Returns:
+    bool: True if validation passes, False otherwise
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False
+    
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    
+    if missing_columns:
+        print(f"Missing columns: {missing_columns}")
+        return False
+    
+    return True
+
+def get_summary_statistics(df, numeric_columns):
+    """
+    Generate summary statistics for numeric columns.
+    
+    Parameters:
+    df (pd.DataFrame): Input dataframe
+    numeric_columns (list): List of numeric column names
+    
+    Returns:
+    pd.DataFrame: Summary statistics
+    """
+    summary = pd.DataFrame()
+    
+    for column in numeric_columns:
+        if column in df.columns:
+            col_stats = {
+                'mean': df[column].mean(),
+                'median': df[column].median(),
+                'std': df[column].std(),
+                'min': df[column].min(),
+                'max': df[column].max(),
+                'count': df[column].count(),
+                'missing': df[column].isnull().sum()
+            }
+            summary[column] = pd.Series(col_stats)
+    
+    return summary.T
