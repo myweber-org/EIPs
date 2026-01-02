@@ -1,94 +1,52 @@
-import csv
-import re
-from typing import List, Dict, Any
+import pandas as pd
 
-def clean_csv_data(input_file: str, output_file: str, columns_to_clean: List[str]) -> None:
+def clean_dataframe(df, drop_duplicates=True, fill_missing=None):
     """
-    Clean specified columns in a CSV file by removing non-alphanumeric characters
-    and converting to lowercase.
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Args:
+        df: pandas DataFrame to clean
+        drop_duplicates: Boolean, if True remove duplicate rows
+        fill_missing: Method to fill missing values, can be 'mean', 'median', 'mode', or a specific value
+    
+    Returns:
+        Cleaned pandas DataFrame
     """
-    cleaned_rows = []
+    cleaned_df = df.copy()
     
-    with open(input_file, 'r', encoding='utf-8') as infile:
-        reader = csv.DictReader(infile)
-        fieldnames = reader.fieldnames
-        
-        for row in reader:
-            cleaned_row = {}
-            for key, value in row.items():
-                if key in columns_to_clean and value:
-                    # Remove non-alphanumeric characters except spaces
-                    cleaned_value = re.sub(r'[^a-zA-Z0-9\s]', '', value)
-                    # Convert to lowercase and strip whitespace
-                    cleaned_value = cleaned_value.lower().strip()
-                    cleaned_row[key] = cleaned_value
-                else:
-                    cleaned_row[key] = value
-            cleaned_rows.append(cleaned_row)
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
     
-    with open(output_file, 'w', encoding='utf-8', newline='') as outfile:
-        writer = csv.DictWriter(outfile, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(cleaned_rows)
+    if fill_missing is not None:
+        if fill_missing == 'mean':
+            cleaned_df = cleaned_df.fillna(cleaned_df.mean(numeric_only=True))
+        elif fill_missing == 'median':
+            cleaned_df = cleaned_df.fillna(cleaned_df.median(numeric_only=True))
+        elif fill_missing == 'mode':
+            cleaned_df = cleaned_df.fillna(cleaned_df.mode().iloc[0])
+        else:
+            cleaned_df = cleaned_df.fillna(fill_missing)
+    
+    return cleaned_df
 
-def validate_email_column(input_file: str, email_column: str) -> List[Dict[str, Any]]:
+def validate_dataframe(df, required_columns=None, min_rows=1):
     """
-    Validate email addresses in a specific column and return rows with invalid emails.
+    Validate a DataFrame for required columns and minimum row count.
+    
+    Args:
+        df: pandas DataFrame to validate
+        required_columns: List of column names that must be present
+        min_rows: Minimum number of rows required
+    
+    Returns:
+        Tuple of (is_valid, error_message)
     """
-    invalid_rows = []
-    email_pattern = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
+    if len(df) < min_rows:
+        return False, f"DataFrame must have at least {min_rows} rows"
     
-    with open(input_file, 'r', encoding='utf-8') as infile:
-        reader = csv.DictReader(infile)
-        
-        for row_number, row in enumerate(reader, start=2):  # Start at 2 for header row
-            email = row.get(email_column, '')
-            if email and not email_pattern.match(email):
-                invalid_rows.append({
-                    'row_number': row_number,
-                    'email': email,
-                    'full_row': row
-                })
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
     
-    return invalid_rows
-
-def remove_duplicate_rows(input_file: str, output_file: str, key_columns: List[str]) -> None:
-    """
-    Remove duplicate rows based on specified key columns.
-    """
-    seen = set()
-    unique_rows = []
-    
-    with open(input_file, 'r', encoding='utf-8') as infile:
-        reader = csv.DictReader(infile)
-        fieldnames = reader.fieldnames
-        
-        for row in reader:
-            # Create a tuple of values from key columns for comparison
-            key_tuple = tuple(row[col] for col in key_columns)
-            
-            if key_tuple not in seen:
-                seen.add(key_tuple)
-                unique_rows.append(row)
-    
-    with open(output_file, 'w', encoding='utf-8', newline='') as outfile:
-        writer = csv.DictWriter(outfile, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(unique_rows)
-
-if __name__ == "__main__":
-    # Example usage
-    input_csv = "raw_data.csv"
-    cleaned_csv = "cleaned_data.csv"
-    
-    # Clean name and address columns
-    clean_csv_data(input_csv, cleaned_csv, ['name', 'address'])
-    
-    # Validate email column
-    invalid_emails = validate_email_column(cleaned_csv, 'email')
-    if invalid_emails:
-        print(f"Found {len(invalid_emails)} invalid email addresses")
-    
-    # Remove duplicates based on email and phone
-    final_csv = "final_data.csv"
-    remove_duplicate_rows(cleaned_csv, final_csv, ['email', 'phone'])
+    return True, "DataFrame is valid"
