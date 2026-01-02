@@ -64,4 +64,72 @@ if __name__ == "__main__":
     
     print(f"Original dataset shape: {df.shape}")
     cleaned_df = clean_dataset(df)
-    print(f"Cleaned dataset shape: {cleaned_df.shape}")
+    print(f"Cleaned dataset shape: {cleaned_df.shape}")import pandas as pd
+import re
+
+def clean_dataframe(df, text_columns=None, drop_duplicates=True):
+    """
+    Clean a DataFrame by removing duplicates and standardizing text columns.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        text_columns (list): List of column names to standardize text.
+        drop_duplicates (bool): Whether to drop duplicate rows.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        initial_rows = len(cleaned_df)
+        cleaned_df = cleaned_df.drop_duplicates()
+        removed = initial_rows - len(cleaned_df)
+        print(f"Removed {removed} duplicate rows.")
+    
+    if text_columns:
+        for col in text_columns:
+            if col in cleaned_df.columns:
+                cleaned_df[col] = cleaned_df[col].apply(_standardize_text)
+    
+    return cleaned_df
+
+def _standardize_text(text):
+    """
+    Standardize text by converting to lowercase and removing extra whitespace.
+    
+    Args:
+        text (str): Input text.
+    
+    Returns:
+        str: Standardized text.
+    """
+    if isinstance(text, str):
+        text = text.lower()
+        text = re.sub(r'\s+', ' ', text)
+        text = text.strip()
+    return text
+
+def validate_email_column(df, email_column):
+    """
+    Validate email addresses in a DataFrame column.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        email_column (str): Name of the column containing email addresses.
+    
+    Returns:
+        pd.DataFrame: DataFrame with an additional 'email_valid' column.
+    """
+    if email_column not in df.columns:
+        raise ValueError(f"Column '{email_column}' not found in DataFrame.")
+    
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    df['email_valid'] = df[email_column].apply(
+        lambda x: bool(re.match(email_pattern, str(x))) if pd.notnull(x) else False
+    )
+    
+    valid_count = df['email_valid'].sum()
+    print(f"Found {valid_count} valid email addresses out of {len(df)} rows.")
+    
+    return df
