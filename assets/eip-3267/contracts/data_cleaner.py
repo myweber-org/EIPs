@@ -78,3 +78,35 @@ if __name__ == "__main__":
     
     is_valid = validate_data(cleaned, required_columns=['A', 'B'], min_rows=3)
     print(f"\nData validation passed: {is_valid}")
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+def load_dataset(filepath):
+    return pd.read_csv(filepath)
+
+def remove_outliers(df, column, threshold=3):
+    z_scores = np.abs(stats.zscore(df[column]))
+    return df[z_scores < threshold]
+
+def normalize_column(df, column):
+    min_val = df[column].min()
+    max_val = df[column].max()
+    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
+    return df
+
+def clean_data(df, numeric_columns):
+    for col in numeric_columns:
+        df = remove_outliers(df, col)
+        df = normalize_column(df, col)
+    return df.dropna()
+
+def main():
+    data = load_dataset('raw_data.csv')
+    numeric_cols = ['age', 'income', 'score']
+    cleaned_data = clean_data(data, numeric_cols)
+    cleaned_data.to_csv('cleaned_data.csv', index=False)
+    print(f"Original: {len(data)} rows, Cleaned: {len(cleaned_data)} rows")
+
+if __name__ == "__main__":
+    main()
