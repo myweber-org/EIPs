@@ -1,10 +1,9 @@
 import requests
-import json
 
-def get_weather(api_key, city):
+def get_weather(city_name, api_key):
     base_url = "http://api.openweathermap.org/data/2.5/weather"
     params = {
-        'q': city,
+        'q': city_name,
         'appid': api_key,
         'units': 'metric'
     }
@@ -17,22 +16,21 @@ def get_weather(api_key, city):
         print(f"Error fetching weather data: {e}")
         return None
 
-def display_weather(data):
-    if data and data.get('cod') == 200:
-        city = data['name']
-        country = data['sys']['country']
-        temp = data['main']['temp']
-        humidity = data['main']['humidity']
-        description = data['weather'][0]['description']
-        print(f"Weather in {city}, {country}:")
-        print(f"Temperature: {temp}°C")
-        print(f"Humidity: {humidity}%")
-        print(f"Conditions: {description}")
+def display_weather(weather_data):
+    if weather_data:
+        city = weather_data['name']
+        temp = weather_data['main']['temp']
+        description = weather_data['weather'][0]['description']
+        humidity = weather_data['main']['humidity']
+        print(f"Weather in {city}:")
+        print(f"  Temperature: {temp}°C")
+        print(f"  Conditions: {description}")
+        print(f"  Humidity: {humidity}%")
     else:
-        print("City not found or invalid data received.")
+        print("No weather data to display.")
 
 if __name__ == "__main__":
     API_KEY = "your_api_key_here"
-    city_name = input("Enter city name: ")
-    weather_data = get_weather(API_KEY, city_name)
-    display_weather(weather_data)
+    city = input("Enter city name: ")
+    weather = get_weather(city, API_KEY)
+    display_weather(weather)
