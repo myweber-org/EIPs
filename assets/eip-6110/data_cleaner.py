@@ -241,4 +241,133 @@ def process_sample_data():
     is_valid, message = validate_data(cleaned, allow_nan=False)
     print(f"\nData validation: {is_valid} - {message}")
     
-    return cleaned
+    return cleanedimport pandas as pd
+import numpy as np
+
+def clean_csv_data(file_path, output_path=None, missing_strategy='mean'):
+    """
+    Clean CSV data by handling missing values and removing duplicates.
+    
+    Args:
+        file_path: Path to input CSV file
+        output_path: Path for cleaned CSV output (optional)
+        missing_strategy: Strategy for handling missing values ('mean', 'median', 'drop', 'zero')
+    
+    Returns:
+        pandas.DataFrame: Cleaned dataframe
+    """
+    
+    try:
+        df = pd.read_csv(file_path)
+        
+        print(f"Original data shape: {df.shape}")
+        print(f"Missing values per column:\n{df.isnull().sum()}")
+        
+        # Remove duplicate rows
+        initial_rows = len(df)
+        df = df.drop_duplicates()
+        duplicates_removed = initial_rows - len(df)
+        print(f"Removed {duplicates_removed} duplicate rows")
+        
+        # Handle missing values based on strategy
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        
+        if missing_strategy == 'mean':
+            for col in numeric_cols:
+                if df[col].isnull().any():
+                    df[col] = df[col].fillna(df[col].mean())
+        elif missing_strategy == 'median':
+            for col in numeric_cols:
+                if df[col].isnull().any():
+                    df[col] = df[col].fillna(df[col].median())
+        elif missing_strategy == 'zero':
+            df = df.fillna(0)
+        elif missing_strategy == 'drop':
+            df = df.dropna()
+        else:
+            raise ValueError(f"Unknown strategy: {missing_strategy}")
+        
+        # Remove outliers using IQR method for numeric columns
+        for col in numeric_cols:
+            Q1 = df[col].quantile(0.25)
+            Q3 = df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - 1.5 * IQR
+            upper_bound = Q3 + 1.5 * IQR
+            
+            outliers = df[(df[col] < lower_bound) | (df[col] > upper_bound)]
+            if len(outliers) > 0:
+                df = df[(df[col] >= lower_bound) & (df[col] <= upper_bound)]
+                print(f"Removed {len(outliers)} outliers from column '{col}'")
+        
+        print(f"Cleaned data shape: {df.shape}")
+        print(f"Missing values after cleaning:\n{df.isnull().sum()}")
+        
+        # Save cleaned data if output path provided
+        if output_path:
+            df.to_csv(output_path, index=False)
+            print(f"Cleaned data saved to: {output_path}")
+        
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: File not found at {file_path}")
+        return None
+    except pd.errors.EmptyDataError:
+        print("Error: The CSV file is empty")
+        return None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate dataframe structure and content.
+    
+    Args:
+        df: pandas DataFrame to validate
+        required_columns: List of required column names
+    
+    Returns:
+        bool: True if validation passes, False otherwise
+    """
+    if df is None or df.empty:
+        print("Validation failed: DataFrame is empty or None")
+        return False
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            print(f"Validation failed: Missing required columns: {missing_cols}")
+            return False
+    
+    # Check for infinite values in numeric columns
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        if np.isinf(df[col]).any():
+            print(f"Validation failed: Column '{col}' contains infinite values")
+            return False
+    
+    print("Data validation passed")
+    return True
+
+# Example usage
+if __name__ == "__main__":
+    # This would be replaced with actual file paths in real usage
+    sample_data = pd.DataFrame({
+        'A': [1, 2, np.nan, 4, 5, 5],
+        'B': [10, 20, 30, np.nan, 50, 50],
+        'C': [100, 200, 300, 400, 500, 1000]
+    })
+    
+    # Save sample data to test
+    sample_data.to_csv('sample_data.csv', index=False)
+    
+    # Clean the data
+    cleaned_df = clean_csv_data('sample_data.csv', 
+                                output_path='cleaned_data.csv',
+                                missing_strategy='mean')
+    
+    # Validate the cleaned data
+    if cleaned_df is not None:
+        validate_dataframe(cleaned_df, required_columns=['A', 'B', 'C'])
