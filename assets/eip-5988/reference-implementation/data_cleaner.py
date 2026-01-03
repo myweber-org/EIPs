@@ -254,4 +254,72 @@ if __name__ == "__main__":
         print(f"{key}: {value}")
     
     print("\nFirst 5 rows of cleaned data:")
-    print(cleaned_df.head())
+    print(cleaned_df.head())import pandas as pd
+import argparse
+import sys
+
+def remove_duplicates(input_file, output_file=None, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a CSV file.
+    
+    Args:
+        input_file (str): Path to input CSV file
+        output_file (str, optional): Path to output CSV file. If None, overwrites input file
+        subset (list, optional): Columns to consider for identifying duplicates
+        keep (str): Which duplicates to keep - 'first', 'last', or False to drop all
+        
+    Returns:
+        int: Number of duplicates removed
+    """
+    try:
+        df = pd.read_csv(input_file)
+        initial_count = len(df)
+        
+        df_cleaned = df.drop_duplicates(subset=subset, keep=keep)
+        final_count = len(df_cleaned)
+        
+        duplicates_removed = initial_count - final_count
+        
+        if output_file is None:
+            output_file = input_file
+            
+        df_cleaned.to_csv(output_file, index=False)
+        
+        print(f"Removed {duplicates_removed} duplicate rows")
+        print(f"Original rows: {initial_count}")
+        print(f"Cleaned rows: {final_count}")
+        print(f"Output saved to: {output_file}")
+        
+        return duplicates_removed
+        
+    except FileNotFoundError:
+        print(f"Error: Input file '{input_file}' not found", file=sys.stderr)
+        return -1
+    except pd.errors.EmptyDataError:
+        print(f"Error: Input file '{input_file}' is empty", file=sys.stderr)
+        return -1
+    except Exception as e:
+        print(f"Error processing file: {str(e)}", file=sys.stderr)
+        return -1
+
+def main():
+    parser = argparse.ArgumentParser(description='Remove duplicate rows from CSV files')
+    parser.add_argument('input', help='Input CSV file path')
+    parser.add_argument('-o', '--output', help='Output CSV file path (optional)')
+    parser.add_argument('-s', '--subset', nargs='+', help='Columns to consider for duplicates')
+    parser.add_argument('-k', '--keep', choices=['first', 'last', 'none'], 
+                       default='first', help="Which duplicates to keep")
+    
+    args = parser.parse_args()
+    
+    keep_value = 'first' if args.keep == 'first' else 'last' if args.keep == 'last' else False
+    
+    remove_duplicates(
+        input_file=args.input,
+        output_file=args.output,
+        subset=args.subset,
+        keep=keep_value
+    )
+
+if __name__ == '__main__':
+    main()
