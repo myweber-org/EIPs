@@ -430,3 +430,146 @@ if __name__ == "__main__":
             print("Data validation passed")
         else:
             print("Data validation failed")
+import pandas as pd
+
+def clean_dataset(df, drop_duplicates=True, fill_missing=False, fill_value=0):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        drop_duplicates (bool): Whether to drop duplicate rows.
+        fill_missing (bool): Whether to fill missing values.
+        fill_value: Value to use for filling missing data.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    if fill_missing:
+        cleaned_df = cleaned_df.fillna(fill_value)
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list): List of required column names.
+    
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "DataFrame is valid"
+
+def remove_outliers(df, column, method='iqr', threshold=1.5):
+    """
+    Remove outliers from a specific column using specified method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        column (str): Column name to process.
+        method (str): 'iqr' for interquartile range or 'zscore' for standard deviation.
+        threshold (float): Threshold for outlier detection.
+    
+    Returns:
+        pd.DataFrame: DataFrame with outliers removed.
+    """
+    if column not in df.columns:
+        return df
+    
+    if method == 'iqr':
+        Q1 = df[column].quantile(0.25)
+        Q3 = df[column].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - threshold * IQR
+        upper_bound = Q3 + threshold * IQR
+        return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    elif method == 'zscore':
+        from scipy import stats
+        z_scores = stats.zscore(df[column])
+        abs_z_scores = abs(z_scores)
+        return df[abs_z_scores < threshold]
+    
+    return df
+
+def normalize_column(df, column, method='minmax'):
+    """
+    Normalize a column using specified method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        column (str): Column name to normalize.
+        method (str): 'minmax' or 'standard' normalization.
+    
+    Returns:
+        pd.DataFrame: DataFrame with normalized column.
+    """
+    if column not in df.columns:
+        return df
+    
+    df_copy = df.copy()
+    
+    if method == 'minmax':
+        min_val = df_copy[column].min()
+        max_val = df_copy[column].max()
+        if max_val != min_val:
+            df_copy[column] = (df_copy[column] - min_val) / (max_val - min_val)
+    
+    elif method == 'standard':
+        mean_val = df_copy[column].mean()
+        std_val = df_copy[column].std()
+        if std_val != 0:
+            df_copy[column] = (df_copy[column] - mean_val) / std_val
+    
+    return df_copy
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'id': [1, 2, 3, 4, 5, 5, 6],
+        'value': [10, 20, None, 40, 50, 50, 1000],
+        'category': ['A', 'B', 'C', 'A', 'B', 'B', 'C']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n")
+    
+    # Clean the data
+    cleaned = clean_dataset(df, drop_duplicates=True, fill_missing=True, fill_value=0)
+    print("After cleaning:")
+    print(cleaned)
+    print("\n")
+    
+    # Validate
+    is_valid, message = validate_dataframe(cleaned, required_columns=['id', 'value'])
+    print(f"Validation: {is_valid} - {message}")
+    print("\n")
+    
+    # Remove outliers
+    no_outliers = remove_outliers(cleaned, 'value', method='iqr')
+    print("After outlier removal:")
+    print(no_outliers)
+    print("\n")
+    
+    # Normalize
+    normalized = normalize_column(no_outliers, 'value', method='minmax')
+    print("After normalization:")
+    print(normalized)
