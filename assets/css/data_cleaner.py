@@ -113,4 +113,42 @@ if __name__ == "__main__":
     print(cleaned)
     
     is_valid, message = validate_data(cleaned, required_columns=['A', 'B'], min_rows=3)
-    print(f"\nValidation: {is_valid} - {message}")
+    print(f"\nValidation: {is_valid} - {message}")import pandas as pd
+
+def clean_dataframe(df):
+    """
+    Clean a pandas DataFrame by removing rows with null values
+    and standardizing column names to lowercase with underscores.
+    """
+    # Remove rows with any null values
+    df_cleaned = df.dropna()
+    
+    # Standardize column names
+    df_cleaned.columns = (
+        df_cleaned.columns
+        .str.lower()
+        .str.replace(' ', '_')
+        .str.replace('-', '_')
+    )
+    
+    return df_cleaned
+
+def main():
+    # Example usage
+    data = {
+        'First Name': ['Alice', 'Bob', None, 'David'],
+        'Last-Name': ['Smith', 'Johnson', 'Williams', None],
+        'Age': [25, 30, 35, 40]
+    }
+    
+    df = pd.DataFrame(data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n")
+    
+    cleaned_df = clean_dataframe(df)
+    print("Cleaned DataFrame:")
+    print(cleaned_df)
+
+if __name__ == "__main__":
+    main()
