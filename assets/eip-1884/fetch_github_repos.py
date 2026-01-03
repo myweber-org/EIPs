@@ -50,4 +50,50 @@ if __name__ == '__main__':
     repositories = fetch_github_repos(username, token)
 
     print(f"Found {len(repositories)} repositories for user '{username}':\n")
-    display_repos(repositories)
+    display_repos(repositories)import requests
+import sys
+
+def fetch_user_repos(username, page=1, per_page=30):
+    url = f"https://api.github.com/users/{username}/repos"
+    params = {'page': page, 'per_page': per_page}
+    headers = {'Accept': 'application/vnd.github.v3+json'}
+    
+    try:
+        response = requests.get(url, params=params, headers=headers)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching repositories: {e}")
+        return None
+
+def display_repos(repos):
+    if not repos:
+        print("No repositories found.")
+        return
+    
+    for repo in repos:
+        print(f"Name: {repo['name']}")
+        print(f"Description: {repo['description'] or 'No description'}")
+        print(f"URL: {repo['html_url']}")
+        print(f"Stars: {repo['stargazers_count']}")
+        print(f"Forks: {repo['forks_count']}")
+        print("-" * 50)
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: python fetch_github_repos.py <username> [page] [per_page]")
+        sys.exit(1)
+    
+    username = sys.argv[1]
+    page = int(sys.argv[2]) if len(sys.argv) > 2 else 1
+    per_page = int(sys.argv[3]) if len(sys.argv) > 3 else 30
+    
+    repos = fetch_user_repos(username, page, per_page)
+    if repos:
+        display_repos(repos)
+        print(f"\nTotal repositories displayed: {len(repos)}")
+    else:
+        print("Failed to fetch repositories.")
+
+if __name__ == "__main__":
+    main()
