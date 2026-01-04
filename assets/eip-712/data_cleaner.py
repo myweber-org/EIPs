@@ -99,4 +99,11 @@ if __name__ == "__main__":
     
     print("\nCleaned DataFrame shape:", cleaned_df.shape)
     print("\nCleaned summary for column A:")
-    print(calculate_summary_statistics(cleaned_df, 'A'))
+    print(calculate_summary_statistics(cleaned_df, 'A'))def deduplicate_list(original_list):
+    seen = set()
+    deduplicated = []
+    for item in original_list:
+        if item not in seen:
+            seen.add(item)
+            deduplicated.append(item)
+    return deduplicated
