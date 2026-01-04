@@ -145,3 +145,92 @@ def validate_dataframe(df, required_columns=None, min_rows=1):
 #     # Validate the cleaned data
 #     is_valid, message = validate_dataframe(cleaned, required_columns=['id', 'name', 'age'])
 #     print(f"\nValidation: {message}")
+import pandas as pd
+import numpy as np
+from typing import Optional, Dict, List
+
+class DataCleaner:
+    def __init__(self, df: pd.DataFrame):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def handle_missing_values(self, strategy: str = 'mean', columns: Optional[List] = None) -> 'DataCleaner':
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+        
+        for col in columns:
+            if col in self.df.columns and self.df[col].isnull().any():
+                if strategy == 'mean':
+                    fill_value = self.df[col].mean()
+                elif strategy == 'median':
+                    fill_value = self.df[col].median()
+                elif strategy == 'mode':
+                    fill_value = self.df[col].mode()[0]
+                elif strategy == 'drop':
+                    self.df = self.df.dropna(subset=[col])
+                else:
+                    fill_value = 0
+                
+                if strategy != 'drop':
+                    self.df[col] = self.df[col].fillna(fill_value)
+        
+        return self
+    
+    def convert_types(self, type_map: Dict[str, str]) -> 'DataCleaner':
+        for column, dtype in type_map.items():
+            if column in self.df.columns:
+                try:
+                    if dtype == 'datetime':
+                        self.df[column] = pd.to_datetime(self.df[column])
+                    else:
+                        self.df[column] = self.df[column].astype(dtype)
+                except Exception as e:
+                    print(f"Error converting {column} to {dtype}: {e}")
+        
+        return self
+    
+    def remove_duplicates(self, subset: Optional[List] = None, keep: str = 'first') -> 'DataCleaner':
+        self.df = self.df.drop_duplicates(subset=subset, keep=keep)
+        return self
+    
+    def normalize_numeric(self, columns: Optional[List] = None) -> 'DataCleaner':
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+        
+        for col in columns:
+            if col in self.df.columns:
+                col_min = self.df[col].min()
+                col_max = self.df[col].max()
+                if col_max > col_min:
+                    self.df[col] = (self.df[col] - col_min) / (col_max - col_min)
+        
+        return self
+    
+    def get_cleaned_data(self) -> pd.DataFrame:
+        return self.df
+    
+    def get_cleaning_report(self) -> Dict:
+        return {
+            'original_rows': self.original_shape[0],
+            'original_columns': self.original_shape[1],
+            'cleaned_rows': self.df.shape[0],
+            'cleaned_columns': self.df.shape[1],
+            'rows_removed': self.original_shape[0] - self.df.shape[0],
+            'missing_values_remaining': self.df.isnull().sum().sum()
+        }
+
+def load_and_clean_csv(filepath: str, cleaning_steps: Optional[Dict] = None) -> pd.DataFrame:
+    df = pd.read_csv(filepath)
+    cleaner = DataCleaner(df)
+    
+    if cleaning_steps:
+        if cleaning_steps.get('handle_missing'):
+            cleaner.handle_missing_values(**cleaning_steps['handle_missing'])
+        if cleaning_steps.get('convert_types'):
+            cleaner.convert_types(cleaning_steps['convert_types'])
+        if cleaning_steps.get('remove_duplicates'):
+            cleaner.remove_duplicates(**cleaning_steps['remove_duplicates'])
+        if cleaning_steps.get('normalize'):
+            cleaner.normalize_numeric(**cleaning_steps['normalize'])
+    
+    return cleaner.get_cleaned_data()
