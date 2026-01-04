@@ -1,153 +1,76 @@
 
 import pandas as pd
 import numpy as np
+from typing import Optional
 
-def remove_duplicates(df, subset=None, keep='first'):
-    """
-    Remove duplicate rows from a DataFrame.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        subset (list, optional): Columns to consider for duplicates
-        keep (str, optional): Which duplicates to keep ('first', 'last', False)
-    
-    Returns:
-        pd.DataFrame: DataFrame with duplicates removed
-    """
-    if df.empty:
-        return df
-    
-    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
-    
-    removed_count = len(df) - len(cleaned_df)
-    print(f"Removed {removed_count} duplicate rows")
-    
-    return cleaned_df
+class DataCleaner:
+    def __init__(self, df: pd.DataFrame):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_duplicates(self, subset: Optional[list] = None) -> 'DataCleaner':
+        self.df = self.df.drop_duplicates(subset=subset)
+        return self
+        
+    def fill_missing_numeric(self, strategy: str = 'mean', fill_value: Optional[float] = None) -> 'DataCleaner':
+        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+        
+        for col in numeric_cols:
+            if self.df[col].isnull().any():
+                if strategy == 'mean':
+                    self.df[col].fillna(self.df[col].mean(), inplace=True)
+                elif strategy == 'median':
+                    self.df[col].fillna(self.df[col].median(), inplace=True)
+                elif strategy == 'mode':
+                    self.df[col].fillna(self.df[col].mode()[0], inplace=True)
+                elif strategy == 'constant' and fill_value is not None:
+                    self.df[col].fillna(fill_value, inplace=True)
+                else:
+                    raise ValueError(f"Invalid strategy: {strategy}")
+        
+        return self
+        
+    def fill_missing_categorical(self, fill_value: str = 'Unknown') -> 'DataCleaner':
+        categorical_cols = self.df.select_dtypes(include=['object', 'category']).columns
+        
+        for col in categorical_cols:
+            if self.df[col].isnull().any():
+                self.df[col].fillna(fill_value, inplace=True)
+        
+        return self
+        
+    def remove_columns_with_high_missing(self, threshold: float = 0.5) -> 'DataCleaner':
+        missing_ratios = self.df.isnull().sum() / len(self.df)
+        cols_to_drop = missing_ratios[missing_ratios > threshold].index
+        self.df = self.df.drop(columns=cols_to_drop)
+        return self
+        
+    def get_cleaned_data(self) -> pd.DataFrame:
+        return self.df.copy()
+        
+    def get_cleaning_report(self) -> dict:
+        final_shape = self.df.shape
+        rows_removed = self.original_shape[0] - final_shape[0]
+        cols_removed = self.original_shape[1] - final_shape[1]
+        
+        return {
+            'original_shape': self.original_shape,
+            'final_shape': final_shape,
+            'rows_removed': rows_removed,
+            'columns_removed': cols_removed,
+            'missing_values_remaining': self.df.isnull().sum().sum()
+        }
 
-def clean_missing_values(df, strategy='drop', fill_value=None):
-    """
-    Handle missing values in DataFrame.
+def load_and_clean_csv(filepath: str, **kwargs) -> pd.DataFrame:
+    df = pd.read_csv(filepath, **kwargs)
+    cleaner = DataCleaner(df)
     
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        strategy (str): 'drop' to remove rows, 'fill' to fill values
-        fill_value: Value to fill missing values with
+    cleaner.remove_duplicates() \
+           .remove_columns_with_high_missing(threshold=0.3) \
+           .fill_missing_numeric(strategy='median') \
+           .fill_missing_categorical(fill_value='Missing')
     
-    Returns:
-        pd.DataFrame: Cleaned DataFrame
-    """
-    if df.empty:
-        return df
+    report = cleaner.get_cleaning_report()
+    print(f"Data cleaning completed. Removed {report['rows_removed']} rows and {report['columns_removed']} columns.")
     
-    if strategy == 'drop':
-        cleaned_df = df.dropna()
-        removed_count = len(df) - len(cleaned_df)
-        print(f"Removed {removed_count} rows with missing values")
-    elif strategy == 'fill':
-        cleaned_df = df.fillna(fill_value)
-        filled_count = df.isna().sum().sum()
-        print(f"Filled {filled_count} missing values")
-    else:
-        raise ValueError("Strategy must be 'drop' or 'fill'")
-    
-    return cleaned_df
-
-def validate_dataframe(df, required_columns=None):
-    """
-    Validate DataFrame structure and content.
-    
-    Args:
-        df (pd.DataFrame): DataFrame to validate
-        required_columns (list): List of required column names
-    
-    Returns:
-        bool: True if validation passes
-    """
-    if not isinstance(df, pd.DataFrame):
-        raise TypeError("Input must be a pandas DataFrame")
-    
-    if df.empty:
-        print("Warning: DataFrame is empty")
-        return True
-    
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            raise ValueError(f"Missing required columns: {missing_columns}")
-    
-    return True
-
-def process_dataframe(df, operations=None):
-    """
-    Apply multiple cleaning operations to DataFrame.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        operations (list): List of operations to apply
-    
-    Returns:
-        pd.DataFrame: Cleaned DataFrame
-    """
-    if operations is None:
-        operations = ['validate', 'remove_duplicates', 'clean_missing']
-    
-    cleaned_df = df.copy()
-    
-    for operation in operations:
-        if operation == 'validate':
-            validate_dataframe(cleaned_df)
-        elif operation == 'remove_duplicates':
-            cleaned_df = remove_duplicates(cleaned_df)
-        elif operation == 'clean_missing':
-            cleaned_df = clean_missing_values(cleaned_df, strategy='drop')
-        else:
-            print(f"Unknown operation: {operation}")
-    
-    return cleaned_df
-
-if __name__ == "__main__":
-    sample_data = {
-        'id': [1, 2, 2, 3, 4, 4, 5],
-        'name': ['Alice', 'Bob', 'Bob', 'Charlie', None, 'Eve', 'Frank'],
-        'value': [10, 20, 20, 30, 40, 40, 50]
-    }
-    
-    df = pd.DataFrame(sample_data)
-    print("Original DataFrame:")
-    print(df)
-    print("\n")
-    
-    cleaned = process_dataframe(df)
-    print("\nCleaned DataFrame:")
-    print(cleaned)import numpy as np
-import pandas as pd
-from scipy import stats
-
-def remove_outliers_iqr(data, column):
-    Q1 = data[column].quantile(0.25)
-    Q3 = data[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    return data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
-
-def normalize_minmax(data, column):
-    min_val = data[column].min()
-    max_val = data[column].max()
-    if max_val - min_val == 0:
-        return data[column]
-    return (data[column] - min_val) / (max_val - min_val)
-
-def clean_dataset(df, numeric_columns):
-    cleaned_df = df.copy()
-    for col in numeric_columns:
-        if col in cleaned_df.columns:
-            cleaned_df = remove_outliers_iqr(cleaned_df, col)
-            cleaned_df[col] = normalize_minmax(cleaned_df, col)
-    return cleaned_df.reset_index(drop=True)
-
-def validate_data(df, required_columns):
-    missing_cols = [col for col in required_columns if col not in df.columns]
-    if missing_cols:
-        raise ValueError(f"Missing required columns: {missing_cols}")
-    return True
+    return cleaner.get_cleaned_data()
