@@ -1,104 +1,124 @@
-
 import numpy as np
+import pandas as pd
 
-def remove_outliers_iqr(data, column):
+def remove_outliers_iqr(data, column, threshold=1.5):
     """
-    Remove outliers from a pandas DataFrame column using the IQR method.
+    Remove outliers using IQR method.
     
-    Parameters:
-    data (pd.DataFrame): Input DataFrame
-    column (str): Column name to clean
+    Args:
+        data: pandas DataFrame
+        column: column name to process
+        threshold: IQR multiplier (default 1.5)
     
     Returns:
-    pd.DataFrame: DataFrame with outliers removed
+        DataFrame with outliers removed
     """
-    Q1 = data[column].quantile(0.25)
-    Q3 = data[column].quantile(0.75)
-    IQR = Q3 - Q1
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
     
     filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
     return filtered_data
 
-def calculate_summary_stats(data, column):
+def normalize_minmax(data, column):
     """
-    Calculate summary statistics for a column.
+    Normalize column values to [0, 1] range using min-max scaling.
     
-    Parameters:
-    data (pd.DataFrame): Input DataFrame
-    column (str): Column name
+    Args:
+        data: pandas DataFrame
+        column: column name to normalize
     
     Returns:
-    dict: Dictionary containing summary statistics
+        Series with normalized values
     """
-    stats = {
-        'mean': np.mean(data[column]),
-        'median': np.median(data[column]),
-        'std': np.std(data[column]),
-        'min': np.min(data[column]),
-        'max': np.max(data[column]),
-        'count': len(data[column])
-    }
-    return stats
-
-def validate_data(data, required_columns):
-    """
-    Validate that DataFrame contains all required columns.
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    Parameters:
-    data (pd.DataFrame): Input DataFrame
-    required_columns (list): List of required column names
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return pd.Series([0.5] * len(data), index=data.index)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def standardize_zscore(data, column):
+    """
+    Standardize column values using z-score normalization.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to standardize
     
     Returns:
-    bool: True if all required columns are present
+        Series with standardized values
     """
-    missing_columns = [col for col in required_columns if col not in data.columns]
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    if missing_columns:
-        print(f"Missing columns: {missing_columns}")
-        return False
-    return Trueimport numpy as np
-import pandas as pd
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return pd.Series([0] * len(data), index=data.index)
+    
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
 
-def remove_outliers_iqr(df, column):
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+def handle_missing_values(data, strategy='mean'):
+    """
+    Handle missing values in numeric columns.
+    
+    Args:
+        data: pandas DataFrame
+        strategy: 'mean', 'median', or 'mode' for imputation
+    
+    Returns:
+        DataFrame with missing values handled
+    """
+    numeric_cols = data.select_dtypes(include=[np.number]).columns
+    
+    if strategy == 'mean':
+        for col in numeric_cols:
+            data[col] = data[col].fillna(data[col].mean())
+    elif strategy == 'median':
+        for col in numeric_cols:
+            data[col] = data[col].fillna(data[col].median())
+    elif strategy == 'mode':
+        for col in numeric_cols:
+            data[col] = data[col].fillna(data[col].mode()[0])
+    else:
+        raise ValueError("Strategy must be 'mean', 'median', or 'mode'")
+    
+    return data
 
-def normalize_minmax(df, column):
-    min_val = df[column].min()
-    max_val = df[column].max()
-    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
-    return df
-
-def standardize_zscore(df, column):
-    mean_val = df[column].mean()
-    std_val = df[column].std()
-    df[column + '_standardized'] = (df[column] - mean_val) / std_val
-    return df
-
-def clean_dataset(df, numeric_columns):
-    cleaned_df = df.copy()
-    for col in numeric_columns:
-        if col in cleaned_df.columns:
-            cleaned_df = remove_outliers_iqr(cleaned_df, col)
-            cleaned_df = normalize_minmax(cleaned_df, col)
-            cleaned_df = standardize_zscore(cleaned_df, col)
-    return cleaned_df
-
-def validate_data(df, required_columns):
-    missing_columns = [col for col in required_columns if col not in df.columns]
-    if missing_columns:
-        raise ValueError(f"Missing required columns: {missing_columns}")
-    return True
-
-def get_summary_statistics(df):
-    summary = df.describe()
-    summary.loc['missing'] = df.isnull().sum()
-    summary.loc['unique'] = df.nunique()
-    return summary
+def validate_dataframe(data, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        data: pandas DataFrame to validate
+        required_columns: list of required column names
+    
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    if not isinstance(data, pd.DataFrame):
+        return False, "Input must be a pandas DataFrame"
+    
+    if data.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in data.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
+    
+    return True, "DataFrame is valid"
