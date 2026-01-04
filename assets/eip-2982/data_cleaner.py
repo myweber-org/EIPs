@@ -505,3 +505,11 @@ def save_cleaned_data(dataframe, output_path):
     """
     dataframe.to_csv(output_path, index=False)
     print(f"Cleaned data saved to: {output_path}")
+def remove_duplicates(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
