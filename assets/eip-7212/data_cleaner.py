@@ -236,4 +236,16 @@ def validate_data(df, required_columns=None, check_missing=True, check_duplicate
         duplicate_count = df.duplicated().sum()
         validation_report['duplicate_rows'] = duplicate_count
     
-    return validation_report
+    return validation_reportdef remove_duplicates(input_list):
+    seen = set()
+    result = []
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+def clean_data(data):
+    if not isinstance(data, list):
+        raise TypeError("Input must be a list")
+    return remove_duplicates(data)
