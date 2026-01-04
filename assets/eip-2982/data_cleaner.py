@@ -415,3 +415,93 @@ if __name__ == "__main__":
     
     cleaned_df = load_and_clean_data(input_file)
     save_cleaned_data(cleaned_df, output_file)
+import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(dataframe, column):
+    """
+    Remove outliers from a specified column using the Interquartile Range method.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input DataFrame
+    column (str): Column name to process
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = dataframe[column].quantile(0.25)
+    Q3 = dataframe[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
+                           (dataframe[column] <= upper_bound)]
+    
+    return filtered_df.copy()
+
+def calculate_summary_statistics(dataframe, column):
+    """
+    Calculate summary statistics for a column after outlier removal.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input DataFrame
+    column (str): Column name to analyze
+    
+    Returns:
+    dict: Dictionary containing summary statistics
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    stats = {
+        'mean': dataframe[column].mean(),
+        'median': dataframe[column].median(),
+        'std': dataframe[column].std(),
+        'min': dataframe[column].min(),
+        'max': dataframe[column].max(),
+        'count': len(dataframe)
+    }
+    
+    return stats
+
+def process_numerical_columns(dataframe, columns=None):
+    """
+    Process multiple numerical columns for outlier removal.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input DataFrame
+    columns (list): List of column names to process (defaults to all numerical columns)
+    
+    Returns:
+    pd.DataFrame: Processed DataFrame with outliers removed
+    """
+    if columns is None:
+        columns = dataframe.select_dtypes(include=[np.number]).columns.tolist()
+    
+    processed_df = dataframe.copy()
+    
+    for col in columns:
+        if col in processed_df.columns and pd.api.types.is_numeric_dtype(processed_df[col]):
+            try:
+                processed_df = remove_outliers_iqr(processed_df, col)
+            except Exception as e:
+                print(f"Warning: Could not process column '{col}': {str(e)}")
+                continue
+    
+    return processed_df
+
+def save_cleaned_data(dataframe, output_path):
+    """
+    Save cleaned DataFrame to CSV file.
+    
+    Parameters:
+    dataframe (pd.DataFrame): DataFrame to save
+    output_path (str): Path to save the CSV file
+    """
+    dataframe.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to: {output_path}")
