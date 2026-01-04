@@ -572,4 +572,87 @@ if __name__ == "__main__":
     # Normalize
     normalized = normalize_column(no_outliers, 'value', method='minmax')
     print("After normalization:")
-    print(normalized)
+    print(normalized)import pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Args:
+        df: pandas DataFrame to clean
+        drop_duplicates: If True, remove duplicate rows
+        fill_missing: Strategy for filling missing values ('mean', 'median', 'mode', or 'drop')
+    
+    Returns:
+        Cleaned pandas DataFrame
+    """
+    original_shape = df.shape
+    
+    if drop_duplicates:
+        df = df.drop_duplicates()
+        print(f"Removed {original_shape[0] - df.shape[0]} duplicate rows")
+    
+    if fill_missing == 'drop':
+        df = df.dropna()
+        print(f"Removed rows with missing values. New shape: {df.shape}")
+    elif fill_missing in ['mean', 'median']:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            if fill_missing == 'mean':
+                fill_value = df[col].mean()
+            else:
+                fill_value = df[col].median()
+            df[col] = df[col].fillna(fill_value)
+        print(f"Filled missing numeric values with {fill_missing}")
+    elif fill_missing == 'mode':
+        for col in df.columns:
+            mode_value = df[col].mode()
+            if not mode_value.empty:
+                df[col] = df[col].fillna(mode_value[0])
+        print("Filled missing values with mode")
+    
+    return df
+
+def validate_data(df, required_columns=None, min_rows=1):
+    """
+    Validate the dataset meets basic requirements.
+    
+    Args:
+        df: pandas DataFrame to validate
+        required_columns: List of column names that must be present
+        min_rows: Minimum number of rows required
+    
+    Returns:
+        Boolean indicating if validation passed
+    """
+    if len(df) < min_rows:
+        print(f"Error: Dataset has fewer than {min_rows} rows")
+        return False
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            print(f"Error: Missing required columns: {missing_cols}")
+            return False
+    
+    return True
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, 2, 3, None, 4],
+        'B': [5, None, 5, 6, 7, 8],
+        'C': ['x', 'y', 'x', 'y', 'z', None]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original dataset:")
+    print(df)
+    print("\nCleaning dataset...")
+    
+    cleaned_df = clean_dataset(df, drop_duplicates=True, fill_missing='mean')
+    print("\nCleaned dataset:")
+    print(cleaned_df)
+    
+    is_valid = validate_data(cleaned_df, required_columns=['A', 'B'], min_rows=3)
+    print(f"\nData validation passed: {is_valid}")
