@@ -147,3 +147,121 @@ def clean_dataset(data, columns_to_clean=None):
             print(f"Removed {removed_count} outliers from column '{column}'")
     
     return cleaned_data
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, missing_strategy='mean', outlier_method='iqr', columns=None):
+    """
+    Clean dataset by handling missing values and outliers.
+    
+    Parameters:
+    df (pd.DataFrame): Input dataframe
+    missing_strategy (str): Strategy for missing values - 'mean', 'median', 'mode', or 'drop'
+    outlier_method (str): Method for outlier detection - 'iqr' or 'zscore'
+    columns (list): Specific columns to clean, if None clean all numeric columns
+    
+    Returns:
+    pd.DataFrame: Cleaned dataframe
+    """
+    df_clean = df.copy()
+    
+    if columns is None:
+        columns = df_clean.select_dtypes(include=[np.number]).columns
+    
+    for col in columns:
+        if col not in df_clean.columns:
+            continue
+            
+        if missing_strategy != 'drop':
+            if missing_strategy == 'mean':
+                fill_value = df_clean[col].mean()
+            elif missing_strategy == 'median':
+                fill_value = df_clean[col].median()
+            elif missing_strategy == 'mode':
+                fill_value = df_clean[col].mode()[0]
+            else:
+                fill_value = 0
+                
+            df_clean[col].fillna(fill_value, inplace=True)
+        else:
+            df_clean = df_clean.dropna(subset=[col])
+    
+    if outlier_method == 'iqr':
+        for col in columns:
+            if col not in df_clean.columns:
+                continue
+                
+            Q1 = df_clean[col].quantile(0.25)
+            Q3 = df_clean[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - 1.5 * IQR
+            upper_bound = Q3 + 1.5 * IQR
+            
+            df_clean[col] = np.where(
+                (df_clean[col] < lower_bound) | (df_clean[col] > upper_bound),
+                df_clean[col].median(),
+                df_clean[col]
+            )
+    
+    elif outlier_method == 'zscore':
+        for col in columns:
+            if col not in df_clean.columns:
+                continue
+                
+            z_scores = np.abs((df_clean[col] - df_clean[col].mean()) / df_clean[col].std())
+            df_clean[col] = np.where(
+                z_scores > 3,
+                df_clean[col].median(),
+                df_clean[col]
+            )
+    
+    return df_clean
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from dataframe.
+    
+    Parameters:
+    df (pd.DataFrame): Input dataframe
+    subset (list): Columns to consider for duplicates
+    keep (str): Which duplicates to keep - 'first', 'last', or False
+    
+    Returns:
+    pd.DataFrame: Dataframe without duplicates
+    """
+    return df.drop_duplicates(subset=subset, keep=keep)
+
+def normalize_columns(df, columns=None, method='minmax'):
+    """
+    Normalize specified columns.
+    
+    Parameters:
+    df (pd.DataFrame): Input dataframe
+    columns (list): Columns to normalize
+    method (str): Normalization method - 'minmax' or 'standard'
+    
+    Returns:
+    pd.DataFrame: Dataframe with normalized columns
+    """
+    df_norm = df.copy()
+    
+    if columns is None:
+        columns = df_norm.select_dtypes(include=[np.number]).columns
+    
+    for col in columns:
+        if col not in df_norm.columns:
+            continue
+            
+        if method == 'minmax':
+            min_val = df_norm[col].min()
+            max_val = df_norm[col].max()
+            if max_val != min_val:
+                df_norm[col] = (df_norm[col] - min_val) / (max_val - min_val)
+        
+        elif method == 'standard':
+            mean_val = df_norm[col].mean()
+            std_val = df_norm[col].std()
+            if std_val != 0:
+                df_norm[col] = (df_norm[col] - mean_val) / std_val
+    
+    return df_norm
