@@ -79,4 +79,45 @@ if __name__ == "__main__":
     print(cleaned)
     
     is_valid, message = validate_data(cleaned, required_columns=['name', 'email', 'age'])
-    print(f"\nValidation: {is_valid} - {message}")
+    print(f"\nValidation: {is_valid} - {message}")import pandas as pd
+import numpy as np
+import re
+
+def clean_csv_data(input_file, output_file):
+    """
+    Load a CSV file, clean the data, and save to a new file.
+    """
+    try:
+        df = pd.read_csv(input_file)
+        
+        # Remove duplicate rows
+        df = df.drop_duplicates()
+        
+        # Standardize column names: lowercase and replace spaces with underscores
+        df.columns = [re.sub(r'\s+', '_', col.strip().lower()) for col in df.columns]
+        
+        # Fill missing numeric values with column median
+        for col in df.select_dtypes(include=[np.number]).columns:
+            df[col] = df[col].fillna(df[col].median())
+        
+        # Fill missing non-numeric values with 'unknown'
+        for col in df.select_dtypes(exclude=[np.number]).columns:
+            df[col] = df[col].fillna('unknown')
+        
+        # Remove leading/trailing whitespace from string columns
+        for col in df.select_dtypes(exclude=[np.number]).columns:
+            df[col] = df[col].str.strip()
+        
+        # Save cleaned data
+        df.to_csv(output_file, index=False)
+        print(f"Data cleaned and saved to {output_file}")
+        
+    except FileNotFoundError:
+        print(f"Error: File {input_file} not found.")
+    except pd.errors.EmptyDataError:
+        print(f"Error: File {input_file} is empty.")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+
+if __name__ == "__main__":
+    clean_csv_data('raw_data.csv', 'cleaned_data.csv')
