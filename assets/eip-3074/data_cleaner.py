@@ -292,4 +292,113 @@ class DataCleaner:
             'original_columns': self.original_shape[1],
             'cleaned_columns': self.df.shape[1]
         }
+        return summaryimport numpy as np
+import pandas as pd
+from scipy import stats
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def detect_outliers_iqr(self, column):
+        Q1 = self.df[column].quantile(0.25)
+        Q3 = self.df[column].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+        outliers = self.df[(self.df[column] < lower_bound) | (self.df[column] > upper_bound)]
+        return outliers
+    
+    def remove_outliers(self, columns):
+        clean_df = self.df.copy()
+        for col in columns:
+            if col in clean_df.columns:
+                Q1 = clean_df[col].quantile(0.25)
+                Q3 = clean_df[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - 1.5 * IQR
+                upper_bound = Q3 + 1.5 * IQR
+                clean_df = clean_df[(clean_df[col] >= lower_bound) & (clean_df[col] <= upper_bound)]
+        return clean_df
+    
+    def impute_missing_median(self, columns):
+        imputed_df = self.df.copy()
+        for col in columns:
+            if col in imputed_df.columns and imputed_df[col].isnull().any():
+                median_val = imputed_df[col].median()
+                imputed_df[col].fillna(median_val, inplace=True)
+        return imputed_df
+    
+    def impute_missing_mode(self, columns):
+        imputed_df = self.df.copy()
+        for col in columns:
+            if col in imputed_df.columns and imputed_df[col].isnull().any():
+                mode_val = imputed_df[col].mode()[0]
+                imputed_df[col].fillna(mode_val, inplace=True)
+        return imputed_df
+    
+    def normalize_column(self, column, method='minmax'):
+        if column not in self.df.columns:
+            return None
+            
+        if method == 'minmax':
+            col_min = self.df[column].min()
+            col_max = self.df[column].max()
+            if col_max == col_min:
+                return self.df[column]
+            return (self.df[column] - col_min) / (col_max - col_min)
+        elif method == 'zscore':
+            col_mean = self.df[column].mean()
+            col_std = self.df[column].std()
+            if col_std == 0:
+                return self.df[column]
+            return (self.df[column] - col_mean) / col_std
+        else:
+            return self.df[column]
+    
+    def get_summary(self):
+        summary = {
+            'original_shape': self.original_shape,
+            'current_shape': self.df.shape,
+            'missing_values': self.df.isnull().sum().to_dict(),
+            'data_types': self.df.dtypes.to_dict(),
+            'numeric_columns': list(self.df.select_dtypes(include=[np.number]).columns),
+            'categorical_columns': list(self.df.select_dtypes(include=['object']).columns)
+        }
         return summary
+
+def create_sample_data():
+    np.random.seed(42)
+    data = {
+        'age': np.random.randint(18, 70, 100),
+        'salary': np.random.normal(50000, 15000, 100),
+        'department': np.random.choice(['Sales', 'Engineering', 'Marketing', 'HR'], 100),
+        'experience': np.random.randint(0, 30, 100)
+    }
+    
+    df = pd.DataFrame(data)
+    
+    df.loc[np.random.choice(100, 5), 'salary'] = np.nan
+    df.loc[np.random.choice(100, 3), 'age'] = np.nan
+    df.loc[10:15, 'salary'] = df.loc[10:15, 'salary'] * 3
+    
+    return df
+
+if __name__ == "__main__":
+    sample_df = create_sample_data()
+    cleaner = DataCleaner(sample_df)
+    
+    print("Data Summary:")
+    summary = cleaner.get_summary()
+    for key, value in summary.items():
+        print(f"{key}: {value}")
+    
+    outliers = cleaner.detect_outliers_iqr('salary')
+    print(f"\nDetected {len(outliers)} outliers in salary column")
+    
+    clean_df = cleaner.remove_outliers(['salary', 'age'])
+    print(f"Data shape after removing outliers: {clean_df.shape}")
+    
+    imputed_df = cleaner.impute_missing_median(['salary', 'age'])
+    print(f"Missing values after imputation: {imputed_df.isnull().sum().sum()}")
