@@ -109,3 +109,134 @@ def deduplicate_list(input_list):
             seen.add(item)
             result.append(item)
     return result
+import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, columns=None):
+    """
+    Remove outliers from DataFrame using Interquartile Range method.
+    
+    Args:
+        df: pandas DataFrame
+        columns: list of column names to process (default: all numeric columns)
+    
+    Returns:
+        Cleaned DataFrame with outliers removed
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    df_clean = df.copy()
+    
+    for col in columns:
+        if col not in df.columns:
+            continue
+            
+        Q1 = df[col].quantile(0.25)
+        Q3 = df[col].quantile(0.75)
+        IQR = Q3 - Q1
+        
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+        
+        mask = (df[col] >= lower_bound) & (df[col] <= upper_bound)
+        df_clean = df_clean[mask]
+    
+    return df_clean.reset_index(drop=True)
+
+def normalize_data(df, columns=None, method='minmax'):
+    """
+    Normalize specified columns in DataFrame.
+    
+    Args:
+        df: pandas DataFrame
+        columns: list of column names to normalize
+        method: normalization method ('minmax' or 'zscore')
+    
+    Returns:
+        DataFrame with normalized columns
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    df_norm = df.copy()
+    
+    for col in columns:
+        if col not in df.columns:
+            continue
+            
+        if method == 'minmax':
+            min_val = df[col].min()
+            max_val = df[col].max()
+            if max_val != min_val:
+                df_norm[col] = (df[col] - min_val) / (max_val - min_val)
+        
+        elif method == 'zscore':
+            mean_val = df[col].mean()
+            std_val = df[col].std()
+            if std_val != 0:
+                df_norm[col] = (df[col] - mean_val) / std_val
+    
+    return df_norm
+
+def handle_missing_values(df, strategy='mean', columns=None):
+    """
+    Handle missing values in DataFrame.
+    
+    Args:
+        df: pandas DataFrame
+        strategy: imputation strategy ('mean', 'median', 'mode', 'drop')
+        columns: list of column names to process
+    
+    Returns:
+        DataFrame with handled missing values
+    """
+    if columns is None:
+        columns = df.columns.tolist()
+    
+    df_processed = df.copy()
+    
+    for col in columns:
+        if col not in df.columns:
+            continue
+            
+        if strategy == 'drop':
+            df_processed = df_processed.dropna(subset=[col])
+        
+        elif strategy == 'mean':
+            if pd.api.types.is_numeric_dtype(df[col]):
+                df_processed[col] = df[col].fillna(df[col].mean())
+        
+        elif strategy == 'median':
+            if pd.api.types.is_numeric_dtype(df[col]):
+                df_processed[col] = df[col].fillna(df[col].median())
+        
+        elif strategy == 'mode':
+            df_processed[col] = df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else None)
+    
+    return df_processed.reset_index(drop=True)
+
+def validate_dataframe(df, required_columns=None, min_rows=1):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df: pandas DataFrame to validate
+        required_columns: list of required column names
+        min_rows: minimum number of rows required
+    
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
+    if len(df) < min_rows:
+        return False, f"DataFrame has less than {min_rows} rows"
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
+    
+    return True, "DataFrame is valid"
