@@ -1,67 +1,60 @@
-
-import numpy as np
 import pandas as pd
+import numpy as np
 
-def remove_outliers_iqr(df, column):
-    """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to clean
-    
-    Returns:
-    pd.DataFrame: DataFrame with outliers removed
-    """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    
-    return filtered_df
+def remove_duplicates(df, subset=None):
+    """Remove duplicate rows from DataFrame."""
+    return df.drop_duplicates(subset=subset, keep='first')
 
-def clean_dataset(df, columns=None):
-    """
-    Clean multiple columns in a DataFrame by removing outliers.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    columns (list): List of column names to clean. If None, clean all numeric columns.
-    
-    Returns:
-    pd.DataFrame: Cleaned DataFrame
-    """
+def fill_missing_values(df, strategy='mean', columns=None):
+    """Fill missing values using specified strategy."""
     if columns is None:
-        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-        columns = numeric_cols
+        columns = df.columns
     
-    cleaned_df = df.copy()
+    df_filled = df.copy()
     for col in columns:
-        if col in cleaned_df.columns:
-            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+        if df[col].dtype in [np.float64, np.int64]:
+            if strategy == 'mean':
+                fill_value = df[col].mean()
+            elif strategy == 'median':
+                fill_value = df[col].median()
+            elif strategy == 'mode':
+                fill_value = df[col].mode()[0]
+            else:
+                fill_value = 0
+            df_filled[col].fillna(fill_value, inplace=True)
+        else:
+            df_filled[col].fillna('', inplace=True)
+    return df_filled
+
+def normalize_column(df, column):
+    """Normalize numeric column to 0-1 range."""
+    if df[column].dtype in [np.float64, np.int64]:
+        min_val = df[column].min()
+        max_val = df[column].max()
+        if max_val > min_val:
+            df[column] = (df[column] - min_val) / (max_val - min_val)
+    return df
+
+def clean_dataframe(df, operations=['remove_duplicates', 'fill_missing']):
+    """Apply multiple cleaning operations to DataFrame."""
+    cleaned_df = df.copy()
+    
+    if 'remove_duplicates' in operations:
+        cleaned_df = remove_duplicates(cleaned_df)
+    
+    if 'fill_missing' in operations:
+        cleaned_df = fill_missing_values(cleaned_df)
     
     return cleaned_df
 
-def calculate_statistics(df):
-    """
-    Calculate basic statistics for numeric columns.
+def validate_dataframe(df, required_columns=None):
+    """Validate DataFrame structure and content."""
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            raise ValueError(f"Missing required columns: {missing_columns}")
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
+    if df.empty:
+        raise ValueError("DataFrame is empty")
     
-    Returns:
-    pd.DataFrame: Statistics summary
-    """
-    numeric_df = df.select_dtypes(include=[np.number])
-    stats = numeric_df.describe().transpose()
-    stats['missing'] = numeric_df.isnull().sum()
-    stats['missing_pct'] = (stats['missing'] / len(df)) * 100
-    
-    return stats
+    return True
