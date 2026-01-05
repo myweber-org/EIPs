@@ -239,3 +239,143 @@ def validate_dataframe(df, required_columns=None):
             return False, f"Missing required columns: {missing_cols}"
     
     return True, "DataFrame is valid"
+import numpy as np
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a dataset using the Interquartile Range method.
+    
+    Args:
+        data: numpy array or list of numerical values
+        column: column index or key to process
+        
+    Returns:
+        Cleaned data with outliers removed
+    """
+    if isinstance(data, list):
+        data = np.array(data)
+    
+    q1 = np.percentile(data[:, column], 25)
+    q3 = np.percentile(data[:, column], 75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - 1.5 * iqr
+    upper_bound = q3 + 1.5 * iqr
+    
+    mask = (data[:, column] >= lower_bound) & (data[:, column] <= upper_bound)
+    cleaned_data = data[mask]
+    
+    return cleaned_data
+
+def calculate_statistics(data, column):
+    """
+    Calculate basic statistics for a data column.
+    
+    Args:
+        data: numpy array
+        column: column index to analyze
+        
+    Returns:
+        Dictionary containing mean, median, std, min, max
+    """
+    column_data = data[:, column]
+    
+    stats = {
+        'mean': np.mean(column_data),
+        'median': np.median(column_data),
+        'std': np.std(column_data),
+        'min': np.min(column_data),
+        'max': np.max(column_data),
+        'count': len(column_data)
+    }
+    
+    return stats
+
+def normalize_data(data, column, method='minmax'):
+    """
+    Normalize data in a column using specified method.
+    
+    Args:
+        data: numpy array
+        column: column index to normalize
+        method: normalization method ('minmax' or 'zscore')
+        
+    Returns:
+        Data with normalized column
+    """
+    column_data = data[:, column].astype(float)
+    
+    if method == 'minmax':
+        min_val = np.min(column_data)
+        max_val = np.max(column_data)
+        if max_val - min_val != 0:
+            normalized = (column_data - min_val) / (max_val - min_val)
+        else:
+            normalized = column_data
+    elif method == 'zscore':
+        mean_val = np.mean(column_data)
+        std_val = np.std(column_data)
+        if std_val != 0:
+            normalized = (column_data - mean_val) / std_val
+        else:
+            normalized = column_data
+    else:
+        raise ValueError("Method must be 'minmax' or 'zscore'")
+    
+    data[:, column] = normalized
+    return data
+
+def validate_data(data, column, value_range=None):
+    """
+    Validate data in a column against specified constraints.
+    
+    Args:
+        data: numpy array
+        column: column index to validate
+        value_range: tuple of (min, max) allowed values
+        
+    Returns:
+        Boolean mask indicating valid rows
+    """
+    column_data = data[:, column]
+    
+    if value_range is not None:
+        min_val, max_val = value_range
+        valid_mask = (column_data >= min_val) & (column_data <= max_val)
+    else:
+        valid_mask = ~np.isnan(column_data) & ~np.isinf(column_data)
+    
+    return valid_mask
+
+def process_dataset(data, config):
+    """
+    Process dataset according to configuration.
+    
+    Args:
+        data: input dataset as numpy array
+        config: dictionary with processing configuration
+        
+    Returns:
+        Processed dataset
+    """
+    processed_data = data.copy()
+    
+    if config.get('remove_outliers'):
+        for col in config['outlier_columns']:
+            processed_data = remove_outliers_iqr(processed_data, col)
+    
+    if config.get('normalize'):
+        for col, method in config['normalize_columns'].items():
+            processed_data = normalize_data(processed_data, col, method)
+    
+    if config.get('validate'):
+        valid_masks = []
+        for col, constraints in config['validation_rules'].items():
+            mask = validate_data(processed_data, col, constraints.get('range'))
+            valid_masks.append(mask)
+        
+        if valid_masks:
+            final_mask = np.all(valid_masks, axis=0)
+            processed_data = processed_data[final_mask]
+    
+    return processed_data
