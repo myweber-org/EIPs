@@ -61,3 +61,49 @@ def validate_dataframe(df, required_columns=None):
             return False, f"Missing required columns: {missing_columns}"
     
     return True, "DataFrame is valid"
+import pandas as pd
+import numpy as np
+
+def clean_csv_data(input_file, output_file):
+    """
+    Load a CSV file, clean missing values, and save the cleaned data.
+    """
+    try:
+        df = pd.read_csv(input_file)
+        
+        print(f"Original data shape: {df.shape}")
+        print(f"Missing values per column:\n{df.isnull().sum()}")
+        
+        df_cleaned = df.copy()
+        
+        for column in df_cleaned.columns:
+            if df_cleaned[column].dtype in ['int64', 'float64']:
+                df_cleaned[column].fillna(df_cleaned[column].median(), inplace=True)
+            elif df_cleaned[column].dtype == 'object':
+                df_cleaned[column].fillna(df_cleaned[column].mode()[0], inplace=True)
+        
+        df_cleaned.drop_duplicates(inplace=True)
+        
+        df_cleaned.to_csv(output_file, index=False)
+        
+        print(f"Cleaned data shape: {df_cleaned.shape}")
+        print(f"Cleaned data saved to: {output_file}")
+        
+        return df_cleaned
+        
+    except FileNotFoundError:
+        print(f"Error: File '{input_file}' not found.")
+        return None
+    except Exception as e:
+        print(f"Error during data cleaning: {e}")
+        return None
+
+if __name__ == "__main__":
+    input_csv = "raw_data.csv"
+    output_csv = "cleaned_data.csv"
+    
+    cleaned_df = clean_csv_data(input_csv, output_csv)
+    
+    if cleaned_df is not None:
+        print("Data cleaning completed successfully.")
+        print(cleaned_df.head())
