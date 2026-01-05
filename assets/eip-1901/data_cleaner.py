@@ -106,4 +106,174 @@ if __name__ == "__main__":
     
     if cleaned_df is not None:
         print("Data cleaning completed successfully.")
-        print(cleaned_df.head())
+        print(cleaned_df.head())import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(data, column, multiplier=1.5):
+    """
+    Remove outliers using the Interquartile Range method.
+    
+    Args:
+        data: pandas DataFrame
+        column: Column name to process
+        multiplier: IQR multiplier (default 1.5)
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - multiplier * iqr
+    upper_bound = q3 + multiplier * iqr
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using Min-Max scaling.
+    
+    Args:
+        data: pandas DataFrame
+        column: Column name to normalize
+    
+    Returns:
+        DataFrame with normalized column
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        data[column + '_normalized'] = 0.5
+    else:
+        data[column + '_normalized'] = (data[column] - min_val) / (max_val - min_val)
+    
+    return data
+
+def standardize_zscore(data, column):
+    """
+    Standardize data using Z-score normalization.
+    
+    Args:
+        data: pandas DataFrame
+        column: Column name to standardize
+    
+    Returns:
+        DataFrame with standardized column
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        data[column + '_standardized'] = 0
+    else:
+        data[column + '_standardized'] = (data[column] - mean_val) / std_val
+    
+    return data
+
+def handle_missing_values(data, strategy='mean', columns=None):
+    """
+    Handle missing values in specified columns.
+    
+    Args:
+        data: pandas DataFrame
+        strategy: 'mean', 'median', 'mode', or 'drop'
+        columns: List of columns to process (None for all numeric columns)
+    
+    Returns:
+        DataFrame with handled missing values
+    """
+    if columns is None:
+        columns = data.select_dtypes(include=[np.number]).columns
+    
+    result = data.copy()
+    
+    for col in columns:
+        if col not in result.columns:
+            continue
+            
+        if strategy == 'drop':
+            result = result.dropna(subset=[col])
+        elif strategy == 'mean':
+            result[col] = result[col].fillna(result[col].mean())
+        elif strategy == 'median':
+            result[col] = result[col].fillna(result[col].median())
+        elif strategy == 'mode':
+            result[col] = result[col].fillna(result[col].mode()[0])
+        else:
+            raise ValueError(f"Unknown strategy: {strategy}")
+    
+    return result
+
+def create_data_summary(data):
+    """
+    Create a summary statistics DataFrame.
+    
+    Args:
+        data: pandas DataFrame
+    
+    Returns:
+        DataFrame with summary statistics
+    """
+    summary = pd.DataFrame({
+        'column': data.columns,
+        'dtype': data.dtypes.values,
+        'non_null_count': data.count().values,
+        'null_count': data.isnull().sum().values,
+        'unique_count': data.nunique().values
+    })
+    
+    numeric_cols = data.select_dtypes(include=[np.number]).columns
+    if len(numeric_cols) > 0:
+        numeric_stats = data[numeric_cols].describe().T
+        summary = summary.merge(
+            numeric_stats[['mean', 'std', 'min', '25%', '50%', '75%', 'max']],
+            left_on='column',
+            right_index=True,
+            how='left'
+        )
+    
+    return summary
+
+def main():
+    """
+    Example usage of the data cleaning utilities.
+    """
+    np.random.seed(42)
+    
+    sample_data = pd.DataFrame({
+        'id': range(1, 101),
+        'value': np.random.normal(100, 15, 100),
+        'category': np.random.choice(['A', 'B', 'C'], 100)
+    })
+    
+    sample_data.loc[np.random.choice(100, 5), 'value'] = np.nan
+    
+    print("Original data shape:", sample_data.shape)
+    print("\nMissing values:")
+    print(sample_data.isnull().sum())
+    
+    cleaned_data = handle_missing_values(sample_data, strategy='mean')
+    print("\nAfter handling missing values:", cleaned_data.shape)
+    
+    normalized_data = normalize_minmax(cleaned_data.copy(), 'value')
+    print("\nAfter normalization:")
+    print(normalized_data[['value', 'value_normalized']].head())
+    
+    summary = create_data_summary(cleaned_data)
+    print("\nData summary:")
+    print(summary)
+
+if __name__ == "__main__":
+    main()
