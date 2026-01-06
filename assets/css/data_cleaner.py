@@ -192,3 +192,138 @@ def clean_dataset(df, columns_to_clean):
             statistics[column] = stats
     
     return cleaned_df, statistics
+import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(data, column, multiplier=1.5):
+    """
+    Remove outliers using the Interquartile Range method.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to process
+        multiplier: IQR multiplier (default 1.5)
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - multiplier * iqr
+    upper_bound = q3 + multiplier * iqr
+    
+    return data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using Min-Max scaling.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to normalize
+    
+    Returns:
+        Series with normalized values
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return pd.Series([0.5] * len(data), index=data.index)
+    
+    return (data[column] - min_val) / (max_val - min_val)
+
+def standardize_zscore(data, column):
+    """
+    Standardize data using Z-score normalization.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to standardize
+    
+    Returns:
+        Series with standardized values
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return pd.Series([0] * len(data), index=data.index)
+    
+    return (data[column] - mean_val) / std_val
+
+def handle_missing_values(data, strategy='mean'):
+    """
+    Handle missing values in numeric columns.
+    
+    Args:
+        data: pandas DataFrame
+        strategy: imputation strategy ('mean', 'median', 'mode', 'zero')
+    
+    Returns:
+        DataFrame with missing values handled
+    """
+    numeric_cols = data.select_dtypes(include=[np.number]).columns
+    
+    if strategy == 'mean':
+        fill_values = data[numeric_cols].mean()
+    elif strategy == 'median':
+        fill_values = data[numeric_cols].median()
+    elif strategy == 'mode':
+        fill_values = data[numeric_cols].mode().iloc[0]
+    elif strategy == 'zero':
+        fill_values = 0
+    else:
+        raise ValueError("Strategy must be 'mean', 'median', 'mode', or 'zero'")
+    
+    return data.fillna(fill_values)
+
+def create_cleaning_pipeline(data, config):
+    """
+    Apply multiple cleaning operations based on configuration.
+    
+    Args:
+        data: pandas DataFrame
+        config: dictionary with cleaning operations
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    cleaned_data = data.copy()
+    
+    for operation in config.get('operations', []):
+        op_type = operation.get('type')
+        
+        if op_type == 'remove_outliers':
+            for column in operation.get('columns', []):
+                cleaned_data = remove_outliers_iqr(
+                    cleaned_data, 
+                    column, 
+                    operation.get('multiplier', 1.5)
+                )
+        
+        elif op_type == 'normalize':
+            for column in operation.get('columns', []):
+                cleaned_data[column] = normalize_minmax(cleaned_data, column)
+        
+        elif op_type == 'standardize':
+            for column in operation.get('columns', []):
+                cleaned_data[column] = standardize_zscore(cleaned_data, column)
+        
+        elif op_type == 'handle_missing':
+            cleaned_data = handle_missing_values(
+                cleaned_data, 
+                operation.get('strategy', 'mean')
+            )
+    
+    return cleaned_data
