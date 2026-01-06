@@ -193,4 +193,64 @@ if __name__ == "__main__":
     # Validate the cleaned data
     validation_stats = validate_dataframe(cleaned_df)
     print(f"Cleaned data shape: {cleaned_df.shape}")
-    print(f"Validation stats: {validation_stats}")
+    print(f"Validation stats: {validation_stats}")import pandas as pd
+import numpy as np
+
+def remove_duplicates(df):
+    """Remove duplicate rows from DataFrame."""
+    return df.drop_duplicates()
+
+def fill_missing_values(df, strategy='mean'):
+    """Fill missing values using specified strategy."""
+    if strategy == 'mean':
+        return df.fillna(df.mean())
+    elif strategy == 'median':
+        return df.fillna(df.median())
+    elif strategy == 'mode':
+        return df.fillna(df.mode().iloc[0])
+    else:
+        return df.fillna(strategy)
+
+def normalize_column(df, column_name):
+    """Normalize specified column to range [0,1]."""
+    if column_name in df.columns:
+        col = df[column_name]
+        df[column_name] = (col - col.min()) / (col.max() - col.min())
+    return df
+
+def remove_outliers(df, column_name, threshold=3):
+    """Remove outliers using z-score method."""
+    if column_name in df.columns:
+        z_scores = np.abs((df[column_name] - df[column_name].mean()) / df[column_name].std())
+        return df[z_scores < threshold]
+    return df
+
+def clean_dataframe(df, operations=None):
+    """Apply multiple cleaning operations to DataFrame."""
+    if operations is None:
+        operations = ['remove_duplicates', 'fill_missing_values']
+    
+    cleaned_df = df.copy()
+    
+    for op in operations:
+        if op == 'remove_duplicates':
+            cleaned_df = remove_duplicates(cleaned_df)
+        elif op == 'fill_missing_values':
+            cleaned_df = fill_missing_values(cleaned_df)
+    
+    return cleaned_df
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, 2, 4, 5, None, 7],
+        'B': [10, 20, 20, 40, 50, 60, 1000],
+        'C': [100, 200, 300, None, 500, 600, 700]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned = clean_dataframe(df)
+    print("\nCleaned DataFrame:")
+    print(cleaned)
