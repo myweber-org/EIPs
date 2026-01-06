@@ -262,3 +262,82 @@ def get_data_summary(df):
         'statistics': df.describe().to_dict()
     }
     return summary
+import pandas as pd
+import numpy as np
+
+def clean_dataframe(df, missing_strategy='mean', outlier_threshold=3):
+    """
+    Clean a pandas DataFrame by handling missing values and outliers.
+
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    missing_strategy (str): Strategy for missing values: 'mean', 'median', 'mode', or 'drop'.
+    outlier_threshold (float): Number of standard deviations to identify outliers.
+
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    df_clean = df.copy()
+
+    # Handle missing values
+    if missing_strategy == 'drop':
+        df_clean = df_clean.dropna()
+    else:
+        for column in df_clean.select_dtypes(include=[np.number]).columns:
+            if df_clean[column].isnull().any():
+                if missing_strategy == 'mean':
+                    fill_value = df_clean[column].mean()
+                elif missing_strategy == 'median':
+                    fill_value = df_clean[column].median()
+                elif missing_strategy == 'mode':
+                    fill_value = df_clean[column].mode()[0]
+                else:
+                    raise ValueError("Invalid missing_strategy. Use 'mean', 'median', 'mode', or 'drop'.")
+                df_clean[column].fillna(fill_value, inplace=True)
+
+    # Handle outliers using Z-score method for numeric columns
+    numeric_columns = df_clean.select_dtypes(include=[np.number]).columns
+    for column in numeric_columns:
+        z_scores = np.abs((df_clean[column] - df_clean[column].mean()) / df_clean[column].std())
+        df_clean = df_clean[z_scores < outlier_threshold]
+
+    df_clean.reset_index(drop=True, inplace=True)
+    return df_clean
+
+def validate_dataframe(df):
+    """
+    Perform basic validation on DataFrame.
+
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+
+    Returns:
+    dict: Dictionary with validation results.
+    """
+    validation_result = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_values': df.isnull().sum().sum(),
+        'duplicate_rows': df.duplicated().sum()
+    }
+    return validation_result
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'A': [1, 2, np.nan, 4, 100],
+        'B': [5, 6, 7, np.nan, 9],
+        'C': [10, 11, 12, 13, 14]
+    }
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned_df = clean_dataframe(df, missing_strategy='mean', outlier_threshold=2)
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    
+    validation = validate_dataframe(cleaned_df)
+    print("\nValidation Results:")
+    for key, value in validation.items():
+        print(f"{key}: {value}")
