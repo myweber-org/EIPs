@@ -79,3 +79,118 @@ def process_data(file_path, output_path=None):
     except Exception as e:
         print(f"Error processing data: {str(e)}")
         raise
+import pandas as pd
+import numpy as np
+from typing import Optional
+
+def clean_csv_data(
+    input_path: str,
+    output_path: Optional[str] = None,
+    missing_strategy: str = 'mean',
+    drop_threshold: float = 0.5
+) -> pd.DataFrame:
+    """
+    Clean CSV data by handling missing values and removing problematic columns.
+    
+    Parameters:
+    input_path: Path to input CSV file
+    output_path: Optional path to save cleaned data
+    missing_strategy: Strategy for handling missing values ('mean', 'median', 'mode', 'drop')
+    drop_threshold: Maximum fraction of missing values allowed per column
+    
+    Returns:
+    Cleaned DataFrame
+    """
+    
+    # Read the CSV file
+    df = pd.read_csv(input_path)
+    
+    # Remove columns with too many missing values
+    missing_ratio = df.isnull().sum() / len(df)
+    columns_to_drop = missing_ratio[missing_ratio > drop_threshold].index
+    df = df.drop(columns=columns_to_drop)
+    
+    # Handle remaining missing values
+    for column in df.columns:
+        if df[column].isnull().any():
+            if missing_strategy == 'mean' and pd.api.types.is_numeric_dtype(df[column]):
+                df[column].fillna(df[column].mean(), inplace=True)
+            elif missing_strategy == 'median' and pd.api.types.is_numeric_dtype(df[column]):
+                df[column].fillna(df[column].median(), inplace=True)
+            elif missing_strategy == 'mode':
+                df[column].fillna(df[column].mode()[0], inplace=True)
+            elif missing_strategy == 'drop':
+                df = df.dropna(subset=[column])
+            else:
+                df[column].fillna(df[column].mean(), inplace=True)
+    
+    # Remove duplicate rows
+    df = df.drop_duplicates()
+    
+    # Reset index after cleaning
+    df = df.reset_index(drop=True)
+    
+    # Save to output path if provided
+    if output_path:
+        df.to_csv(output_path, index=False)
+    
+    return df
+
+def validate_dataframe(df: pd.DataFrame) -> dict:
+    """
+    Validate DataFrame and return statistics.
+    
+    Parameters:
+    df: DataFrame to validate
+    
+    Returns:
+    Dictionary with validation statistics
+    """
+    stats = {
+        'row_count': len(df),
+        'column_count': len(df.columns),
+        'missing_values': int(df.isnull().sum().sum()),
+        'duplicate_rows': df.duplicated().sum(),
+        'numeric_columns': len(df.select_dtypes(include=[np.number]).columns),
+        'categorical_columns': len(df.select_dtypes(include=['object']).columns),
+        'date_columns': len(df.select_dtypes(include=['datetime']).columns)
+    }
+    
+    # Add column-wise statistics
+    column_stats = {}
+    for column in df.columns:
+        column_stats[column] = {
+            'dtype': str(df[column].dtype),
+            'unique_values': df[column].nunique(),
+            'missing_values': df[column].isnull().sum()
+        }
+        if pd.api.types.is_numeric_dtype(df[column]):
+            column_stats[column].update({
+                'mean': float(df[column].mean()),
+                'std': float(df[column].std()),
+                'min': float(df[column].min()),
+                'max': float(df[column].max())
+            })
+    
+    stats['column_details'] = column_stats
+    return stats
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = pd.DataFrame({
+        'A': [1, 2, np.nan, 4, 5],
+        'B': [np.nan, 2, 3, np.nan, 5],
+        'C': ['x', 'y', 'z', 'x', 'y'],
+        'D': [1.1, 2.2, 3.3, 4.4, 5.5]
+    })
+    
+    # Save sample data
+    sample_data.to_csv('sample_data.csv', index=False)
+    
+    # Clean the data
+    cleaned_df = clean_csv_data('sample_data.csv', 'cleaned_data.csv', missing_strategy='mean')
+    
+    # Validate the cleaned data
+    validation_stats = validate_dataframe(cleaned_df)
+    print(f"Cleaned data shape: {cleaned_df.shape}")
+    print(f"Validation stats: {validation_stats}")
