@@ -31,4 +31,14 @@ def generate_summary(df):
         'numeric_columns': list(df.select_dtypes(include=[np.number]).columns),
         'missing_values': df.isnull().sum().to_dict()
     }
-    return summary
+    return summarydef remove_duplicates(input_list):
+    """
+    Removes duplicate elements from a list while preserving the original order.
+    """
+    seen = set()
+    result = []
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
