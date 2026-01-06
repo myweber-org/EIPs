@@ -1,73 +1,63 @@
 
 import pandas as pd
 import numpy as np
+from scipy import stats
 
-class DataCleaner:
-    def __init__(self, df):
-        self.df = df.copy()
-        self.original_shape = df.shape
+def remove_outliers_iqr(df, columns):
+    cleaned_df = df.copy()
+    for col in columns:
+        Q1 = cleaned_df[col].quantile(0.25)
+        Q3 = cleaned_df[col].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+        cleaned_df = cleaned_df[(cleaned_df[col] >= lower_bound) & (cleaned_df[col] <= upper_bound)]
+    return cleaned_df
 
-    def handle_missing_values(self, strategy='mean', columns=None):
-        if columns is None:
-            columns = self.df.columns
+def normalize_minmax(df, columns):
+    normalized_df = df.copy()
+    for col in columns:
+        min_val = normalized_df[col].min()
+        max_val = normalized_df[col].max()
+        normalized_df[col] = (normalized_df[col] - min_val) / (max_val - min_val)
+    return normalized_df
 
-        for col in columns:
-            if self.df[col].isnull().any():
-                if strategy == 'mean':
-                    fill_value = self.df[col].mean()
-                elif strategy == 'median':
-                    fill_value = self.df[col].median()
-                elif strategy == 'mode':
-                    fill_value = self.df[col].mode()[0]
-                elif strategy == 'drop':
-                    self.df = self.df.dropna(subset=[col])
-                    continue
-                else:
-                    raise ValueError("Invalid strategy. Choose from 'mean', 'median', 'mode', or 'drop'")
-                
-                self.df[col] = self.df[col].fillna(fill_value)
+def handle_missing_values(df, strategy='mean'):
+    processed_df = df.copy()
+    for col in processed_df.columns:
+        if processed_df[col].isnull().any():
+            if strategy == 'mean':
+                fill_value = processed_df[col].mean()
+            elif strategy == 'median':
+                fill_value = processed_df[col].median()
+            elif strategy == 'mode':
+                fill_value = processed_df[col].mode()[0]
+            else:
+                fill_value = 0
+            processed_df[col].fillna(fill_value, inplace=True)
+    return processed_df
+
+def validate_dataframe(df):
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    if df.empty:
+        raise ValueError("DataFrame is empty")
+    return True
+
+def process_dataset(file_path, outlier_cols=None, normalize_cols=None):
+    try:
+        df = pd.read_csv(file_path)
+        validate_dataframe(df)
         
-        return self
-
-    def remove_outliers_iqr(self, columns=None, multiplier=1.5):
-        if columns is None:
-            columns = self.df.select_dtypes(include=[np.number]).columns
-
-        for col in columns:
-            Q1 = self.df[col].quantile(0.25)
-            Q3 = self.df[col].quantile(0.75)
-            IQR = Q3 - Q1
-            lower_bound = Q1 - multiplier * IQR
-            upper_bound = Q3 + multiplier * IQR
-            
-            self.df = self.df[(self.df[col] >= lower_bound) & (self.df[col] <= upper_bound)]
+        df = handle_missing_values(df)
         
-        return self
-
-    def standardize_columns(self, columns=None):
-        if columns is None:
-            columns = self.df.select_dtypes(include=[np.number]).columns
-
-        for col in columns:
-            mean = self.df[col].mean()
-            std = self.df[col].std()
-            if std > 0:
-                self.df[col] = (self.df[col] - mean) / std
+        if outlier_cols:
+            df = remove_outliers_iqr(df, outlier_cols)
         
-        return self
-
-    def get_cleaned_data(self):
-        print(f"Original shape: {self.original_shape}")
-        print(f"Cleaned shape: {self.df.shape}")
-        print(f"Rows removed: {self.original_shape[0] - self.df.shape[0]}")
-        return self.df
-
-def clean_dataset(df, missing_strategy='mean', remove_outliers=True):
-    cleaner = DataCleaner(df)
-    cleaner.handle_missing_values(strategy=missing_strategy)
-    
-    if remove_outliers:
-        cleaner.remove_outliers_iqr()
-    
-    cleaner.standardize_columns()
-    return cleaner.get_cleaned_data()
+        if normalize_cols:
+            df = normalize_minmax(df, normalize_cols)
+        
+        return df
+    except Exception as e:
+        print(f"Error processing dataset: {e}")
+        return None
