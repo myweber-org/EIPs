@@ -215,4 +215,65 @@ def example_usage():
         print(f"{key}: {value:.2f}")
 
 if __name__ == "__main__":
-    example_usage()
+    example_usage()import numpy as np
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specified column using the Interquartile Range method.
+    
+    Parameters:
+    data (np.ndarray): Input data array
+    column (int): Index of column to process
+    
+    Returns:
+    np.ndarray: Data with outliers removed
+    """
+    if data.size == 0:
+        return data
+    
+    col_data = data[:, column]
+    q1 = np.percentile(col_data, 25)
+    q3 = np.percentile(col_data, 75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - 1.5 * iqr
+    upper_bound = q3 + 1.5 * iqr
+    
+    mask = (col_data >= lower_bound) & (col_data <= upper_bound)
+    return data[mask]
+
+def validate_data_shape(data, expected_columns):
+    """
+    Validate that data has the expected number of columns.
+    
+    Parameters:
+    data (np.ndarray): Input data array
+    expected_columns (int): Expected number of columns
+    
+    Returns:
+    bool: True if shape is valid, False otherwise
+    """
+    if len(data.shape) != 2:
+        return False
+    return data.shape[1] == expected_columns
+
+def clean_dataset(data, numeric_columns):
+    """
+    Clean dataset by removing outliers from multiple numeric columns.
+    
+    Parameters:
+    data (np.ndarray): Input data array
+    numeric_columns (list): List of column indices to clean
+    
+    Returns:
+    np.ndarray: Cleaned data array
+    """
+    if data.size == 0:
+        return data
+    
+    cleaned_data = data.copy()
+    for col in numeric_columns:
+        if col < cleaned_data.shape[1]:
+            cleaned_data = remove_outliers_iqr(cleaned_data, col)
+    
+    return cleaned_data
