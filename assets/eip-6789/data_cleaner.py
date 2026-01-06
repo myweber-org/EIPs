@@ -1,80 +1,87 @@
 
 import pandas as pd
+import numpy as np
 
-def clean_dataset(df, column_names):
-    """
-    Clean a pandas DataFrame by removing duplicates and normalizing specified string columns.
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def handle_missing_values(self, strategy='mean', columns=None):
+        if columns is None:
+            columns = self.df.columns
+            
+        for col in columns:
+            if self.df[col].isnull().any():
+                if strategy == 'mean':
+                    fill_value = self.df[col].mean()
+                elif strategy == 'median':
+                    fill_value = self.df[col].median()
+                elif strategy == 'mode':
+                    fill_value = self.df[col].mode()[0]
+                elif strategy == 'drop':
+                    self.df = self.df.dropna(subset=[col])
+                    continue
+                else:
+                    fill_value = strategy
+                    
+                self.df[col] = self.df[col].fillna(fill_value)
+                
+        return self
     
-    Args:
-        df (pd.DataFrame): Input DataFrame to clean.
-        column_names (list): List of column names to normalize (strip whitespace, lowercase).
+    def remove_outliers_iqr(self, columns=None, threshold=1.5):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+            
+        for col in columns:
+            Q1 = self.df[col].quantile(0.25)
+            Q3 = self.df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - threshold * IQR
+            upper_bound = Q3 + threshold * IQR
+            
+            mask = (self.df[col] >= lower_bound) & (self.df[col] <= upper_bound)
+            self.df = self.df[mask]
+            
+        return self
     
-    Returns:
-        pd.DataFrame: Cleaned DataFrame.
-    """
-    cleaned_df = df.copy()
+    def standardize_columns(self, columns=None):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+            
+        for col in columns:
+            mean = self.df[col].mean()
+            std = self.df[col].std()
+            if std > 0:
+                self.df[col] = (self.df[col] - mean) / std
+                
+        return self
     
-    # Remove duplicate rows
-    cleaned_df = cleaned_df.drop_duplicates()
+    def get_cleaned_data(self):
+        return self.df
     
-    # Normalize string columns
-    for col in column_names:
-        if col in cleaned_df.columns:
-            cleaned_df[col] = cleaned_df[col].astype(str).str.strip().str.lower()
-    
-    # Reset index after cleaning
-    cleaned_df = cleaned_df.reset_index(drop=True)
-    
-    return cleaned_df
+    def get_cleaning_report(self):
+        removed_rows = self.original_shape[0] - self.df.shape[0]
+        removed_cols = self.original_shape[1] - self.df.shape[1]
+        
+        report = {
+            'original_shape': self.original_shape,
+            'cleaned_shape': self.df.shape,
+            'rows_removed': removed_rows,
+            'columns_removed': removed_cols,
+            'remaining_missing_values': self.df.isnull().sum().sum()
+        }
+        
+        return report
 
-def validate_data(df, required_columns):
-    """
-    Validate that the DataFrame contains all required columns and has no empty values.
+def clean_dataset(df, missing_strategy='mean', remove_outliers=True):
+    cleaner = DataCleaner(df)
     
-    Args:
-        df (pd.DataFrame): DataFrame to validate.
-        required_columns (list): List of required column names.
+    cleaner.handle_missing_values(strategy=missing_strategy)
     
-    Returns:
-        tuple: (bool, str) indicating validation success and message.
-    """
-    missing_columns = [col for col in required_columns if col not in df.columns]
+    if remove_outliers:
+        cleaner.remove_outliers_iqr()
     
-    if missing_columns:
-        return False, f"Missing required columns: {missing_columns}"
+    cleaner.standardize_columns()
     
-    empty_rows = df[required_columns].isnull().any(axis=1)
-    if empty_rows.any():
-        return False, f"Found {empty_rows.sum()} rows with empty values in required columns"
-    
-    return True, "Data validation passed"
-
-if __name__ == "__main__":
-    # Example usage
-    sample_data = {
-        'name': ['  John  ', 'Jane', 'JOHN', 'Jane', 'Bob'],
-        'email': ['john@email.com', 'jane@email.com', 'john@email.com', 'JANE@EMAIL.COM', 'bob@email.com'],
-        'age': [25, 30, 25, 30, 35]
-    }
-    
-    df = pd.DataFrame(sample_data)
-    print("Original DataFrame:")
-    print(df)
-    print("\n")
-    
-    cleaned = clean_dataset(df, ['name', 'email'])
-    print("Cleaned DataFrame:")
-    print(cleaned)
-    print("\n")
-    
-    is_valid, message = validate_data(cleaned, ['name', 'email', 'age'])
-    print(f"Validation: {is_valid}")
-    print(f"Message: {message}")
-def remove_duplicates(sequence):
-    seen = set()
-    result = []
-    for item in sequence:
-        if item not in seen:
-            seen.add(item)
-            result.append(item)
-    return result
+    return cleaner.get_cleaned_data(), cleaner.get_cleaning_report()
