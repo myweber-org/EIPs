@@ -125,4 +125,41 @@ def validate_dataframe(df, required_columns=None, min_rows=1):
         if missing_cols:
             return False, f"Missing required columns: {missing_cols}"
     
-    return True, "DataFrame is valid"
+    return True, "DataFrame is valid"import pandas as pd
+import numpy as np
+from scipy import stats
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_outliers_iqr(self, column):
+        Q1 = self.df[column].quantile(0.25)
+        Q3 = self.df[column].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+        self.df = self.df[(self.df[column] >= lower_bound) & (self.df[column] <= upper_bound)]
+        return self
+    
+    def fill_missing_with_median(self, column):
+        median_value = self.df[column].median()
+        self.df[column].fillna(median_value, inplace=True)
+        return self
+    
+    def normalize_column(self, column):
+        if self.df[column].std() != 0:
+            self.df[column] = (self.df[column] - self.df[column].mean()) / self.df[column].std()
+        return self
+    
+    def get_cleaned_data(self):
+        print(f"Original shape: {self.original_shape}")
+        print(f"Cleaned shape: {self.df.shape}")
+        print(f"Rows removed: {self.original_shape[0] - self.df.shape[0]}")
+        return self.df
+    
+    def detect_missing_percentage(self):
+        missing = self.df.isnull().sum()
+        percentage = (missing / len(self.df)) * 100
+        return pd.DataFrame({'missing_count': missing, 'percentage': percentage.round(2)})
