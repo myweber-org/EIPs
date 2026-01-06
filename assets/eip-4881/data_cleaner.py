@@ -120,3 +120,78 @@ def calculate_summary_statistics(data, column):
         'max': data[column].max()
     }
     return stats
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, id_column='id'):
+    """
+    Clean a pandas DataFrame by removing duplicates and standardizing column names.
+    """
+    # Create a copy to avoid modifying the original
+    df_clean = df.copy()
+    
+    # Standardize column names: lowercase and replace spaces with underscores
+    df_clean.columns = df_clean.columns.str.lower().str.replace(' ', '_')
+    
+    # Remove duplicate rows based on all columns
+    initial_rows = len(df_clean)
+    df_clean = df_clean.drop_duplicates()
+    duplicates_removed = initial_rows - len(df_clean)
+    
+    # If an ID column exists, ensure it's unique
+    if id_column in df_clean.columns:
+        df_clean = df_clean.drop_duplicates(subset=[id_column], keep='first')
+    
+    # Remove rows where all values are NaN
+    df_clean = df_clean.dropna(how='all')
+    
+    # Reset index after cleaning
+    df_clean = df_clean.reset_index(drop=True)
+    
+    return df_clean, duplicates_removed
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate basic DataFrame properties and required columns.
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    if len(df) == 0:
+        raise ValueError("DataFrame is empty")
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            raise ValueError(f"Missing required columns: {missing_columns}")
+    
+    return True
+
+def main():
+    # Example usage
+    data = {
+        'ID': [1, 2, 2, 3, 4, 4],
+        'Product Name': ['Widget A', 'Widget B', 'Widget B', 'Widget C', 'Widget D', 'Widget D'],
+        'Price': [10.99, 15.50, 15.50, 20.00, 5.99, 5.99],
+        'Category': ['Electronics', 'Home', 'Home', 'Office', 'Electronics', 'Electronics']
+    }
+    
+    df = pd.DataFrame(data)
+    print("Original DataFrame:")
+    print(df)
+    print(f"\nOriginal shape: {df.shape}")
+    
+    try:
+        validate_dataframe(df, required_columns=['ID', 'Product Name'])
+        cleaned_df, duplicates = clean_dataset(df, id_column='id')
+        
+        print("\nCleaned DataFrame:")
+        print(cleaned_df)
+        print(f"\nCleaned shape: {cleaned_df.shape}")
+        print(f"Duplicates removed: {duplicates}")
+        
+    except (TypeError, ValueError) as e:
+        print(f"Error: {e}")
+
+if __name__ == "__main__":
+    main()
