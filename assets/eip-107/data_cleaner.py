@@ -1,112 +1,81 @@
-
 import pandas as pd
-import numpy as np
 
-def remove_outliers_iqr(df, columns=None, factor=1.5):
+def clean_dataframe(df, drop_duplicates=True, fill_missing=False, fill_value=0):
     """
-    Remove outliers from specified columns using the Interquartile Range method.
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
     
-    Parameters:
-    df (pd.DataFrame): Input dataframe
-    columns (list): List of column names to process. If None, process all numeric columns.
-    factor (float): Multiplier for IQR. Default is 1.5.
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        drop_duplicates (bool): Whether to drop duplicate rows. Default is True.
+        fill_missing (bool): Whether to fill missing values. Default is False.
+        fill_value: Value to use for filling missing data. Default is 0.
     
     Returns:
-    pd.DataFrame: Dataframe with outliers removed
+        pd.DataFrame: Cleaned DataFrame.
     """
-    if columns is None:
-        columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    cleaned_df = df.copy()
     
-    df_clean = df.copy()
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
     
-    for col in columns:
-        if col not in df.columns:
-            continue
-            
-        Q1 = df[col].quantile(0.25)
-        Q3 = df[col].quantile(0.75)
-        IQR = Q3 - Q1
+    if fill_missing:
+        cleaned_df = cleaned_df.fillna(fill_value)
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list): List of required column names.
+    
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    return True, "DataFrame is valid"
+
+def process_data(file_path, output_path=None):
+    """
+    Process data from a CSV file, clean it, and optionally save to output.
+    
+    Args:
+        file_path (str): Path to input CSV file.
+        output_path (str, optional): Path to save cleaned data.
+    
+    Returns:
+        pd.DataFrame: Processed DataFrame.
+    """
+    try:
+        df = pd.read_csv(file_path)
         
-        lower_bound = Q1 - factor * IQR
-        upper_bound = Q3 + factor * IQR
+        is_valid, message = validate_dataframe(df)
+        if not is_valid:
+            raise ValueError(f"Data validation failed: {message}")
         
-        mask = (df[col] >= lower_bound) & (df[col] <= upper_bound)
-        df_clean = df_clean[mask]
-    
-    return df_clean.reset_index(drop=True)
-
-def normalize_data(df, columns=None, method='minmax'):
-    """
-    Normalize specified columns in dataframe.
-    
-    Parameters:
-    df (pd.DataFrame): Input dataframe
-    columns (list): List of column names to normalize
-    method (str): Normalization method - 'minmax' or 'zscore'
-    
-    Returns:
-    pd.DataFrame: Dataframe with normalized columns
-    """
-    if columns is None:
-        columns = df.select_dtypes(include=[np.number]).columns.tolist()
-    
-    df_norm = df.copy()
-    
-    for col in columns:
-        if col not in df.columns:
-            continue
-            
-        if method == 'minmax':
-            min_val = df[col].min()
-            max_val = df[col].max()
-            if max_val != min_val:
-                df_norm[col] = (df[col] - min_val) / (max_val - min_val)
-            else:
-                df_norm[col] = 0
-                
-        elif method == 'zscore':
-            mean_val = df[col].mean()
-            std_val = df[col].std()
-            if std_val > 0:
-                df_norm[col] = (df[col] - mean_val) / std_val
-            else:
-                df_norm[col] = 0
-    
-    return df_norm
-
-def handle_missing_values(df, columns=None, strategy='mean'):
-    """
-    Handle missing values in specified columns.
-    
-    Parameters:
-    df (pd.DataFrame): Input dataframe
-    columns (list): List of column names to process
-    strategy (str): Strategy for handling missing values - 'mean', 'median', 'mode', or 'drop'
-    
-    Returns:
-    pd.DataFrame: Dataframe with handled missing values
-    """
-    if columns is None:
-        columns = df.columns.tolist()
-    
-    df_processed = df.copy()
-    
-    for col in columns:
-        if col not in df.columns:
-            continue
-            
-        if strategy == 'drop':
-            df_processed = df_processed.dropna(subset=[col])
-            
-        elif strategy == 'mean' and pd.api.types.is_numeric_dtype(df[col]):
-            df_processed[col] = df_processed[col].fillna(df[col].mean())
-            
-        elif strategy == 'median' and pd.api.types.is_numeric_dtype(df[col]):
-            df_processed[col] = df_processed[col].fillna(df[col].median())
-            
-        elif strategy == 'mode':
-            mode_val = df[col].mode()
-            if not mode_val.empty:
-                df_processed[col] = df_processed[col].fillna(mode_val.iloc[0])
-    
-    return df_processed.reset_index(drop=True)
+        cleaned_df = clean_dataframe(df, drop_duplicates=True, fill_missing=True)
+        
+        if output_path:
+            cleaned_df.to_csv(output_path, index=False)
+            print(f"Cleaned data saved to: {output_path}")
+        
+        return cleaned_df
+        
+    except FileNotFoundError:
+        print(f"Error: File not found at {file_path}")
+        raise
+    except pd.errors.EmptyDataError:
+        print("Error: The file is empty")
+        raise
+    except Exception as e:
+        print(f"Error processing data: {str(e)}")
+        raise
