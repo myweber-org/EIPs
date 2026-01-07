@@ -1,6 +1,7 @@
 
 import pandas as pd
 import numpy as np
+from scipy import stats
 
 def remove_outliers_iqr(df, column):
     Q1 = df[column].quantile(0.25)
@@ -13,25 +14,25 @@ def remove_outliers_iqr(df, column):
 def normalize_minmax(df, column):
     min_val = df[column].min()
     max_val = df[column].max()
-    if max_val == min_val:
-        return df[column]
-    return (df[column] - min_val) / (max_val - min_val)
+    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
+    return df
 
-def clean_dataset(df, numeric_columns):
-    cleaned_df = df.copy()
+def clean_dataset(file_path):
+    df = pd.read_csv(file_path)
+    
+    numeric_columns = df.select_dtypes(include=[np.number]).columns
+    
     for col in numeric_columns:
-        if col in cleaned_df.columns:
-            cleaned_df = remove_outliers_iqr(cleaned_df, col)
-            cleaned_df[col] = normalize_minmax(cleaned_df, col)
-    return cleaned_df.dropna()
+        df = remove_outliers_iqr(df, col)
+    
+    for col in numeric_columns:
+        df = normalize_minmax(df, col)
+    
+    df = df.dropna()
+    
+    return df
 
 if __name__ == "__main__":
-    sample_data = pd.DataFrame({
-        'feature_a': np.random.normal(100, 15, 200),
-        'feature_b': np.random.exponential(50, 200),
-        'category': np.random.choice(['X', 'Y', 'Z'], 200)
-    })
-    cleaned = clean_dataset(sample_data, ['feature_a', 'feature_b'])
-    print(f"Original shape: {sample_data.shape}")
-    print(f"Cleaned shape: {cleaned.shape}")
-    print(cleaned.describe())
+    cleaned_data = clean_dataset('raw_data.csv')
+    cleaned_data.to_csv('cleaned_data.csv', index=False)
+    print(f"Data cleaning complete. Original shape: {pd.read_csv('raw_data.csv').shape}, Cleaned shape: {cleaned_data.shape}")
