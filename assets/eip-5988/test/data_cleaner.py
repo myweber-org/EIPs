@@ -1,102 +1,112 @@
-import pandas as pd
+
 import numpy as np
-from scipy import stats
+import pandas as pd
 
-class DataCleaner:
-    def __init__(self, df):
-        self.df = df.copy()
-        self.numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a DataFrame column using the Interquartile Range method.
     
-    def detect_outliers_iqr(self, column, threshold=1.5):
-        if column not in self.numeric_columns:
-            raise ValueError(f"Column '{column}' is not numeric")
-        
-        Q1 = self.df[column].quantile(0.25)
-        Q3 = self.df[column].quantile(0.75)
-        IQR = Q3 - Q1
-        lower_bound = Q1 - threshold * IQR
-        upper_bound = Q3 + threshold * IQR
-        
-        outliers = self.df[(self.df[column] < lower_bound) | (self.df[column] > upper_bound)]
-        return outliers.index.tolist()
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to process
     
-    def remove_outliers(self, columns=None, threshold=1.5):
-        if columns is None:
-            columns = self.numeric_columns
-        
-        outlier_indices = set()
-        for col in columns:
-            if col in self.numeric_columns:
-                indices = self.detect_outliers_iqr(col, threshold)
-                outlier_indices.update(indices)
-        
-        cleaned_df = self.df.drop(index=list(outlier_indices))
-        return cleaned_df
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    def impute_missing_median(self, columns=None):
-        if columns is None:
-            columns = self.numeric_columns
-        
-        imputed_df = self.df.copy()
-        for col in columns:
-            if col in self.numeric_columns and imputed_df[col].isnull().any():
-                median_val = imputed_df[col].median()
-                imputed_df[col].fillna(median_val, inplace=True)
-        
-        return imputed_df
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
     
-    def standardize_data(self, columns=None):
-        if columns is None:
-            columns = self.numeric_columns
-        
-        standardized_df = self.df.copy()
-        for col in columns:
-            if col in self.numeric_columns:
-                mean = standardized_df[col].mean()
-                std = standardized_df[col].std()
-                if std > 0:
-                    standardized_df[col] = (standardized_df[col] - mean) / std
-        
-        return standardized_df
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
     
-    def get_summary(self):
-        summary = {
-            'original_shape': self.df.shape,
-            'missing_values': self.df.isnull().sum().to_dict(),
-            'numeric_columns': self.numeric_columns,
-            'data_types': self.df.dtypes.to_dict()
-        }
-        return summary
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df
 
-def example_usage():
-    np.random.seed(42)
-    data = {
-        'feature_a': np.random.normal(100, 15, 100),
-        'feature_b': np.random.exponential(50, 100),
-        'category': np.random.choice(['A', 'B', 'C'], 100)
+def calculate_summary_statistics(df, column):
+    """
+    Calculate summary statistics for a DataFrame column.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to analyze
+    
+    Returns:
+    dict: Dictionary containing summary statistics
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    stats = {
+        'mean': df[column].mean(),
+        'median': df[column].median(),
+        'std': df[column].std(),
+        'min': df[column].min(),
+        'max': df[column].max(),
+        'count': df[column].count(),
+        'missing': df[column].isnull().sum()
     }
     
-    df = pd.DataFrame(data)
-    df.loc[10:15, 'feature_a'] = np.nan
-    df.loc[[5, 25, 50], 'feature_a'] = 500
-    
-    cleaner = DataCleaner(df)
-    print("Data Summary:", cleaner.get_summary())
-    
-    outliers = cleaner.detect_outliers_iqr('feature_a')
-    print(f"Outliers in feature_a: {outliers}")
-    
-    cleaned = cleaner.remove_outliers(['feature_a'])
-    print(f"Cleaned shape: {cleaned.shape}")
-    
-    imputed = cleaner.impute_missing_median()
-    print(f"Missing values after imputation: {imputed.isnull().sum().sum()}")
-    
-    standardized = cleaner.standardize_data()
-    print(f"Standardized mean: {standardized['feature_a'].mean():.2f}")
-    
-    return cleaned
+    return stats
 
-if __name__ == "__main__":
-    result_df = example_usage()
-    print(f"Final cleaned dataframe shape: {result_df.shape}")
+def normalize_column(df, column, method='minmax'):
+    """
+    Normalize a DataFrame column using specified method.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to normalize
+    method (str): Normalization method ('minmax' or 'zscore')
+    
+    Returns:
+    pd.DataFrame: DataFrame with normalized column
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    df_copy = df.copy()
+    
+    if method == 'minmax':
+        min_val = df_copy[column].min()
+        max_val = df_copy[column].max()
+        if max_val != min_val:
+            df_copy[column] = (df_copy[column] - min_val) / (max_val - min_val)
+    
+    elif method == 'zscore':
+        mean_val = df_copy[column].mean()
+        std_val = df_copy[column].std()
+        if std_val != 0:
+            df_copy[column] = (df_copy[column] - mean_val) / std_val
+    
+    else:
+        raise ValueError("Method must be 'minmax' or 'zscore'")
+    
+    return df_copy
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of required column names
+    
+    Returns:
+    tuple: (is_valid, error_message)
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "DataFrame is valid"
