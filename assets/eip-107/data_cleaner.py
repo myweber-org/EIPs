@@ -253,4 +253,143 @@ if __name__ == "__main__":
     
     cleaned = clean_dataframe(df)
     print("\nCleaned DataFrame:")
-    print(cleaned)
+    print(cleaned)import pandas as pd
+import numpy as np
+
+def remove_duplicates(df, subset=None):
+    """
+    Remove duplicate rows from DataFrame.
+    
+    Args:
+        df: pandas DataFrame
+        subset: column label or sequence of labels to consider for duplicates
+    
+    Returns:
+        DataFrame with duplicates removed
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def fill_missing_values(df, strategy='mean', columns=None):
+    """
+    Fill missing values in DataFrame.
+    
+    Args:
+        df: pandas DataFrame
+        strategy: 'mean', 'median', 'mode', or 'constant'
+        columns: list of columns to fill, if None fills all numeric columns
+    
+    Returns:
+        DataFrame with missing values filled
+    """
+    df_filled = df.copy()
+    
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    for col in columns:
+        if strategy == 'mean':
+            fill_value = df[col].mean()
+        elif strategy == 'median':
+            fill_value = df[col].median()
+        elif strategy == 'mode':
+            fill_value = df[col].mode()[0] if not df[col].mode().empty else 0
+        elif strategy == 'constant':
+            fill_value = 0
+        else:
+            raise ValueError(f"Unknown strategy: {strategy}")
+        
+        df_filled[col] = df[col].fillna(fill_value)
+    
+    return df_filled
+
+def normalize_columns(df, columns=None, method='minmax'):
+    """
+    Normalize specified columns in DataFrame.
+    
+    Args:
+        df: pandas DataFrame
+        columns: list of columns to normalize
+        method: 'minmax' or 'zscore'
+    
+    Returns:
+        DataFrame with normalized columns
+    """
+    df_normalized = df.copy()
+    
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    for col in columns:
+        if method == 'minmax':
+            min_val = df[col].min()
+            max_val = df[col].max()
+            if max_val > min_val:
+                df_normalized[col] = (df[col] - min_val) / (max_val - min_val)
+        
+        elif method == 'zscore':
+            mean_val = df[col].mean()
+            std_val = df[col].std()
+            if std_val > 0:
+                df_normalized[col] = (df[col] - mean_val) / std_val
+    
+    return df_normalized
+
+def detect_outliers(df, column, method='iqr', threshold=1.5):
+    """
+    Detect outliers in a column.
+    
+    Args:
+        df: pandas DataFrame
+        column: column name to check for outliers
+        method: 'iqr' for interquartile range or 'zscore' for standard deviation
+        threshold: multiplier for IQR or cutoff for z-score
+    
+    Returns:
+        Boolean Series indicating outliers
+    """
+    if method == 'iqr':
+        Q1 = df[column].quantile(0.25)
+        Q3 = df[column].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - threshold * IQR
+        upper_bound = Q3 + threshold * IQR
+        return (df[column] < lower_bound) | (df[column] > upper_bound)
+    
+    elif method == 'zscore':
+        z_scores = np.abs((df[column] - df[column].mean()) / df[column].std())
+        return z_scores > threshold
+    
+    else:
+        raise ValueError(f"Unknown method: {method}")
+
+def clean_dataframe(df, operations=None):
+    """
+    Apply multiple cleaning operations to DataFrame.
+    
+    Args:
+        df: pandas DataFrame
+        operations: list of tuples (operation_name, kwargs)
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    if operations is None:
+        operations = [
+            ('remove_duplicates', {}),
+            ('fill_missing_values', {'strategy': 'mean'}),
+            ('normalize_columns', {'method': 'minmax'})
+        ]
+    
+    cleaned_df = df.copy()
+    
+    for op_name, kwargs in operations:
+        if op_name == 'remove_duplicates':
+            cleaned_df = remove_duplicates(cleaned_df, **kwargs)
+        elif op_name == 'fill_missing_values':
+            cleaned_df = fill_missing_values(cleaned_df, **kwargs)
+        elif op_name == 'normalize_columns':
+            cleaned_df = normalize_columns(cleaned_df, **kwargs)
+        else:
+            raise ValueError(f"Unknown operation: {op_name}")
+    
+    return cleaned_df
