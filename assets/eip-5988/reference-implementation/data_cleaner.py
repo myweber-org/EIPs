@@ -863,3 +863,90 @@ def get_cleaning_summary(original_df, cleaned_df):
 #     print("\nCleaning Summary:")
 #     for key, value in summary.items():
 #         print(f"{key}: {value}")
+import pandas as pd
+import numpy as np
+from typing import Optional, Union, List
+
+class DataCleaner:
+    def __init__(self, df: pd.DataFrame):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_duplicates(self, subset: Optional[List[str]] = None, keep: str = 'first') -> 'DataCleaner':
+        self.df = self.df.drop_duplicates(subset=subset, keep=keep)
+        return self
+        
+    def convert_types(self, column_type_map: dict) -> 'DataCleaner':
+        for column, dtype in column_type_map.items():
+            if column in self.df.columns:
+                try:
+                    self.df[column] = self.df[column].astype(dtype)
+                except (ValueError, TypeError):
+                    self.df[column] = pd.to_numeric(self.df[column], errors='coerce')
+        return self
+        
+    def fill_missing(self, strategy: str = 'mean', custom_value: Optional[Union[int, float, str]] = None) -> 'DataCleaner':
+        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+        
+        if strategy == 'mean' and len(numeric_cols) > 0:
+            self.df[numeric_cols] = self.df[numeric_cols].fillna(self.df[numeric_cols].mean())
+        elif strategy == 'median' and len(numeric_cols) > 0:
+            self.df[numeric_cols] = self.df[numeric_cols].fillna(self.df[numeric_cols].median())
+        elif strategy == 'custom' and custom_value is not None:
+            self.df = self.df.fillna(custom_value)
+        elif strategy == 'drop':
+            self.df = self.df.dropna()
+            
+        return self
+        
+    def normalize_column(self, column: str, method: str = 'minmax') -> 'DataCleaner':
+        if column not in self.df.columns:
+            return self
+            
+        if method == 'minmax':
+            col_min = self.df[column].min()
+            col_max = self.df[column].max()
+            if col_max != col_min:
+                self.df[column] = (self.df[column] - col_min) / (col_max - col_min)
+        elif method == 'zscore':
+            col_mean = self.df[column].mean()
+            col_std = self.df[column].std()
+            if col_std > 0:
+                self.df[column] = (self.df[column] - col_mean) / col_std
+                
+        return self
+        
+    def get_cleaned_data(self) -> pd.DataFrame:
+        return self.df
+        
+    def get_summary(self) -> dict:
+        removed_rows = self.original_shape[0] - self.df.shape[0]
+        removed_cols = self.original_shape[1] - self.df.shape[1]
+        
+        return {
+            'original_shape': self.original_shape,
+            'cleaned_shape': self.df.shape,
+            'removed_rows': removed_rows,
+            'removed_cols': removed_cols,
+            'missing_values': self.df.isnull().sum().sum(),
+            'duplicates_removed': removed_rows if removed_rows > 0 else 0
+        }
+
+def clean_dataset(df: pd.DataFrame, 
+                  remove_dups: bool = True,
+                  fill_strategy: str = 'mean',
+                  normalize_cols: Optional[List[str]] = None) -> pd.DataFrame:
+    
+    cleaner = DataCleaner(df)
+    
+    if remove_dups:
+        cleaner.remove_duplicates()
+        
+    cleaner.fill_missing(strategy=fill_strategy)
+    
+    if normalize_cols:
+        for col in normalize_cols:
+            if col in df.columns:
+                cleaner.normalize_column(col)
+    
+    return cleaner.get_cleaned_data()
