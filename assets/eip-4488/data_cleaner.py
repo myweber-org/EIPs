@@ -145,3 +145,117 @@ if __name__ == "__main__":
     # Validate DataFrame
     is_valid, message = validate_dataframe(df, required_columns=['id', 'value'])
     print(f"\nDataFrame validation: {message}")
+import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, columns=None):
+    """
+    Remove outliers from DataFrame using Interquartile Range method.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    columns (list): List of column names to process. If None, process all numeric columns.
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    df_clean = df.copy()
+    
+    for col in columns:
+        if col in df.columns:
+            Q1 = df[col].quantile(0.25)
+            Q3 = df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            
+            lower_bound = Q1 - 1.5 * IQR
+            upper_bound = Q3 + 1.5 * IQR
+            
+            mask = (df[col] >= lower_bound) & (df[col] <= upper_bound)
+            df_clean = df_clean[mask]
+    
+    return df_clean.reset_index(drop=True)
+
+def calculate_summary_statistics(df):
+    """
+    Calculate summary statistics for numeric columns.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    
+    Returns:
+    pd.DataFrame: Summary statistics
+    """
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    
+    if len(numeric_cols) == 0:
+        return pd.DataFrame()
+    
+    stats = {
+        'mean': df[numeric_cols].mean(),
+        'median': df[numeric_cols].median(),
+        'std': df[numeric_cols].std(),
+        'min': df[numeric_cols].min(),
+        'max': df[numeric_cols].max(),
+        'count': df[numeric_cols].count()
+    }
+    
+    return pd.DataFrame(stats)
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    required_columns (list): List of required column names
+    
+    Returns:
+    dict: Validation results
+    """
+    validation_results = {
+        'is_valid': True,
+        'missing_columns': [],
+        'null_counts': {},
+        'data_types': {}
+    }
+    
+    if required_columns:
+        missing = [col for col in required_columns if col not in df.columns]
+        if missing:
+            validation_results['is_valid'] = False
+            validation_results['missing_columns'] = missing
+    
+    for col in df.columns:
+        null_count = df[col].isnull().sum()
+        if null_count > 0:
+            validation_results['null_counts'][col] = null_count
+        
+        validation_results['data_types'][col] = str(df[col].dtype)
+    
+    return validation_results
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': np.random.randn(100),
+        'B': np.random.randn(100) * 2 + 5,
+        'C': np.random.randn(100) * 0.5 - 2
+    }
+    
+    df = pd.DataFrame(sample_data)
+    df.loc[10, 'A'] = 100
+    df.loc[20, 'B'] = -50
+    
+    print("Original DataFrame shape:", df.shape)
+    print("\nSummary statistics:")
+    print(calculate_summary_statistics(df))
+    
+    cleaned_df = remove_outliers_iqr(df)
+    print("\nCleaned DataFrame shape:", cleaned_df.shape)
+    print("\nCleaned summary statistics:")
+    print(calculate_summary_statistics(cleaned_df))
+    
+    validation = validate_dataframe(cleaned_df, ['A', 'B', 'C'])
+    print("\nValidation results:", validation)
