@@ -402,4 +402,106 @@ if __name__ == "__main__":
     try:
         validate_dataframe(cleaned_df, required_columns=['id', 'value'])
     except ValueError as e:
-        print(f"Validation error: {e}")
+        print(f"Validation error: {e}")import csv
+import re
+from typing import List, Dict, Any
+
+def clean_numeric_string(value: str) -> str:
+    """Remove non-numeric characters except decimal point and negative sign."""
+    if not isinstance(value, str):
+        return value
+    return re.sub(r'[^\d.-]', '', value)
+
+def standardize_column_names(headers: List[str]) -> List[str]:
+    """Convert column names to lowercase with underscores."""
+    cleaned = []
+    for header in headers:
+        header = header.strip().lower()
+        header = re.sub(r'[^\w\s]', '', header)
+        header = re.sub(r'\s+', '_', header)
+        cleaned.append(header)
+    return cleaned
+
+def read_and_clean_csv(filepath: str) -> List[Dict[str, Any]]:
+    """Read CSV file and apply basic cleaning operations."""
+    cleaned_data = []
+    
+    with open(filepath, 'r', encoding='utf-8') as file:
+        reader = csv.DictReader(file)
+        original_headers = reader.fieldnames
+        
+        if not original_headers:
+            return cleaned_data
+            
+        standardized_headers = standardize_column_names(original_headers)
+        
+        for row in reader:
+            cleaned_row = {}
+            for orig_header, new_header in zip(original_headers, standardized_headers):
+                value = row[orig_header]
+                
+                if value is None or value == '':
+                    cleaned_row[new_header] = None
+                elif any(char.isdigit() for char in str(value)):
+                    cleaned_row[new_header] = clean_numeric_string(str(value))
+                else:
+                    cleaned_row[new_header] = str(value).strip()
+            
+            cleaned_data.append(cleaned_row)
+    
+    return cleaned_data
+
+def write_cleaned_csv(data: List[Dict[str, Any]], output_path: str) -> None:
+    """Write cleaned data to a new CSV file."""
+    if not data:
+        return
+    
+    fieldnames = list(data[0].keys())
+    
+    with open(output_path, 'w', newline='', encoding='utf-8') as file:
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(data)
+
+def remove_duplicates(data: List[Dict[str, Any]], key_columns: List[str]) -> List[Dict[str, Any]]:
+    """Remove duplicate rows based on specified key columns."""
+    seen = set()
+    unique_data = []
+    
+    for row in data:
+        key = tuple(str(row.get(col, '')) for col in key_columns)
+        if key not in seen:
+            seen.add(key)
+            unique_data.append(row)
+    
+    return unique_data
+
+def filter_by_threshold(data: List[Dict[str, Any]], column: str, threshold: float) -> List[Dict[str, Any]]:
+    """Filter rows where numeric column value exceeds threshold."""
+    filtered = []
+    
+    for row in data:
+        try:
+            value = float(row.get(column, 0))
+            if value > threshold:
+                filtered.append(row)
+        except (ValueError, TypeError):
+            continue
+    
+    return filtered
+
+if __name__ == "__main__":
+    sample_data = [
+        {"id": "1", "value": "100.50", "name": "Product A"},
+        {"id": "2", "value": "$200.75", "name": "Product B"},
+        {"id": "3", "value": "150", "name": "Product C"}
+    ]
+    
+    cleaned = []
+    for row in sample_data:
+        cleaned_row = row.copy()
+        cleaned_row["value"] = clean_numeric_string(cleaned_row["value"])
+        cleaned.append(cleaned_row)
+    
+    print("Original:", sample_data)
+    print("Cleaned:", cleaned)
