@@ -1,86 +1,77 @@
 
-import pandas as pd
 import numpy as np
+import pandas as pd
+from scipy import stats
 
-def clean_csv_data(input_file, output_file, missing_strategy='mean'):
-    """
-    Clean CSV data by handling missing values and removing duplicates.
-    
-    Args:
-        input_file (str): Path to input CSV file
-        output_file (str): Path to output cleaned CSV file
-        missing_strategy (str): Strategy for handling missing values
-                               ('mean', 'median', 'drop', 'zero')
-    """
-    try:
-        df = pd.read_csv(input_file)
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.original_df = df.copy()
         
-        print(f"Original data shape: {df.shape}")
-        print(f"Missing values per column:\n{df.isnull().sum()}")
+    def remove_outliers_iqr(self, column, multiplier=1.5):
+        Q1 = self.df[column].quantile(0.25)
+        Q3 = self.df[column].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - multiplier * IQR
+        upper_bound = Q3 + multiplier * IQR
+        self.df = self.df[(self.df[column] >= lower_bound) & (self.df[column] <= upper_bound)]
+        return self
         
-        df_cleaned = df.copy()
+    def remove_outliers_zscore(self, column, threshold=3):
+        z_scores = np.abs(stats.zscore(self.df[column]))
+        self.df = self.df[z_scores < threshold]
+        return self
         
-        if missing_strategy == 'drop':
-            df_cleaned = df_cleaned.dropna()
-        elif missing_strategy in ['mean', 'median']:
-            numeric_cols = df_cleaned.select_dtypes(include=[np.number]).columns
-            for col in numeric_cols:
-                if missing_strategy == 'mean':
-                    fill_value = df_cleaned[col].mean()
-                else:
-                    fill_value = df_cleaned[col].median()
-                df_cleaned[col] = df_cleaned[col].fillna(fill_value)
-        elif missing_strategy == 'zero':
-            df_cleaned = df_cleaned.fillna(0)
+    def normalize_column(self, column, method='minmax'):
+        if method == 'minmax':
+            min_val = self.df[column].min()
+            max_val = self.df[column].max()
+            self.df[column] = (self.df[column] - min_val) / (max_val - min_val)
+        elif method == 'standard':
+            mean_val = self.df[column].mean()
+            std_val = self.df[column].std()
+            self.df[column] = (self.df[column] - mean_val) / std_val
+        return self
         
-        df_cleaned = df_cleaned.drop_duplicates()
-        
-        df_cleaned.to_csv(output_file, index=False)
-        
-        print(f"Cleaned data shape: {df_cleaned.shape}")
-        print(f"Cleaned data saved to: {output_file}")
-        
-        return df_cleaned
-        
-    except FileNotFoundError:
-        print(f"Error: Input file '{input_file}' not found.")
-        return None
-    except Exception as e:
-        print(f"Error during data cleaning: {str(e)}")
-        return None
-
-def validate_dataframe(df, required_columns=None):
-    """
-    Validate dataframe structure and content.
-    
-    Args:
-        df (pd.DataFrame): DataFrame to validate
-        required_columns (list): List of required column names
-    
-    Returns:
-        bool: True if validation passes, False otherwise
-    """
-    if df is None or df.empty:
-        print("Validation failed: DataFrame is empty or None")
-        return False
-    
-    if required_columns:
-        missing_cols = [col for col in required_columns if col not in df.columns]
-        if missing_cols:
-            print(f"Validation failed: Missing required columns: {missing_cols}")
-            return False
-    
-    if df.isnull().sum().sum() > 0:
-        print("Warning: DataFrame contains missing values")
-    
-    return True
-
-if __name__ == "__main__":
-    cleaned_data = clean_csv_data('input_data.csv', 'cleaned_data.csv', 'mean')
-    
-    if cleaned_data is not None:
-        is_valid = validate_dataframe(cleaned_data)
-        if is_valid:
-            print("Data cleaning completed successfully.")
+    def fill_missing(self, column, method='mean'):
+        if method == 'mean':
+            fill_value = self.df[column].mean()
+        elif method == 'median':
+            fill_value = self.df[column].median()
+        elif method == 'mode':
+            fill_value = self.df[column].mode()[0]
         else:
-            print("Data cleaning completed but validation failed.")
+            fill_value = method
+            
+        self.df[column] = self.df[column].fillna(fill_value)
+        return self
+        
+    def get_cleaned_data(self):
+        return self.df
+        
+    def get_summary(self):
+        summary = {
+            'original_rows': len(self.original_df),
+            'cleaned_rows': len(self.df),
+            'rows_removed': len(self.original_df) - len(self.df),
+            'columns': list(self.df.columns)
+        }
+        return summary
+
+def clean_dataset(df, config):
+    cleaner = DataCleaner(df)
+    
+    for column, operations in config.items():
+        for operation, params in operations.items():
+            if operation == 'remove_outliers':
+                method = params.get('method', 'iqr')
+                if method == 'iqr':
+                    cleaner.remove_outliers_iqr(column, params.get('multiplier', 1.5))
+                elif method == 'zscore':
+                    cleaner.remove_outliers_zscore(column, params.get('threshold', 3))
+            elif operation == 'normalize':
+                cleaner.normalize_column(column, params.get('method', 'minmax'))
+            elif operation == 'fill_missing':
+                cleaner.fill_missing(column, params.get('method', 'mean'))
+    
+    return cleaner.get_cleaned_data(), cleaner.get_summary()
