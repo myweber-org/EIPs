@@ -161,4 +161,139 @@ def clean_dataset(data, config):
                 elif method == 'zscore':
                     cleaned_data[f"{col}_standardized"] = standardize_zscore(cleaned_data, col)
     
-    return cleaned_data
+    return cleaned_dataimport pandas as pd
+import numpy as np
+
+def remove_duplicates(df, subset=None):
+    """
+    Remove duplicate rows from a DataFrame.
+    If subset is provided, only consider specified columns for duplicates.
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def fill_missing_values(df, strategy='mean', columns=None):
+    """
+    Fill missing values in specified columns using a given strategy.
+    Supported strategies: 'mean', 'median', 'mode', 'constant'.
+    If columns is None, apply to all numeric columns.
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_filled = df.copy()
+    
+    for col in columns:
+        if col not in df.columns:
+            continue
+            
+        if strategy == 'mean':
+            fill_value = df[col].mean()
+        elif strategy == 'median':
+            fill_value = df[col].median()
+        elif strategy == 'mode':
+            fill_value = df[col].mode().iloc[0] if not df[col].mode().empty else np.nan
+        elif strategy == 'constant':
+            fill_value = 0
+        else:
+            raise ValueError(f"Unsupported strategy: {strategy}")
+        
+        df_filled[col] = df[col].fillna(fill_value)
+    
+    return df_filled
+
+def normalize_columns(df, columns=None, method='minmax'):
+    """
+    Normalize specified columns using min-max or z-score normalization.
+    If columns is None, normalize all numeric columns.
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_normalized = df.copy()
+    
+    for col in columns:
+        if col not in df.columns:
+            continue
+            
+        if method == 'minmax':
+            col_min = df[col].min()
+            col_max = df[col].max()
+            if col_max != col_min:
+                df_normalized[col] = (df[col] - col_min) / (col_max - col_min)
+            else:
+                df_normalized[col] = 0
+        elif method == 'zscore':
+            col_mean = df[col].mean()
+            col_std = df[col].std()
+            if col_std != 0:
+                df_normalized[col] = (df[col] - col_mean) / col_std
+            else:
+                df_normalized[col] = 0
+        else:
+            raise ValueError(f"Unsupported method: {method}")
+    
+    return df_normalized
+
+def filter_outliers(df, columns=None, method='iqr', threshold=1.5):
+    """
+    Filter outliers from specified columns using IQR or z-score method.
+    Returns DataFrame without outliers.
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_filtered = df.copy()
+    
+    for col in columns:
+        if col not in df.columns:
+            continue
+            
+        if method == 'iqr':
+            Q1 = df[col].quantile(0.25)
+            Q3 = df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - threshold * IQR
+            upper_bound = Q3 + threshold * IQR
+            mask = (df[col] >= lower_bound) & (df[col] <= upper_bound)
+        elif method == 'zscore':
+            col_mean = df[col].mean()
+            col_std = df[col].std()
+            if col_std != 0:
+                z_scores = np.abs((df[col] - col_mean) / col_std)
+                mask = z_scores <= threshold
+            else:
+                mask = pd.Series(True, index=df.index)
+        else:
+            raise ValueError(f"Unsupported method: {method}")
+        
+        df_filtered = df_filtered[mask]
+    
+    return df_filtered.reset_index(drop=True)
+
+def clean_dataframe(df, steps=None):
+    """
+    Apply a sequence of cleaning steps to a DataFrame.
+    steps should be a list of tuples (function_name, kwargs).
+    """
+    if steps is None:
+        steps = [
+            ('remove_duplicates', {}),
+            ('fill_missing_values', {'strategy': 'mean'}),
+            ('filter_outliers', {'method': 'iqr'})
+        ]
+    
+    cleaned_df = df.copy()
+    
+    for step_name, kwargs in steps:
+        if step_name == 'remove_duplicates':
+            cleaned_df = remove_duplicates(cleaned_df, **kwargs)
+        elif step_name == 'fill_missing_values':
+            cleaned_df = fill_missing_values(cleaned_df, **kwargs)
+        elif step_name == 'normalize_columns':
+            cleaned_df = normalize_columns(cleaned_df, **kwargs)
+        elif step_name == 'filter_outliers':
+            cleaned_df = filter_outliers(cleaned_df, **kwargs)
+        else:
+            raise ValueError(f"Unknown step: {step_name}")
+    
+    return cleaned_df
