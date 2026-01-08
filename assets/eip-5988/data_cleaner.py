@@ -72,4 +72,62 @@ if __name__ == "__main__":
     print("\nCleaned DataFrame:")
     print(cleaned)
     print("\nCleaned validation results:")
-    print(validate_data(cleaned))
+    print(validate_data(cleaned))import csv
+import re
+
+def clean_numeric_string(value):
+    """Remove non-numeric characters from a string and convert to integer."""
+    if not value:
+        return None
+    cleaned = re.sub(r'[^\d.-]', '', str(value))
+    try:
+        return int(cleaned) if '.' not in cleaned else float(cleaned)
+    except ValueError:
+        return None
+
+def normalize_column_names(headers):
+    """Normalize column names to lowercase with underscores."""
+    return [re.sub(r'\s+', '_', header.strip().lower()) for header in headers]
+
+def read_and_clean_csv(file_path, delimiter=','):
+    """Read a CSV file and clean its data."""
+    cleaned_data = []
+    with open(file_path, 'r', newline='', encoding='utf-8') as csvfile:
+        reader = csv.reader(csvfile, delimiter=delimiter)
+        headers = next(reader)
+        normalized_headers = normalize_column_names(headers)
+        
+        for row in reader:
+            cleaned_row = {}
+            for header, value in zip(normalized_headers, row):
+                if any(keyword in header for keyword in ['id', 'code', 'number']):
+                    cleaned_row[header] = clean_numeric_string(value)
+                else:
+                    cleaned_row[header] = value.strip() if value else None
+            cleaned_data.append(cleaned_row)
+    
+    return cleaned_data
+
+def write_cleaned_csv(data, output_path, delimiter=','):
+    """Write cleaned data to a new CSV file."""
+    if not data:
+        return
+    
+    headers = list(data[0].keys())
+    with open(output_path, 'w', newline='', encoding='utf-8') as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=headers, delimiter=delimiter)
+        writer.writeheader()
+        writer.writerows(data)
+
+def remove_duplicates(data, key_columns):
+    """Remove duplicate rows based on specified key columns."""
+    seen = set()
+    unique_data = []
+    
+    for row in data:
+        key = tuple(row[col] for col in key_columns if col in row)
+        if key not in seen:
+            seen.add(key)
+            unique_data.append(row)
+    
+    return unique_data
