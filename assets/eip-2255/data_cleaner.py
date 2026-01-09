@@ -288,4 +288,86 @@ def validate_data(data, required_columns=None, allow_nan=False, min_rows=1):
         nan_cols = data.columns[data.isnull().any()].tolist()
         return False, f"NaN values found in columns: {nan_cols}"
     
-    return True, "Dataset is valid"
+    return True, "Dataset is valid"import pandas as pd
+import hashlib
+
+def remove_duplicates_by_hash(df, columns):
+    """
+    Remove duplicate rows based on a hash of specified columns.
+    """
+    if df.empty:
+        return df
+
+    # Create a hash for each row based on the specified columns
+    df['row_hash'] = df[columns].apply(
+        lambda row: hashlib.md5(pd.util.hash_pandas_object(row).values.tobytes()).hexdigest(),
+        axis=1
+    )
+
+    # Remove duplicates based on the hash, keeping the first occurrence
+    df_cleaned = df.drop_duplicates(subset=['row_hash'], keep='first')
+
+    # Drop the temporary hash column
+    df_cleaned = df_cleaned.drop(columns=['row_hash'])
+
+    return df_cleaned.reset_index(drop=True)
+
+def clean_numeric_columns(df, columns, fill_method='mean'):
+    """
+    Clean numeric columns by filling missing values.
+    """
+    for col in columns:
+        if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
+            if fill_method == 'mean':
+                fill_value = df[col].mean()
+            elif fill_method == 'median':
+                fill_value = df[col].median()
+            elif fill_method == 'mode':
+                fill_value = df[col].mode()[0] if not df[col].mode().empty else 0
+            else:
+                fill_value = 0
+
+            df[col] = df[col].fillna(fill_value)
+
+    return df
+
+def standardize_text_columns(df, columns):
+    """
+    Standardize text columns: strip whitespace and convert to lowercase.
+    """
+    for col in columns:
+        if col in df.columns and pd.api.types.is_string_dtype(df[col]):
+            df[col] = df[col].astype(str).str.strip().str.lower()
+
+    return df
+
+def main():
+    # Example usage
+    data = {
+        'id': [1, 2, 3, 4, 5, 3],
+        'name': ['Alice', 'Bob', 'Charlie', 'Alice', 'Eve', 'Charlie'],
+        'age': [25, 30, None, 25, 35, 28],
+        'score': [85.5, 90.0, 78.5, 85.5, 92.0, 78.5]
+    }
+
+    df = pd.DataFrame(data)
+    print("Original DataFrame:")
+    print(df)
+
+    # Remove duplicates based on 'name' and 'score'
+    df_unique = remove_duplicates_by_hash(df, ['name', 'score'])
+    print("\nDataFrame after removing duplicates:")
+    print(df_unique)
+
+    # Clean numeric columns
+    df_cleaned_numeric = clean_numeric_columns(df_unique, ['age'], fill_method='mean')
+    print("\nDataFrame after cleaning numeric columns:")
+    print(df_cleaned_numeric)
+
+    # Standardize text columns
+    df_final = standardize_text_columns(df_cleaned_numeric, ['name'])
+    print("\nFinal cleaned DataFrame:")
+    print(df_final)
+
+if __name__ == "__main__":
+    main()
