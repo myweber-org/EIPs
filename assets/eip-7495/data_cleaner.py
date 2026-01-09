@@ -6,12 +6,12 @@ def remove_outliers_iqr(df, column):
     """
     Remove outliers from a DataFrame column using the Interquartile Range method.
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to clean
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to process
     
     Returns:
-    pd.DataFrame: DataFrame with outliers removed
+        pd.DataFrame: DataFrame with outliers removed
     """
     if column not in df.columns:
         raise ValueError(f"Column '{column}' not found in DataFrame")
@@ -25,18 +25,18 @@ def remove_outliers_iqr(df, column):
     
     filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
     
-    return filtered_df.reset_index(drop=True)
+    return filtered_df
 
 def calculate_summary_statistics(df, column):
     """
     Calculate summary statistics for a column after outlier removal.
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to analyze
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to analyze
     
     Returns:
-    dict: Dictionary containing summary statistics
+        dict: Dictionary containing summary statistics
     """
     if column not in df.columns:
         raise ValueError(f"Column '{column}' not found in DataFrame")
@@ -52,33 +52,21 @@ def calculate_summary_statistics(df, column):
     
     return stats
 
-def clean_dataset(df, columns_to_clean=None):
+def process_numerical_data(df, columns):
     """
-    Clean multiple columns in a DataFrame by removing outliers.
+    Process multiple numerical columns by removing outliers.
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    columns_to_clean (list): List of column names to clean. If None, clean all numeric columns.
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns (list): List of column names to process
     
     Returns:
-    pd.DataFrame: Cleaned DataFrame
-    dict: Dictionary of statistics for each cleaned column
+        pd.DataFrame: Processed DataFrame
     """
-    if columns_to_clean is None:
-        numeric_cols = df.select_dtypes(include=[np.number]).columns
-        columns_to_clean = list(numeric_cols)
+    processed_df = df.copy()
     
-    cleaned_df = df.copy()
-    statistics = {}
+    for column in columns:
+        if column in processed_df.columns and pd.api.types.is_numeric_dtype(processed_df[column]):
+            processed_df = remove_outliers_iqr(processed_df, column)
     
-    for column in columns_to_clean:
-        if column in cleaned_df.columns:
-            original_count = len(cleaned_df)
-            cleaned_df = remove_outliers_iqr(cleaned_df, column)
-            removed_count = original_count - len(cleaned_df)
-            
-            stats = calculate_summary_statistics(cleaned_df, column)
-            stats['outliers_removed'] = removed_count
-            statistics[column] = stats
-    
-    return cleaned_df, statistics
+    return processed_df
