@@ -314,4 +314,99 @@ if __name__ == "__main__":
     print(cleaned)
     
     is_valid, message = validate_data(cleaned, required_columns=['A', 'B'])
-    print(f"\nValidation: {is_valid} - {message}")
+    print(f"\nValidation: {is_valid} - {message}")import pandas as pd
+import numpy as np
+
+def remove_missing_rows(df, columns=None):
+    """
+    Remove rows with missing values from DataFrame.
+    If columns specified, only check those columns.
+    """
+    if columns:
+        return df.dropna(subset=columns)
+    return df.dropna()
+
+def fill_missing_with_mean(df, columns):
+    """
+    Fill missing values in specified columns with column mean.
+    """
+    df_filled = df.copy()
+    for col in columns:
+        if col in df.columns:
+            df_filled[col] = df_filled[col].fillna(df_filled[col].mean())
+    return df_filled
+
+def detect_outliers_iqr(df, column):
+    """
+    Detect outliers using IQR method for a specific column.
+    Returns boolean Series where True indicates outlier.
+    """
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return (df[column] < lower_bound) | (df[column] > upper_bound)
+
+def cap_outliers(df, column, method='iqr'):
+    """
+    Cap outliers to specified bounds.
+    Supports 'iqr' method or custom percentiles.
+    """
+    df_capped = df.copy()
+    
+    if method == 'iqr':
+        Q1 = df[column].quantile(0.25)
+        Q3 = df[column].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+    else:
+        lower_bound = df[column].quantile(0.01)
+        upper_bound = df[column].quantile(0.99)
+    
+    df_capped[column] = df_capped[column].clip(lower=lower_bound, upper=upper_bound)
+    return df_capped
+
+def standardize_column(df, column):
+    """
+    Standardize a column to have mean=0 and std=1.
+    """
+    df_standardized = df.copy()
+    mean_val = df[column].mean()
+    std_val = df[column].std()
+    if std_val > 0:
+        df_standardized[column] = (df[column] - mean_val) / std_val
+    return df_standardized
+
+def normalize_column(df, column):
+    """
+    Normalize a column to range [0, 1].
+    """
+    df_normalized = df.copy()
+    min_val = df[column].min()
+    max_val = df[column].max()
+    if max_val > min_val:
+        df_normalized[column] = (df[column] - min_val) / (max_val - min_val)
+    return df_normalized
+
+def clean_dataframe(df, missing_strategy='remove', outlier_strategy='cap'):
+    """
+    Apply comprehensive cleaning pipeline to DataFrame.
+    """
+    df_clean = df.copy()
+    
+    # Handle missing values
+    if missing_strategy == 'remove':
+        df_clean = remove_missing_rows(df_clean)
+    elif missing_strategy == 'mean':
+        numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
+        df_clean = fill_missing_with_mean(df_clean, numeric_cols)
+    
+    # Handle outliers for numeric columns
+    if outlier_strategy == 'cap':
+        numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            df_clean = cap_outliers(df_clean, col)
+    
+    return df_clean
