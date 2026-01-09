@@ -130,3 +130,72 @@ def clean_dataset(df, missing_strategy='mean', outlier_method='iqr', normalize=F
         df_clean = normalize_data(df_clean)
     
     return df_clean
+import re
+import pandas as pd
+from typing import List, Optional, Union
+
+def remove_duplicates(df: pd.DataFrame, subset: Optional[List[str]] = None) -> pd.DataFrame:
+    """
+    Remove duplicate rows from a DataFrame.
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def standardize_strings(df: pd.DataFrame, columns: Union[str, List[str]]) -> pd.DataFrame:
+    """
+    Standardize strings in specified columns: strip whitespace and convert to lowercase.
+    """
+    df_copy = df.copy()
+    if isinstance(columns, str):
+        columns = [columns]
+    for col in columns:
+        if col in df_copy.columns:
+            df_copy[col] = df_copy[col].astype(str).str.strip().str.lower()
+    return df_copy
+
+def validate_email_column(df: pd.DataFrame, email_column: str) -> pd.Series:
+    """
+    Validate email addresses in a specified column using a regex pattern.
+    Returns a boolean Series indicating valid emails.
+    """
+    if email_column not in df.columns:
+        raise ValueError(f"Column '{email_column}' not found in DataFrame")
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return df[email_column].astype(str).str.match(pattern)
+
+def fill_missing_with_mean(df: pd.DataFrame, numeric_columns: List[str]) -> pd.DataFrame:
+    """
+    Fill missing values in numeric columns with the column mean.
+    """
+    df_copy = df.copy()
+    for col in numeric_columns:
+        if col in df_copy.columns and pd.api.types.is_numeric_dtype(df_copy[col]):
+            df_copy[col] = df_copy[col].fillna(df_copy[col].mean())
+    return df_copy
+
+def clean_column_names(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Clean column names: lowercase, replace spaces with underscores, remove special characters.
+    """
+    df_copy = df.copy()
+    new_columns = []
+    for col in df_copy.columns:
+        new_col = str(col).lower().strip()
+        new_col = re.sub(r'[^\w\s]', '', new_col)
+        new_col = re.sub(r'\s+', '_', new_col)
+        new_columns.append(new_col)
+    df_copy.columns = new_columns
+    return df_copy
+
+def get_data_summary(df: pd.DataFrame) -> dict:
+    """
+    Generate a summary dictionary for the DataFrame.
+    """
+    summary = {
+        'shape': df.shape,
+        'columns': list(df.columns),
+        'dtypes': df.dtypes.to_dict(),
+        'missing_values': df.isnull().sum().to_dict(),
+        'numeric_columns': df.select_dtypes(include=['number']).columns.tolist(),
+        'categorical_columns': df.select_dtypes(include=['object']).columns.tolist()
+    }
+    return summary
