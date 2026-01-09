@@ -1,36 +1,5 @@
 
-import pandas as pd
 import numpy as np
-
-def remove_outliers_iqr(df, column):
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-
-def normalize_column(df, column):
-    min_val = df[column].min()
-    max_val = df[column].max()
-    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
-    return df
-
-def clean_dataset(file_path):
-    df = pd.read_csv(file_path)
-    
-    numeric_columns = df.select_dtypes(include=[np.number]).columns
-    
-    for col in numeric_columns:
-        df = remove_outliers_iqr(df, col)
-        df = normalize_column(df, col)
-    
-    return df
-
-if __name__ == "__main__":
-    cleaned_data = clean_dataset('raw_data.csv')
-    cleaned_data.to_csv('cleaned_data.csv', index=False)
-    print(f"Data cleaning complete. Original shape: {pd.read_csv('raw_data.csv').shape}, Cleaned shape: {cleaned_data.shape}")import numpy as np
 import pandas as pd
 from scipy import stats
 
@@ -38,135 +7,94 @@ def remove_outliers_iqr(data, column, factor=1.5):
     """
     Remove outliers using IQR method
     """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
     Q1 = data[column].quantile(0.25)
     Q3 = data[column].quantile(0.75)
     IQR = Q3 - Q1
+    
     lower_bound = Q1 - factor * IQR
     upper_bound = Q3 + factor * IQR
-    return data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
 
 def remove_outliers_zscore(data, column, threshold=3):
     """
     Remove outliers using Z-score method
     """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
     z_scores = np.abs(stats.zscore(data[column]))
-    return data[z_scores < threshold]
+    filtered_data = data[z_scores < threshold]
+    return filtered_data
 
 def normalize_minmax(data, column):
     """
     Normalize data using Min-Max scaling
     """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
     min_val = data[column].min()
     max_val = data[column].max()
-    data[column + '_normalized'] = (data[column] - min_val) / (max_val - min_val)
-    return data
+    
+    if max_val == min_val:
+        return data[column].apply(lambda x: 0.5)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
 
 def normalize_zscore(data, column):
     """
     Normalize data using Z-score standardization
     """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
     mean_val = data[column].mean()
     std_val = data[column].std()
-    data[column + '_standardized'] = (data[column] - mean_val) / std_val
-    return data
+    
+    if std_val == 0:
+        return data[column].apply(lambda x: 0)
+    
+    normalized = (data[column] - mean_val) / std_val
+    return normalized
 
-def clean_dataset(df, numeric_columns, method='iqr', normalization='minmax'):
+def clean_dataset(data, numeric_columns, outlier_method='iqr', normalize_method='zscore'):
     """
-    Main cleaning function for datasets
+    Comprehensive data cleaning pipeline
     """
-    cleaned_df = df.copy()
+    cleaned_data = data.copy()
     
-    for col in numeric_columns:
-        if method == 'iqr':
-            cleaned_df = remove_outliers_iqr(cleaned_df, col)
-        elif method == 'zscore':
-            cleaned_df = remove_outliers_zscore(cleaned_df, col)
+    for column in numeric_columns:
+        if column not in cleaned_data.columns:
+            continue
+            
+        if outlier_method == 'iqr':
+            cleaned_data = remove_outliers_iqr(cleaned_data, column)
+        elif outlier_method == 'zscore':
+            cleaned_data = remove_outliers_zscore(cleaned_data, column)
         
-        if normalization == 'minmax':
-            cleaned_df = normalize_minmax(cleaned_df, col)
-        elif normalization == 'zscore':
-            cleaned_df = normalize_zscore(cleaned_df, col)
+        if normalize_method == 'minmax':
+            cleaned_data[column] = normalize_minmax(cleaned_data, column)
+        elif normalize_method == 'zscore':
+            cleaned_data[column] = normalize_zscore(cleaned_data, column)
     
-    return cleaned_df
+    return cleaned_data
 
-def validate_data(df, required_columns, numeric_threshold=0.8):
+def validate_data(data, required_columns, numeric_columns):
     """
-    Validate dataset structure and quality
+    Validate dataset structure and content
     """
-    validation_results = {}
+    missing_columns = [col for col in required_columns if col not in data.columns]
+    if missing_columns:
+        raise ValueError(f"Missing required columns: {missing_columns}")
     
-    # Check required columns
-    missing_columns = [col for col in required_columns if col not in df.columns]
-    validation_results['missing_columns'] = missing_columns
+    for column in numeric_columns:
+        if column in data.columns and not pd.api.types.is_numeric_dtype(data[column]):
+            raise ValueError(f"Column '{column}' must be numeric")
     
-    # Check for null values
-    null_counts = df.isnull().sum()
-    validation_results['null_counts'] = null_counts[null_counts > 0].to_dict()
-    
-    # Check numeric columns ratio
-    numeric_cols = df.select_dtypes(include=[np.number]).columns
-    numeric_ratio = len(numeric_cols) / len(df.columns)
-    validation_results['numeric_ratio'] = numeric_ratio
-    validation_results['numeric_sufficient'] = numeric_ratio >= numeric_threshold
-    
-    return validation_results
-import pandas as pd
-import numpy as np
-from typing import Optional, List
-
-class DataCleaner:
-    def __init__(self, df: pd.DataFrame):
-        self.df = df.copy()
-        self.original_shape = df.shape
-        
-    def remove_duplicates(self, subset: Optional[List[str]] = None) -> 'DataCleaner':
-        self.df = self.df.drop_duplicates(subset=subset, keep='first')
-        return self
-        
-    def handle_missing_values(self, strategy: str = 'drop', fill_value: Optional[float] = None) -> 'DataCleaner':
-        if strategy == 'drop':
-            self.df = self.df.dropna()
-        elif strategy == 'fill':
-            if fill_value is not None:
-                self.df = self.df.fillna(fill_value)
-            else:
-                self.df = self.df.fillna(self.df.mean(numeric_only=True))
-        return self
-        
-    def normalize_column(self, column: str) -> 'DataCleaner':
-        if column in self.df.columns and pd.api.types.is_numeric_dtype(self.df[column]):
-            col_min = self.df[column].min()
-            col_max = self.df[column].max()
-            if col_max != col_min:
-                self.df[column] = (self.df[column] - col_min) / (col_max - col_min)
-        return self
-        
-    def get_cleaned_data(self) -> pd.DataFrame:
-        return self.df
-        
-    def get_cleaning_report(self) -> dict:
-        return {
-            'original_rows': self.original_shape[0],
-            'original_columns': self.original_shape[1],
-            'cleaned_rows': self.df.shape[0],
-            'cleaned_columns': self.df.shape[1],
-            'rows_removed': self.original_shape[0] - self.df.shape[0],
-            'columns_removed': self.original_shape[1] - self.df.shape[1]
-        }
-
-def clean_dataset(df: pd.DataFrame, 
-                  remove_dups: bool = True,
-                  handle_nulls: str = 'drop',
-                  normalize_cols: Optional[List[str]] = None) -> pd.DataFrame:
-    cleaner = DataCleaner(df)
-    
-    if remove_dups:
-        cleaner.remove_duplicates()
-    
-    cleaner.handle_missing_values(strategy=handle_nulls)
-    
-    if normalize_cols:
-        for col in normalize_cols:
-            cleaner.normalize_column(col)
-    
-    return cleaner.get_cleaned_data()
+    return True
