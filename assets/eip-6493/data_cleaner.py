@@ -105,3 +105,52 @@ if __name__ == "__main__":
     normalized = normalize_data(cleaned, method='minmax')
     print("\nNormalized dataset:")
     print(normalized)
+import pandas as pd
+import numpy as np
+
+def clean_csv_data(input_file, output_file):
+    """
+    Load a CSV file, handle missing values, and save cleaned data.
+    """
+    try:
+        df = pd.read_csv(input_file)
+        
+        print(f"Original data shape: {df.shape}")
+        print(f"Missing values per column:\n{df.isnull().sum()}")
+        
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        categorical_cols = df.select_dtypes(exclude=[np.number]).columns
+        
+        for col in numeric_cols:
+            if df[col].isnull().any():
+                df[col].fillna(df[col].median(), inplace=True)
+        
+        for col in categorical_cols:
+            if df[col].isnull().any():
+                df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else 'Unknown', inplace=True)
+        
+        df.drop_duplicates(inplace=True)
+        
+        df.to_csv(output_file, index=False)
+        
+        print(f"Cleaned data shape: {df.shape}")
+        print(f"Cleaned data saved to: {output_file}")
+        return True
+        
+    except FileNotFoundError:
+        print(f"Error: Input file '{input_file}' not found.")
+        return False
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return False
+
+if __name__ == "__main__":
+    input_csv = "raw_data.csv"
+    output_csv = "cleaned_data.csv"
+    
+    success = clean_csv_data(input_csv, output_csv)
+    
+    if success:
+        print("Data cleaning completed successfully.")
+    else:
+        print("Data cleaning failed.")
