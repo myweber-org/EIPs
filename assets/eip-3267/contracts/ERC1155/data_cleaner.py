@@ -1,186 +1,62 @@
-
-import numpy as np
 import pandas as pd
-from scipy import stats
+import numpy as np
 
-def remove_outliers_iqr(data, column, factor=1.5):
+def clean_csv_data(file_path, strategy='mean', columns=None):
     """
-    Remove outliers using the Interquartile Range method.
+    Clean a CSV file by handling missing values.
     
     Args:
-        data: pandas DataFrame
-        column: column name to process
-        factor: IQR multiplier (default 1.5)
+        file_path (str): Path to the CSV file.
+        strategy (str): Strategy for filling missing values.
+                        Options: 'mean', 'median', 'mode', 'drop'.
+        columns (list): Specific columns to clean. If None, clean all columns.
     
     Returns:
-        DataFrame with outliers removed
+        pd.DataFrame: Cleaned DataFrame.
     """
-    if column not in data.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    try:
+        df = pd.read_csv(file_path)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found: {file_path}")
     
-    q1 = data[column].quantile(0.25)
-    q3 = data[column].quantile(0.75)
-    iqr = q3 - q1
-    lower_bound = q1 - factor * iqr
-    upper_bound = q3 + factor * iqr
+    if columns is None:
+        columns = df.columns
     
-    return data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
-
-def remove_outliers_zscore(data, column, threshold=3):
-    """
-    Remove outliers using Z-score method.
-    
-    Args:
-        data: pandas DataFrame
-        column: column name to process
-        threshold: Z-score threshold (default 3)
-    
-    Returns:
-        DataFrame with outliers removed
-    """
-    if column not in data.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    z_scores = np.abs(stats.zscore(data[column].dropna()))
-    mask = z_scores < threshold
-    return data[mask]
-
-def normalize_minmax(data, column):
-    """
-    Normalize data using Min-Max scaling.
-    
-    Args:
-        data: pandas DataFrame or Series
-        column: column name to normalize
-    
-    Returns:
-        Normalized data
-    """
-    if isinstance(data, pd.DataFrame):
-        if column not in data.columns:
-            raise ValueError(f"Column '{column}' not found in DataFrame")
-        col_data = data[column]
-    else:
-        col_data = data
-    
-    min_val = col_data.min()
-    max_val = col_data.max()
-    
-    if max_val == min_val:
-        return col_data
-    
-    return (col_data - min_val) / (max_val - min_val)
-
-def normalize_zscore(data, column):
-    """
-    Normalize data using Z-score standardization.
-    
-    Args:
-        data: pandas DataFrame or Series
-        column: column name to normalize
-    
-    Returns:
-        Standardized data
-    """
-    if isinstance(data, pd.DataFrame):
-        if column not in data.columns:
-            raise ValueError(f"Column '{column}' not found in DataFrame")
-        col_data = data[column]
-    else:
-        col_data = data
-    
-    mean_val = col_data.mean()
-    std_val = col_data.std()
-    
-    if std_val == 0:
-        return col_data
-    
-    return (col_data - mean_val) / std_val
-
-def clean_dataset(df, numeric_columns=None, outlier_method='iqr', normalize_method='minmax'):
-    """
-    Clean dataset by removing outliers and normalizing numeric columns.
-    
-    Args:
-        df: pandas DataFrame
-        numeric_columns: list of numeric column names (default: all numeric columns)
-        outlier_method: 'iqr', 'zscore', or None
-        normalize_method: 'minmax', 'zscore', or None
-    
-    Returns:
-        Cleaned DataFrame
-    """
-    df_clean = df.copy()
-    
-    if numeric_columns is None:
-        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
-    
-    for column in numeric_columns:
-        if column not in df.columns:
+    for col in columns:
+        if col not in df.columns:
             continue
-            
-        # Remove outliers
-        if outlier_method == 'iqr':
-            df_clean = remove_outliers_iqr(df_clean, column)
-        elif outlier_method == 'zscore':
-            df_clean = remove_outliers_zscore(df_clean, column)
         
-        # Normalize data
-        if normalize_method == 'minmax':
-            df_clean[column] = normalize_minmax(df_clean, column)
-        elif normalize_method == 'zscore':
-            df_clean[column] = normalize_zscore(df_clean, column)
+        if df[col].isnull().any():
+            if strategy == 'mean' and np.issubdtype(df[col].dtype, np.number):
+                df[col].fillna(df[col].mean(), inplace=True)
+            elif strategy == 'median' and np.issubdtype(df[col].dtype, np.number):
+                df[col].fillna(df[col].median(), inplace=True)
+            elif strategy == 'mode':
+                df[col].fillna(df[col].mode()[0], inplace=True)
+            elif strategy == 'drop':
+                df.dropna(subset=[col], inplace=True)
+            else:
+                raise ValueError(f"Invalid strategy or column type for column: {col}")
     
-    return df_clean
+    return df
 
-def get_summary_statistics(df):
+def save_cleaned_data(df, output_path):
     """
-    Get comprehensive summary statistics for numeric columns.
+    Save cleaned DataFrame to a new CSV file.
     
     Args:
-        df: pandas DataFrame
-    
-    Returns:
-        Dictionary with summary statistics
+        df (pd.DataFrame): Cleaned DataFrame.
+        output_path (str): Path to save the cleaned CSV file.
     """
-    numeric_cols = df.select_dtypes(include=[np.number]).columns
-    
-    summary = {}
-    for col in numeric_cols:
-        summary[col] = {
-            'mean': df[col].mean(),
-            'median': df[col].median(),
-            'std': df[col].std(),
-            'min': df[col].min(),
-            'max': df[col].max(),
-            'q1': df[col].quantile(0.25),
-            'q3': df[col].quantile(0.75),
-            'iqr': df[col].quantile(0.75) - df[col].quantile(0.25),
-            'skewness': df[col].skew(),
-            'kurtosis': df[col].kurtosis(),
-            'missing': df[col].isnull().sum(),
-            'zeros': (df[col] == 0).sum()
-        }
-    
-    return summary
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to: {output_path}")
 
-def detect_skewed_columns(df, threshold=0.5):
-    """
-    Detect columns with skewed distributions.
+if __name__ == "__main__":
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
     
-    Args:
-        df: pandas DataFrame
-        threshold: absolute skewness threshold (default 0.5)
-    
-    Returns:
-        List of skewed column names
-    """
-    numeric_cols = df.select_dtypes(include=[np.number]).columns
-    skewed_cols = []
-    
-    for col in numeric_cols:
-        skewness = df[col].skew()
-        if abs(skewness) > threshold:
-            skewed_cols.append((col, skewness))
-    
-    return sorted(skewed_cols, key=lambda x: abs(x[1]), reverse=True)
+    try:
+        cleaned_df = clean_csv_data(input_file, strategy='mean')
+        save_cleaned_data(cleaned_df, output_file)
+    except Exception as e:
+        print(f"Error during data cleaning: {e}")
