@@ -1,62 +1,70 @@
-import pandas as pd
-import numpy as np
 
-def clean_csv_data(file_path, strategy='mean', columns=None):
+import pandas as pd
+
+def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
     """
-    Clean a CSV file by handling missing values.
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
     
-    Args:
-        file_path (str): Path to the CSV file.
-        strategy (str): Strategy for filling missing values.
-                        Options: 'mean', 'median', 'mode', 'drop'.
-        columns (list): Specific columns to clean. If None, clean all columns.
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean
+    drop_duplicates (bool): Whether to drop duplicate rows
+    fill_missing (str): Method to fill missing values - 'mean', 'median', or 'drop'
     
     Returns:
-        pd.DataFrame: Cleaned DataFrame.
+    pd.DataFrame: Cleaned DataFrame
     """
-    try:
-        df = pd.read_csv(file_path)
-    except FileNotFoundError:
-        raise FileNotFoundError(f"File not found: {file_path}")
+    cleaned_df = df.copy()
     
-    if columns is None:
-        columns = df.columns
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
     
-    for col in columns:
-        if col not in df.columns:
-            continue
-        
-        if df[col].isnull().any():
-            if strategy == 'mean' and np.issubdtype(df[col].dtype, np.number):
-                df[col].fillna(df[col].mean(), inplace=True)
-            elif strategy == 'median' and np.issubdtype(df[col].dtype, np.number):
-                df[col].fillna(df[col].median(), inplace=True)
-            elif strategy == 'mode':
-                df[col].fillna(df[col].mode()[0], inplace=True)
-            elif strategy == 'drop':
-                df.dropna(subset=[col], inplace=True)
+    if fill_missing == 'drop':
+        cleaned_df = cleaned_df.dropna()
+    elif fill_missing in ['mean', 'median']:
+        numeric_cols = cleaned_df.select_dtypes(include=['number']).columns
+        for col in numeric_cols:
+            if fill_missing == 'mean':
+                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mean())
             else:
-                raise ValueError(f"Invalid strategy or column type for column: {col}")
+                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].median())
     
-    return df
+    return cleaned_df
 
-def save_cleaned_data(df, output_path):
+def validate_data(df, required_columns=None):
     """
-    Save cleaned DataFrame to a new CSV file.
+    Validate that DataFrame meets basic requirements.
     
-    Args:
-        df (pd.DataFrame): Cleaned DataFrame.
-        output_path (str): Path to save the cleaned CSV file.
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of required column names
+    
+    Returns:
+    bool: True if validation passes, False otherwise
     """
-    df.to_csv(output_path, index=False)
-    print(f"Cleaned data saved to: {output_path}")
+    if df.empty:
+        return False
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            return False
+    
+    return True
 
 if __name__ == "__main__":
-    input_file = "raw_data.csv"
-    output_file = "cleaned_data.csv"
+    sample_data = {
+        'A': [1, 2, 2, 3, None],
+        'B': [4, None, 6, 7, 8],
+        'C': ['x', 'y', 'y', 'z', 'z']
+    }
     
-    try:
-        cleaned_df = clean_csv_data(input_file, strategy='mean')
-        save_cleaned_data(cleaned_df, output_file)
-    except Exception as e:
-        print(f"Error during data cleaning: {e}")
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned = clean_dataset(df, drop_duplicates=True, fill_missing='mean')
+    print("\nCleaned DataFrame:")
+    print(cleaned)
+    
+    is_valid = validate_data(cleaned, required_columns=['A', 'B', 'C'])
+    print(f"\nData validation result: {is_valid}")
