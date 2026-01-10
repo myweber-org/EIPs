@@ -180,3 +180,97 @@ def clean_dataset(file_path, output_path):
 if __name__ == "__main__":
     cleaned_df = clean_dataset('raw_data.csv', 'cleaned_data.csv')
     print(f"Data cleaning complete. Shape: {cleaned_df.shape}")
+import pandas as pd
+import re
+
+def clean_dataframe(df, column_mapping=None, drop_duplicates=True, normalize_text=True):
+    """
+    Clean a pandas DataFrame by removing duplicates and normalizing text columns.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean
+        column_mapping (dict, optional): Dictionary mapping old column names to new ones
+        drop_duplicates (bool): Whether to remove duplicate rows
+        normalize_text (bool): Whether to normalize text columns (strip, lower case)
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    if column_mapping:
+        cleaned_df = cleaned_df.rename(columns=column_mapping)
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates().reset_index(drop=True)
+    
+    if normalize_text:
+        for col in cleaned_df.select_dtypes(include=['object']).columns:
+            cleaned_df[col] = cleaned_df[col].astype(str).str.strip().str.lower()
+    
+    return cleaned_df
+
+def remove_special_characters(text, keep_pattern=r'[a-zA-Z0-9\s]'):
+    """
+    Remove special characters from text, keeping only alphanumeric and spaces by default.
+    
+    Args:
+        text (str): Input text
+        keep_pattern (str): Regex pattern of characters to keep
+    
+    Returns:
+        str: Cleaned text
+    """
+    if pd.isna(text):
+        return text
+    
+    text = str(text)
+    return re.sub(f'[^{keep_pattern}]', '', text)
+
+def validate_email(email):
+    """
+    Validate email format using regex pattern.
+    
+    Args:
+        email (str): Email address to validate
+    
+    Returns:
+        bool: True if email format is valid
+    """
+    if pd.isna(email):
+        return False
+    
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, str(email).strip()))
+
+def standardize_dates(date_series, date_format='%Y-%m-%d'):
+    """
+    Standardize date series to a consistent format.
+    
+    Args:
+        date_series (pd.Series): Series containing date strings
+        date_format (str): Target date format
+    
+    Returns:
+        pd.Series: Standardized date series
+    """
+    try:
+        return pd.to_datetime(date_series, errors='coerce').dt.strftime(date_format)
+    except Exception:
+        return date_series
+
+if __name__ == "__main__":
+    sample_data = {
+        'Name': ['  John Doe  ', 'Jane Smith', 'John Doe', 'Bob@Example'],
+        'Email': ['john@example.com', 'invalid-email', 'JOHN@EXAMPLE.COM', 'bob@test.org'],
+        'Date': ['2023-01-01', '01/15/2023', '2023.02.28', 'invalid']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nCleaned DataFrame:")
+    cleaned = clean_dataframe(df, {'Name': 'full_name'}, drop_duplicates=True, normalize_text=True)
+    cleaned['Email'] = cleaned['Email'].apply(lambda x: x if validate_email(x) else 'INVALID')
+    cleaned['Date'] = standardize_dates(cleaned['Date'])
+    print(cleaned)
