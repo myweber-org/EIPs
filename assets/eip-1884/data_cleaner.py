@@ -145,4 +145,68 @@ def main():
     print(f"Validation: {is_valid} - {message}")
 
 if __name__ == "__main__":
-    main()
+    main()import pandas as pd
+import numpy as np
+
+def clean_dataset(df):
+    """
+    Cleans a pandas DataFrame by removing duplicates,
+    standardizing column names, and filling missing values.
+    """
+    # Create a copy to avoid modifying the original
+    df_clean = df.copy()
+
+    # Standardize column names: lower case, replace spaces with underscores
+    df_clean.columns = df_clean.columns.str.lower().str.replace(' ', '_')
+
+    # Remove duplicate rows
+    df_clean = df_clean.drop_duplicates()
+
+    # Fill missing numeric values with column median
+    numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        df_clean[col] = df_clean[col].fillna(df_clean[col].median())
+
+    # Fill missing categorical values with mode
+    categorical_cols = df_clean.select_dtypes(include=['object']).columns
+    for col in categorical_cols:
+        df_clean[col] = df_clean[col].fillna(df_clean[col].mode()[0] if not df_clean[col].mode().empty else 'unknown')
+
+    # Reset index after cleaning
+    df_clean = df_clean.reset_index(drop=True)
+
+    return df_clean
+
+def validate_data(df, required_columns):
+    """
+    Validates that the DataFrame contains all required columns.
+    Returns True if valid, False otherwise.
+    """
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        print(f"Missing required columns: {missing_columns}")
+        return False
+    return True
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'Customer ID': [1, 2, 2, 3, 4],
+        'Order Value': [100.0, 200.0, 200.0, np.nan, 400.0],
+        'Product Category': ['A', 'B', 'B', None, 'C'],
+        'Region': ['North', 'South', 'South', 'East', 'West']
+    }
+
+    df_raw = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df_raw)
+    print("\n")
+
+    df_cleaned = clean_dataset(df_raw)
+    print("Cleaned DataFrame:")
+    print(df_cleaned)
+    print("\n")
+
+    required_cols = ['customer_id', 'order_value', 'product_category']
+    is_valid = validate_data(df_cleaned, required_cols)
+    print(f"Data validation result: {is_valid}")
