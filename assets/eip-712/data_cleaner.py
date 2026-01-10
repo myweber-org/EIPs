@@ -146,3 +146,58 @@ def clean_dataset(data, numeric_columns=None, outlier_threshold=1.5,
                 raise ValueError(f"Unknown normalization method: {normalize_method}")
     
     return cleaned_data
+import pandas as pd
+import numpy as np
+from pathlib import Path
+
+def clean_csv_data(input_path, output_path=None):
+    """
+    Load a CSV file, clean missing values, and save cleaned data.
+    """
+    try:
+        df = pd.read_csv(input_path)
+        print(f"Original shape: {df.shape}")
+        
+        # Remove duplicate rows
+        df = df.drop_duplicates()
+        print(f"After removing duplicates: {df.shape}")
+        
+        # Fill numeric missing values with median
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            if df[col].isnull().any():
+                median_val = df[col].median()
+                df[col] = df[col].fillna(median_val)
+                print(f"Filled missing values in {col} with median: {median_val}")
+        
+        # Fill categorical missing values with mode
+        categorical_cols = df.select_dtypes(include=['object']).columns
+        for col in categorical_cols:
+            if df[col].isnull().any():
+                mode_val = df[col].mode()[0] if not df[col].mode().empty else 'Unknown'
+                df[col] = df[col].fillna(mode_val)
+                print(f"Filled missing values in {col} with mode: {mode_val}")
+        
+        # Generate output filename if not provided
+        if output_path is None:
+            input_file = Path(input_path)
+            output_path = input_file.parent / f"cleaned_{input_file.name}"
+        
+        # Save cleaned data
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to: {output_path}")
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: File not found at {input_path}")
+        return None
+    except pd.errors.EmptyDataError:
+        print(f"Error: File {input_path} is empty")
+        return None
+    except Exception as e:
+        print(f"Error during processing: {str(e)}")
+        return None
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = clean_csv_data("sample_data.csv", "cleaned_sample.csv")
