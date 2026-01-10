@@ -156,4 +156,163 @@ if __name__ == "__main__":
     print(cleaned)
     
     is_valid, message = validate_data(cleaned, required_columns=['A', 'B'])
-    print(f"\nValidation: {is_valid} - {message}")
+    print(f"\nValidation: {is_valid} - {message}")import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(data, column, factor=1.5):
+    """
+    Remove outliers using the Interquartile Range method.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to process
+        factor: IQR multiplier (default 1.5)
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - factor * iqr
+    upper_bound = q3 + factor * iqr
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data.copy()
+
+def normalize_minmax(data, column):
+    """
+    Normalize data to [0, 1] range using min-max scaling.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to normalize
+    
+    Returns:
+        Series with normalized values
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return pd.Series([0.5] * len(data), index=data.index)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def standardize_zscore(data, column):
+    """
+    Standardize data using z-score normalization.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to standardize
+    
+    Returns:
+        Series with standardized values
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return pd.Series([0] * len(data), index=data.index)
+    
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
+
+def clean_dataset(data, numeric_columns=None, outlier_factor=1.5):
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Args:
+        data: pandas DataFrame
+        numeric_columns: list of numeric columns to process (default: all numeric)
+        outlier_factor: IQR factor for outlier removal
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    cleaned_data = data.copy()
+    
+    if numeric_columns is None:
+        numeric_columns = cleaned_data.select_dtypes(include=[np.number]).columns.tolist()
+    
+    for column in numeric_columns:
+        if column in cleaned_data.columns:
+            cleaned_data = remove_outliers_iqr(cleaned_data, column, outlier_factor)
+    
+    return cleaned_data
+
+def create_cleaning_report(data, cleaned_data, numeric_columns=None):
+    """
+    Generate a report comparing original and cleaned data.
+    
+    Args:
+        data: original DataFrame
+        cleaned_data: cleaned DataFrame
+        numeric_columns: columns to include in report
+    
+    Returns:
+        Dictionary with cleaning statistics
+    """
+    if numeric_columns is None:
+        numeric_columns = data.select_dtypes(include=[np.number]).columns.tolist()
+    
+    report = {
+        'original_rows': len(data),
+        'cleaned_rows': len(cleaned_data),
+        'rows_removed': len(data) - len(cleaned_data),
+        'removal_percentage': (len(data) - len(cleaned_data)) / len(data) * 100,
+        'column_stats': {}
+    }
+    
+    for column in numeric_columns:
+        if column in data.columns and column in cleaned_data.columns:
+            report['column_stats'][column] = {
+                'original_mean': data[column].mean(),
+                'cleaned_mean': cleaned_data[column].mean(),
+                'original_std': data[column].std(),
+                'cleaned_std': cleaned_data[column].std(),
+                'original_min': data[column].min(),
+                'cleaned_min': cleaned_data[column].min(),
+                'original_max': data[column].max(),
+                'cleaned_max': cleaned_data[column].max()
+            }
+    
+    return report
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'feature1': np.random.normal(100, 15, 1000),
+        'feature2': np.random.exponential(50, 1000),
+        'category': np.random.choice(['A', 'B', 'C'], 1000)
+    })
+    
+    sample_data.loc[np.random.choice(1000, 50), 'feature1'] = 500
+    
+    print("Original data shape:", sample_data.shape)
+    
+    cleaned = clean_dataset(sample_data, outlier_factor=1.5)
+    print("Cleaned data shape:", cleaned.shape)
+    
+    report = create_cleaning_report(sample_data, cleaned)
+    print(f"Rows removed: {report['rows_removed']} ({report['removal_percentage']:.2f}%)")
+    
+    normalized_feature1 = normalize_minmax(cleaned, 'feature1')
+    standardized_feature2 = standardize_zscore(cleaned, 'feature2')
+    
+    print("\nNormalized feature1 stats:")
+    print(f"Min: {normalized_feature1.min():.4f}, Max: {normalized_feature1.max():.4f}")
+    
+    print("\nStandardized feature2 stats:")
+    print(f"Mean: {standardized_feature2.mean():.4f}, Std: {standardized_feature2.std():.4f}")
