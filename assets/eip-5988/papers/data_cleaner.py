@@ -1,41 +1,40 @@
 
 import pandas as pd
 
-def remove_duplicates(df, subset=None, keep='first'):
+def remove_duplicates(dataframe, subset=None, keep='first'):
     """
-    Remove duplicate rows from a DataFrame.
+    Remove duplicate rows from a pandas DataFrame.
     
     Args:
-        df (pd.DataFrame): Input DataFrame
-        subset (list, optional): Columns to consider for duplicates
+        dataframe (pd.DataFrame): Input DataFrame
+        subset (list, optional): Column labels to consider for duplicates
         keep (str, optional): Which duplicates to keep ('first', 'last', False)
     
     Returns:
         pd.DataFrame: DataFrame with duplicates removed
     """
-    if df.empty:
-        return df
+    if not isinstance(dataframe, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
     
-    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+    cleaned_df = dataframe.drop_duplicates(subset=subset, keep=keep)
     
-    removed_count = len(df) - len(cleaned_df)
-    if removed_count > 0:
-        print(f"Removed {removed_count} duplicate rows")
+    removed_count = len(dataframe) - len(cleaned_df)
+    print(f"Removed {removed_count} duplicate rows")
     
     return cleaned_df
 
-def clean_numeric_columns(df, columns):
+def clean_numeric_columns(dataframe, columns):
     """
-    Clean numeric columns by converting to appropriate types.
+    Clean numeric columns by converting to appropriate dtype and handling errors.
     
     Args:
-        df (pd.DataFrame): Input DataFrame
+        dataframe (pd.DataFrame): Input DataFrame
         columns (list): List of column names to clean
     
     Returns:
         pd.DataFrame: DataFrame with cleaned numeric columns
     """
-    cleaned_df = df.copy()
+    cleaned_df = dataframe.copy()
     
     for col in columns:
         if col in cleaned_df.columns:
@@ -43,51 +42,48 @@ def clean_numeric_columns(df, columns):
     
     return cleaned_df
 
-def validate_dataframe(df, required_columns=None):
+def validate_dataframe(dataframe, required_columns=None):
     """
     Validate DataFrame structure and content.
     
     Args:
-        df (pd.DataFrame): DataFrame to validate
-        required_columns (list, optional): Required column names
+        dataframe (pd.DataFrame): DataFrame to validate
+        required_columns (list, optional): List of required column names
     
     Returns:
         bool: True if validation passes, False otherwise
     """
-    if df is None:
-        print("DataFrame is None")
+    if not isinstance(dataframe, pd.DataFrame):
         return False
     
-    if df.empty:
-        print("DataFrame is empty")
+    if dataframe.empty:
+        print("Warning: DataFrame is empty")
         return False
     
     if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
+        missing_columns = [col for col in required_columns if col not in dataframe.columns]
         if missing_columns:
             print(f"Missing required columns: {missing_columns}")
             return False
     
     return True
 
-def get_data_summary(df):
+def get_data_summary(dataframe):
     """
-    Generate summary statistics for a DataFrame.
+    Generate a summary of the DataFrame.
     
     Args:
-        df (pd.DataFrame): Input DataFrame
+        dataframe (pd.DataFrame): Input DataFrame
     
     Returns:
-        dict: Summary statistics
+        dict: Dictionary containing summary statistics
     """
     summary = {
-        'total_rows': len(df),
-        'total_columns': len(df.columns),
-        'missing_values': df.isnull().sum().sum(),
-        'duplicate_rows': df.duplicated().sum(),
-        'column_types': df.dtypes.to_dict(),
-        'numeric_columns': df.select_dtypes(include=['number']).columns.tolist(),
-        'categorical_columns': df.select_dtypes(include=['object']).columns.tolist()
+        'rows': len(dataframe),
+        'columns': len(dataframe.columns),
+        'missing_values': dataframe.isnull().sum().sum(),
+        'duplicates': dataframe.duplicated().sum(),
+        'dtypes': dataframe.dtypes.to_dict()
     }
     
     return summary
