@@ -60,3 +60,106 @@ def validate_dataframe(df, required_columns=None):
             return False, f"Missing required columns: {missing_columns}"
     
     return True, "DataFrame is valid"
+import numpy as np
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specified column using the Interquartile Range method.
+    
+    Parameters:
+    data (numpy.ndarray): The dataset
+    column (int): Index of the column to clean
+    
+    Returns:
+    numpy.ndarray: Data with outliers removed
+    """
+    if not isinstance(data, np.ndarray):
+        raise TypeError("Input data must be a numpy array")
+    
+    if column >= data.shape[1]:
+        raise IndexError("Column index out of bounds")
+    
+    column_data = data[:, column]
+    
+    Q1 = np.percentile(column_data, 25)
+    Q3 = np.percentile(column_data, 75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    mask = (column_data >= lower_bound) & (column_data <= upper_bound)
+    
+    return data[mask]
+
+def calculate_statistics(data, column):
+    """
+    Calculate basic statistics for a column after outlier removal.
+    
+    Parameters:
+    data (numpy.ndarray): The dataset
+    column (int): Index of the column to analyze
+    
+    Returns:
+    dict: Dictionary containing statistical measures
+    """
+    cleaned_data = remove_outliers_iqr(data, column)
+    column_data = cleaned_data[:, column]
+    
+    stats = {
+        'mean': np.mean(column_data),
+        'median': np.median(column_data),
+        'std': np.std(column_data),
+        'min': np.min(column_data),
+        'max': np.max(column_data),
+        'count': len(column_data)
+    }
+    
+    return stats
+
+def validate_data(data):
+    """
+    Validate input data for cleaning operations.
+    
+    Parameters:
+    data: Input data to validate
+    
+    Returns:
+    bool: True if data is valid, False otherwise
+    """
+    if data is None:
+        return False
+    
+    if not isinstance(data, np.ndarray):
+        return False
+    
+    if data.size == 0:
+        return False
+    
+    if len(data.shape) != 2:
+        return False
+    
+    return True
+
+def example_usage():
+    """
+    Demonstrate how to use the data cleaning functions.
+    """
+    np.random.seed(42)
+    
+    sample_data = np.random.randn(100, 3)
+    sample_data[0, 0] = 10  # Add an outlier
+    
+    print("Original data shape:", sample_data.shape)
+    
+    if validate_data(sample_data):
+        cleaned_data = remove_outliers_iqr(sample_data, 0)
+        print("Cleaned data shape:", cleaned_data.shape)
+        
+        stats = calculate_statistics(sample_data, 0)
+        print("Statistics for column 0:", stats)
+    else:
+        print("Invalid data provided")
+
+if __name__ == "__main__":
+    example_usage()
