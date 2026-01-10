@@ -340,3 +340,72 @@ def validate_data(df, required_columns):
         raise ValueError("DataFrame is empty")
     
     return True
+import pandas as pd
+import re
+
+def clean_dataset(df, column_names):
+    """
+    Clean a pandas DataFrame by removing duplicates and normalizing string columns.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean
+        column_names (list): List of column names to normalize
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    # Remove duplicate rows
+    df_clean = df.drop_duplicates().reset_index(drop=True)
+    
+    # Normalize specified string columns
+    for col in column_names:
+        if col in df_clean.columns and df_clean[col].dtype == 'object':
+            df_clean[col] = df_clean[col].apply(
+                lambda x: re.sub(r'\s+', ' ', str(x).strip().lower()) if pd.notnull(x) else x
+            )
+    
+    return df_clean
+
+def validate_email_column(df, email_column):
+    """
+    Validate email addresses in a specified column.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        email_column (str): Name of the column containing email addresses
+    
+    Returns:
+        pd.DataFrame: DataFrame with valid emails and validation status
+    """
+    if email_column not in df.columns:
+        raise ValueError(f"Column '{email_column}' not found in DataFrame")
+    
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    
+    df['email_valid'] = df[email_column].apply(
+        lambda x: bool(re.match(email_pattern, str(x))) if pd.notnull(x) else False
+    )
+    
+    return df
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'name': ['John Doe', 'Jane Smith', 'John Doe', 'ALICE WONDER'],
+        'email': ['john@example.com', 'jane@test.org', 'invalid-email', 'alice@company.co'],
+        'age': [25, 30, 25, 28]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    
+    # Clean the data
+    cleaned_df = clean_dataset(df, ['name'])
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    
+    # Validate emails
+    validated_df = validate_email_column(cleaned_df, 'email')
+    print("\nDataFrame with email validation:")
+    print(validated_df[['name', 'email', 'email_valid']])
