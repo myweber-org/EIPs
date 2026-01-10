@@ -1,78 +1,93 @@
 
 import pandas as pd
-import numpy as np
 
-class DataCleaner:
-    def __init__(self, df):
-        self.df = df.copy()
-        self.numeric_columns = self.df.select_dtypes(include=[np.number]).columns
-        self.categorical_columns = self.df.select_dtypes(include=['object']).columns
-
-    def handle_missing_values(self, strategy='mean', fill_value=None):
-        if strategy == 'mean':
-            self.df[self.numeric_columns] = self.df[self.numeric_columns].fillna(self.df[self.numeric_columns].mean())
-        elif strategy == 'median':
-            self.df[self.numeric_columns] = self.df[self.numeric_columns].fillna(self.df[self.numeric_columns].median())
-        elif strategy == 'mode':
-            self.df[self.numeric_columns] = self.df[self.numeric_columns].fillna(self.df[self.numeric_columns].mode().iloc[0])
-        elif strategy == 'constant' and fill_value is not None:
-            self.df[self.numeric_columns] = self.df[self.numeric_columns].fillna(fill_value)
-        else:
-            raise ValueError("Invalid strategy or missing fill_value for constant strategy")
-        
-        self.df[self.categorical_columns] = self.df[self.categorical_columns].fillna('Unknown')
-        return self
-
-    def remove_outliers_iqr(self, columns=None, multiplier=1.5):
-        if columns is None:
-            columns = self.numeric_columns
-        
-        for col in columns:
-            if col in self.numeric_columns:
-                Q1 = self.df[col].quantile(0.25)
-                Q3 = self.df[col].quantile(0.75)
-                IQR = Q3 - Q1
-                lower_bound = Q1 - multiplier * IQR
-                upper_bound = Q3 + multiplier * IQR
-                
-                self.df = self.df[(self.df[col] >= lower_bound) & (self.df[col] <= upper_bound)]
-        
-        return self
-
-    def standardize_numeric(self):
-        for col in self.numeric_columns:
-            mean = self.df[col].mean()
-            std = self.df[col].std()
-            if std > 0:
-                self.df[col] = (self.df[col] - mean) / std
-        return self
-
-    def encode_categorical(self, method='onehot'):
-        if method == 'onehot':
-            self.df = pd.get_dummies(self.df, columns=self.categorical_columns, drop_first=True)
-        elif method == 'label':
-            for col in self.categorical_columns:
-                self.df[col] = self.df[col].astype('category').cat.codes
-        else:
-            raise ValueError("Method must be 'onehot' or 'label'")
-        
-        return self
-
-    def get_cleaned_data(self):
-        return self.df
-
-def clean_dataset(df, missing_strategy='mean', outlier_removal=True, standardization=True, encoding='onehot'):
-    cleaner = DataCleaner(df)
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
     
-    cleaner.handle_missing_values(strategy=missing_strategy)
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        subset (list, optional): Columns to consider for duplicates
+        keep (str, optional): Which duplicates to keep ('first', 'last', False)
     
-    if outlier_removal:
-        cleaner.remove_outliers_iqr()
+    Returns:
+        pd.DataFrame: DataFrame with duplicates removed
+    """
+    if df.empty:
+        return df
     
-    if standardization:
-        cleaner.standardize_numeric()
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
     
-    if encoding:
-        cleaner.encode_categorical(method=encoding)
+    removed_count = len(df) - len(cleaned_df)
+    if removed_count > 0:
+        print(f"Removed {removed_count} duplicate rows")
     
-    return cleaner.get_cleaned_data()
+    return cleaned_df
+
+def clean_numeric_columns(df, columns):
+    """
+    Clean numeric columns by converting to appropriate types.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns (list): List of column names to clean
+    
+    Returns:
+        pd.DataFrame: DataFrame with cleaned numeric columns
+    """
+    cleaned_df = df.copy()
+    
+    for col in columns:
+        if col in cleaned_df.columns:
+            cleaned_df[col] = pd.to_numeric(cleaned_df[col], errors='coerce')
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+        required_columns (list, optional): Required column names
+    
+    Returns:
+        bool: True if validation passes, False otherwise
+    """
+    if df is None:
+        print("DataFrame is None")
+        return False
+    
+    if df.empty:
+        print("DataFrame is empty")
+        return False
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            print(f"Missing required columns: {missing_columns}")
+            return False
+    
+    return True
+
+def get_data_summary(df):
+    """
+    Generate summary statistics for a DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+    
+    Returns:
+        dict: Summary statistics
+    """
+    summary = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_values': df.isnull().sum().sum(),
+        'duplicate_rows': df.duplicated().sum(),
+        'column_types': df.dtypes.to_dict(),
+        'numeric_columns': df.select_dtypes(include=['number']).columns.tolist(),
+        'categorical_columns': df.select_dtypes(include=['object']).columns.tolist()
+    }
+    
+    return summary
