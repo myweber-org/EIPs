@@ -245,3 +245,34 @@ def validate_dataframe(df, required_columns=None):
             raise ValueError(f"Missing required columns: {missing_columns}")
     
     return True
+import pandas as pd
+
+def clean_dataframe(df):
+    """
+    Remove rows with any null values and standardize column names.
+    """
+    # Drop rows with any null values
+    df_cleaned = df.dropna()
+    
+    # Standardize column names: strip whitespace and convert to lowercase
+    df_cleaned.columns = df_cleaned.columns.str.strip().str.lower().str.replace(' ', '_')
+    
+    return df_cleaned
+
+def filter_numeric_columns(df):
+    """
+    Return a DataFrame containing only numeric columns.
+    """
+    numeric_df = df.select_dtypes(include=['number'])
+    return numeric_df
+
+def remove_duplicates(df, subset=None):
+    """
+    Remove duplicate rows from the DataFrame.
+    If subset is provided, only consider certain columns for identifying duplicates.
+    """
+    if subset:
+        df_unique = df.drop_duplicates(subset=subset)
+    else:
+        df_unique = df.drop_duplicates()
+    return df_unique
