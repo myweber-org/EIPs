@@ -1,31 +1,44 @@
+
 import pandas as pd
 
-def clean_dataset(df, drop_duplicates=True, fill_missing=False, fill_value=0):
+def clean_dataframe(df, drop_na=True, column_case='lower'):
     """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    Clean a pandas DataFrame by handling null values and standardizing column names.
     
-    Args:
-        df (pd.DataFrame): Input DataFrame to clean.
-        drop_duplicates (bool): Whether to remove duplicate rows.
-        fill_missing (bool): Whether to fill missing values.
-        fill_value: Value to use for filling missing data.
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    drop_na (bool): If True, drop rows with any null values. Default True.
+    column_case (str): Desired case for column names ('lower', 'upper', 'title'). Default 'lower'.
     
     Returns:
-        pd.DataFrame: Cleaned DataFrame.
+    pd.DataFrame: Cleaned DataFrame.
     """
     cleaned_df = df.copy()
     
-    if drop_duplicates:
-        initial_rows = len(cleaned_df)
-        cleaned_df = cleaned_df.drop_duplicates()
-        removed = initial_rows - len(cleaned_df)
-        print(f"Removed {removed} duplicate rows")
+    # Handle null values
+    if drop_na:
+        cleaned_df = cleaned_df.dropna()
+    else:
+        # Fill numeric columns with median, categorical with mode
+        for col in cleaned_df.columns:
+            if pd.api.types.is_numeric_dtype(cleaned_df[col]):
+                cleaned_df[col].fillna(cleaned_df[col].median(), inplace=True)
+            else:
+                cleaned_df[col].fillna(cleaned_df[col].mode()[0] if not cleaned_df[col].mode().empty else 'Unknown', inplace=True)
     
-    if fill_missing:
-        missing_before = cleaned_df.isnull().sum().sum()
-        cleaned_df = cleaned_df.fillna(fill_value)
-        missing_after = cleaned_df.isnull().sum().sum()
-        print(f"Filled {missing_before - missing_after} missing values")
+    # Standardize column names
+    if column_case == 'lower':
+        cleaned_df.columns = cleaned_df.columns.str.lower()
+    elif column_case == 'upper':
+        cleaned_df.columns = cleaned_df.columns.str.upper()
+    elif column_case == 'title':
+        cleaned_df.columns = cleaned_df.columns.str.title()
+    
+    # Remove leading/trailing whitespace from column names
+    cleaned_df.columns = cleaned_df.columns.str.strip()
+    
+    # Replace spaces with underscores in column names
+    cleaned_df.columns = cleaned_df.columns.str.replace(' ', '_')
     
     return cleaned_df
 
@@ -33,65 +46,39 @@ def validate_dataframe(df, required_columns=None):
     """
     Validate DataFrame structure and content.
     
-    Args:
-        df (pd.DataFrame): DataFrame to validate.
-        required_columns (list): List of required column names.
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+    required_columns (list): List of column names that must be present.
     
     Returns:
-        bool: True if validation passes, False otherwise.
+    tuple: (is_valid, message)
     """
-    if not isinstance(df, pd.DataFrame):
-        print("Error: Input is not a pandas DataFrame")
-        return False
-    
     if df.empty:
-        print("Warning: DataFrame is empty")
-        return True
+        return False, "DataFrame is empty"
     
     if required_columns:
-        missing_cols = [col for col in required_columns if col not in df.columns]
-        if missing_cols:
-            print(f"Error: Missing required columns: {missing_cols}")
-            return False
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
     
-    return True
+    # Check for duplicate column names
+    if len(df.columns) != len(set(df.columns)):
+        return False, "Duplicate column names detected"
+    
+    return True, "DataFrame is valid"
 
-def get_data_summary(df):
-    """
-    Generate a summary of the DataFrame.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame.
-    
-    Returns:
-        dict: Summary statistics.
-    """
-    summary = {
-        'rows': len(df),
-        'columns': len(df.columns),
-        'missing_values': df.isnull().sum().sum(),
-        'duplicate_rows': df.duplicated().sum(),
-        'data_types': df.dtypes.to_dict(),
-        'memory_usage': df.memory_usage(deep=True).sum()
-    }
-    return summary
-
-if __name__ == "__main__":
-    # Example usage
-    sample_data = {
-        'id': [1, 2, 2, 3, 4],
-        'value': [10, 20, 20, None, 40],
-        'category': ['A', 'B', 'B', 'C', None]
-    }
-    
-    df = pd.DataFrame(sample_data)
-    print("Original DataFrame:")
-    print(df)
-    print("\nSummary:")
-    print(get_data_summary(df))
-    
-    cleaned = clean_dataset(df, drop_duplicates=True, fill_missing=True)
-    print("\nCleaned DataFrame:")
-    print(cleaned)
-    print("\nCleaned Summary:")
-    print(get_data_summary(cleaned))
+# Example usage (commented out for production)
+# if __name__ == "__main__":
+#     sample_data = {
+#         'Name': ['Alice', 'Bob', None, 'Charlie'],
+#         'Age': [25, None, 35, 28],
+#         'City': ['NYC', 'LA', 'Chicago', None]
+#     }
+#     df = pd.DataFrame(sample_data)
+#     cleaned = clean_dataframe(df, drop_na=False)
+#     print("Original DataFrame:")
+#     print(df)
+#     print("\nCleaned DataFrame:")
+#     print(cleaned)
+#     is_valid, message = validate_dataframe(cleaned)
+#     print(f"\nValidation: {message}")
