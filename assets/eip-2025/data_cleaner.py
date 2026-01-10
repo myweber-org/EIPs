@@ -130,3 +130,11 @@ if __name__ == "__main__":
     result = process_csv_file('test_data.csv', 'cleaned_data.csv')
     print("\nCleaned data preview:")
     print(result.head())
+def remove_duplicates_preserve_order(iterable):
+    seen = set()
+    result = []
+    for item in iterable:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
