@@ -52,4 +52,11 @@ def validate_data(df, required_columns, numeric_columns):
         if col not in df.columns:
             raise ValueError(f"Numeric column {col} not found in dataframe")
     
-    return True
+    return Truedef remove_duplicates_preserve_order(iterable):
+    seen = set()
+    result = []
+    for item in iterable:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
