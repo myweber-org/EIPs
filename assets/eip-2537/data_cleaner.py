@@ -107,3 +107,38 @@ if __name__ == "__main__":
     # Validate the cleaned data
     is_valid = validate_dataframe(cleaned, required_columns=['id', 'value'], min_rows=3)
     print(f"\nData validation passed: {is_valid}")
+import pandas as pd
+import re
+
+def clean_text(text):
+    if pd.isna(text):
+        return ""
+    text = str(text).lower()
+    text = re.sub(r'[^\w\s]', '', text)
+    text = re.sub(r'\s+', ' ', text)
+    return text.strip()
+
+def remove_duplicates(df, column_name):
+    initial_count = len(df)
+    df.drop_duplicates(subset=[column_name], keep='first', inplace=True)
+    final_count = len(df)
+    removed = initial_count - final_count
+    return df, removed
+
+def process_dataframe(input_file, output_file, key_column):
+    df = pd.read_csv(input_file)
+    print(f"Initial rows: {len(df)}")
+    
+    df[key_column] = df[key_column].apply(clean_text)
+    
+    df, duplicates_removed = remove_duplicates(df, key_column)
+    print(f"Removed {duplicates_removed} duplicate entries")
+    
+    df.to_csv(output_file, index=False)
+    print(f"Cleaned data saved to {output_file}")
+    return df
+
+if __name__ == "__main__":
+    input_csv = "raw_data.csv"
+    output_csv = "cleaned_data.csv"
+    result_df = process_dataframe(input_csv, output_csv, "product_name")
