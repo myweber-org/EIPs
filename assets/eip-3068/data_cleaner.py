@@ -97,4 +97,75 @@ def validate_data(data, required_columns, numeric_columns):
         if column in data.columns and not pd.api.types.is_numeric_dtype(data[column]):
             raise ValueError(f"Column '{column}' must be numeric")
     
+    return Trueimport numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+def normalize_minmax(df, column):
+    min_val = df[column].min()
+    max_val = df[column].max()
+    if max_val - min_val == 0:
+        return df[column]
+    return (df[column] - min_val) / (max_val - min_val)
+
+def standardize_zscore(df, column):
+    mean_val = df[column].mean()
+    std_val = df[column].std()
+    if std_val == 0:
+        return df[column]
+    return (df[column] - mean_val) / std_val
+
+def clean_dataset(df, numeric_columns, outlier_removal=True, normalization='standard'):
+    cleaned_df = df.copy()
+    
+    if outlier_removal:
+        for col in numeric_columns:
+            if col in cleaned_df.columns:
+                cleaned_df = remove_outliers_iqr(cleaned_df, col)
+    
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            if normalization == 'minmax':
+                cleaned_df[col] = normalize_minmax(cleaned_df, col)
+            elif normalization == 'standard':
+                cleaned_df[col] = standardize_zscore(cleaned_df, col)
+    
+    return cleaned_df.reset_index(drop=True)
+
+def validate_data(df, required_columns, numeric_columns):
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        raise ValueError(f"Missing required columns: {missing_columns}")
+    
+    for col in numeric_columns:
+        if col in df.columns:
+            if not pd.api.types.is_numeric_dtype(df[col]):
+                raise TypeError(f"Column {col} must be numeric")
+    
     return True
+
+if __name__ == "__main__":
+    sample_data = {
+        'feature1': [1, 2, 3, 4, 100],
+        'feature2': [10, 20, 30, 40, 50],
+        'category': ['A', 'B', 'A', 'B', 'A']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    
+    try:
+        validate_data(df, ['feature1', 'feature2'], ['feature1', 'feature2'])
+        cleaned_df = clean_dataset(df, ['feature1', 'feature2'], outlier_removal=True, normalization='standard')
+        print("\nCleaned DataFrame:")
+        print(cleaned_df)
+    except (ValueError, TypeError) as e:
+        print(f"Data validation failed: {e}")
