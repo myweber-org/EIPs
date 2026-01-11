@@ -565,3 +565,48 @@ def clean_dataset(df, missing_threshold=0.3, outlier_columns=None, standardize_c
         df_clean = standardize_columns(df_clean, standardize_columns_list)
     
     return df_clean
+import pandas as pd
+
+def clean_dataframe(df):
+    """
+    Clean a pandas DataFrame by removing rows with null values
+    and standardizing column names to lowercase with underscores.
+    """
+    # Remove rows with any null values
+    df_cleaned = df.dropna()
+    
+    # Standardize column names
+    df_cleaned.columns = (
+        df_cleaned.columns
+        .str.lower()
+        .str.replace(' ', '_')
+        .str.replace('-', '_')
+    )
+    
+    return df_cleaned
+
+def save_cleaned_data(df, output_path):
+    """
+    Save the cleaned DataFrame to a CSV file.
+    """
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to: {output_path}")
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'Product Name': ['Widget A', 'Widget B', None, 'Widget C'],
+        'Price-USD': [10.5, 20.0, 15.0, 25.5],
+        'In Stock': [True, False, True, None]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nCleaned DataFrame:")
+    
+    cleaned_df = clean_dataframe(df)
+    print(cleaned_df)
+    
+    # Save to file (commented out for example)
+    # save_cleaned_data(cleaned_df, 'cleaned_products.csv')
