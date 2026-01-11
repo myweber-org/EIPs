@@ -466,3 +466,102 @@ if __name__ == "__main__":
         # Validate the cleaned data
         validation = validate_dataframe(cleaned_df, required_columns=['id', 'value', 'category'])
         print(f"Validation result: {validation}")
+import pandas as pd
+import numpy as np
+
+def remove_missing_rows(df, threshold=0.5):
+    """
+    Remove rows with missing values exceeding the threshold percentage.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        threshold (float): Maximum allowed missing percentage per row (0-1)
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    missing_percent = df.isnull().mean(axis=1)
+    return df[missing_percent <= threshold].copy()
+
+def replace_outliers_iqr(df, columns, multiplier=1.5):
+    """
+    Replace outliers with column boundaries using IQR method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns (list): List of column names to process
+        multiplier (float): IQR multiplier for outlier detection
+    
+    Returns:
+        pd.DataFrame: DataFrame with outliers replaced
+    """
+    df_clean = df.copy()
+    
+    for col in columns:
+        if col not in df_clean.columns:
+            continue
+            
+        Q1 = df_clean[col].quantile(0.25)
+        Q3 = df_clean[col].quantile(0.75)
+        IQR = Q3 - Q1
+        
+        lower_bound = Q1 - multiplier * IQR
+        upper_bound = Q3 + multiplier * IQR
+        
+        df_clean[col] = np.where(df_clean[col] < lower_bound, lower_bound, df_clean[col])
+        df_clean[col] = np.where(df_clean[col] > upper_bound, upper_bound, df_clean[col])
+    
+    return df_clean
+
+def standardize_columns(df, columns):
+    """
+    Standardize specified columns to have zero mean and unit variance.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns (list): List of column names to standardize
+    
+    Returns:
+        pd.DataFrame: DataFrame with standardized columns
+    """
+    df_std = df.copy()
+    
+    for col in columns:
+        if col not in df_std.columns:
+            continue
+            
+        mean_val = df_std[col].mean()
+        std_val = df_std[col].std()
+        
+        if std_val > 0:
+            df_std[col] = (df_std[col] - mean_val) / std_val
+    
+    return df_std
+
+def clean_dataset(df, missing_threshold=0.3, outlier_columns=None, standardize_columns_list=None):
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        missing_threshold (float): Threshold for removing rows with missing values
+        outlier_columns (list): Columns to process for outliers
+        standardize_columns_list (list): Columns to standardize
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    if outlier_columns is None:
+        outlier_columns = []
+    if standardize_columns_list is None:
+        standardize_columns_list = []
+    
+    df_clean = remove_missing_rows(df, threshold=missing_threshold)
+    
+    if outlier_columns:
+        df_clean = replace_outliers_iqr(df_clean, outlier_columns)
+    
+    if standardize_columns_list:
+        df_clean = standardize_columns(df_clean, standardize_columns_list)
+    
+    return df_clean
