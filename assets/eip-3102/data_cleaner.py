@@ -1,29 +1,30 @@
+import pandas as pd
+import numpy as np
+from scipy import stats
 
-def remove_duplicates(input_list):
-    """
-    Remove duplicate elements from a list while preserving order.
-    Returns a new list with unique elements.
-    """
-    seen = set()
-    result = []
-    for item in input_list:
-        if item not in seen:
-            seen.add(item)
-            result.append(item)
-    return result
+def load_data(filepath):
+    return pd.read_csv(filepath)
 
-def clean_data(data):
-    """
-    Clean the input data by removing duplicates.
-    Handles both list and tuple inputs.
-    """
-    if isinstance(data, (list, tuple)):
-        return remove_duplicates(list(data))
-    else:
-        raise TypeError("Input must be a list or tuple")
+def remove_outliers(df, column, threshold=3):
+    z_scores = np.abs(stats.zscore(df[column]))
+    return df[z_scores < threshold]
+
+def normalize_column(df, column):
+    df[column] = (df[column] - df[column].min()) / (df[column].max() - df[column].min())
+    return df
+
+def clean_data(df, numeric_columns):
+    for col in numeric_columns:
+        df = remove_outliers(df, col)
+        df = normalize_column(df, col)
+    return df.dropna()
+
+def main():
+    data = load_data('raw_data.csv')
+    numeric_cols = ['age', 'income', 'score']
+    cleaned_data = clean_data(data, numeric_cols)
+    cleaned_data.to_csv('cleaned_data.csv', index=False)
+    print(f"Cleaned data saved. Original: {len(data)} rows, Cleaned: {len(cleaned_data)} rows")
 
 if __name__ == "__main__":
-    sample_data = [1, 2, 2, 3, 4, 4, 5, 1, 6]
-    cleaned = clean_data(sample_data)
-    print(f"Original: {sample_data}")
-    print(f"Cleaned: {cleaned}")
+    main()
