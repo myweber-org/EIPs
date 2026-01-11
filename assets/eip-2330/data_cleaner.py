@@ -391,4 +391,82 @@ def clean_dataset(data, numeric_columns=None, outlier_factor=1.5):
             mask = (cleaned_data[column] >= lower_bound) & (cleaned_data[column] <= upper_bound)
             cleaned_data = cleaned_data[mask]
     
-    return cleaned_data.reset_index(drop=True)
+    return cleaned_data.reset_index(drop=True)import pandas as pd
+
+def clean_dataframe(df, drop_duplicates=True, fill_missing=None):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean
+        drop_duplicates (bool): Whether to remove duplicate rows
+        fill_missing (str or None): Method to fill missing values:
+            - 'mean': Fill with column mean
+            - 'median': Fill with column median
+            - 'mode': Fill with column mode
+            - None: Drop rows with missing values
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    if fill_missing is None:
+        cleaned_df = cleaned_df.dropna()
+    elif fill_missing == 'mean':
+        cleaned_df = cleaned_df.fillna(cleaned_df.mean(numeric_only=True))
+    elif fill_missing == 'median':
+        cleaned_df = cleaned_df.fillna(cleaned_df.median(numeric_only=True))
+    elif fill_missing == 'mode':
+        for col in cleaned_df.columns:
+            if cleaned_df[col].dtype == 'object':
+                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mode()[0] if not cleaned_df[col].mode().empty else 'Unknown')
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None, min_rows=1):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+        required_columns (list): List of required column names
+        min_rows (int): Minimum number of rows required
+    
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if len(df) < min_rows:
+        return False, f"DataFrame has fewer than {min_rows} rows"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "DataFrame is valid"
+
+def get_data_summary(df):
+    """
+    Generate a summary of the DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+    
+    Returns:
+        dict: Summary statistics
+    """
+    summary = {
+        'shape': df.shape,
+        'columns': list(df.columns),
+        'dtypes': df.dtypes.to_dict(),
+        'missing_values': df.isnull().sum().to_dict(),
+        'numeric_stats': df.describe().to_dict() if not df.select_dtypes(include=['number']).empty else {}
+    }
+    return summary
