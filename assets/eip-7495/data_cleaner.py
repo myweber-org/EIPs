@@ -27,7 +27,7 @@ def remove_outliers_iqr(df, column):
     
     return filtered_df.reset_index(drop=True)
 
-def calculate_summary_stats(df, column):
+def calculate_summary_statistics(df, column):
     """
     Calculate summary statistics for a column after outlier removal.
     
@@ -52,20 +52,29 @@ def calculate_summary_stats(df, column):
     
     return stats
 
-if __name__ == "__main__":
-    # Example usage
+def example_usage():
+    """
+    Example usage of the data cleaning functions.
+    """
     np.random.seed(42)
-    sample_data = pd.DataFrame({
-        'values': np.concatenate([
-            np.random.normal(100, 15, 95),
-            np.random.normal(300, 50, 5)
-        ])
-    })
     
-    print("Original data shape:", sample_data.shape)
-    print("Original statistics:", calculate_summary_stats(sample_data, 'values'))
+    data = {
+        'id': range(100),
+        'value': np.random.normal(100, 15, 100)
+    }
     
-    cleaned_data = remove_outliers_iqr(sample_data, 'values')
+    df = pd.DataFrame(data)
     
-    print("\nCleaned data shape:", cleaned_data.shape)
-    print("Cleaned statistics:", calculate_summary_stats(cleaned_data, 'values'))
+    print("Original DataFrame shape:", df.shape)
+    print("Original statistics:", calculate_summary_statistics(df, 'value'))
+    
+    cleaned_df = remove_outliers_iqr(df, 'value')
+    
+    print("\nCleaned DataFrame shape:", cleaned_df.shape)
+    print("Cleaned statistics:", calculate_summary_statistics(cleaned_df, 'value'))
+    
+    return cleaned_df
+
+if __name__ == "__main__":
+    result_df = example_usage()
+    print(f"\nOutliers removed: {100 - len(result_df)}")
