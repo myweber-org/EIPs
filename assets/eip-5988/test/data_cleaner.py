@@ -1,89 +1,74 @@
+
 import pandas as pd
 import numpy as np
+from typing import List, Optional
 
-def remove_outliers_iqr(df, column):
+def remove_duplicates(df: pd.DataFrame, 
+                      subset: Optional[List[str]] = None,
+                      keep: str = 'first') -> pd.DataFrame:
     """
-    Remove outliers from a DataFrame column using the Interquartile Range (IQR) method.
+    Remove duplicate rows from a DataFrame.
     
-    Args:
-        df (pd.DataFrame): Input DataFrame.
-        column (str): Column name to process.
+    Parameters:
+    df: Input DataFrame
+    subset: Columns to consider for identifying duplicates
+    keep: Which duplicates to keep ('first', 'last', False)
     
     Returns:
-        pd.DataFrame: DataFrame with outliers removed.
+    DataFrame with duplicates removed
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    if df.empty:
+        return df
     
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
+    if subset is None:
+        subset = df.columns.tolist()
     
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
     
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    removed_count = len(df) - len(cleaned_df)
+    if removed_count > 0:
+        print(f"Removed {removed_count} duplicate rows")
     
-    return filtered_df.reset_index(drop=True)
+    return cleaned_df.reset_index(drop=True)
 
-def calculate_summary_statistics(df, column):
+def clean_numeric_columns(df: pd.DataFrame, 
+                         columns: List[str]) -> pd.DataFrame:
     """
-    Calculate summary statistics for a column after outlier removal.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame.
-        column (str): Column name to analyze.
-    
-    Returns:
-        dict: Dictionary containing summary statistics.
+    Clean numeric columns by converting to appropriate types
+    and handling invalid values.
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    df_clean = df.copy()
     
-    stats = {
-        'mean': df[column].mean(),
-        'median': df[column].median(),
-        'std': df[column].std(),
-        'min': df[column].min(),
-        'max': df[column].max(),
-        'count': df[column].count()
+    for col in columns:
+        if col in df_clean.columns:
+            df_clean[col] = pd.to_numeric(df_clean[col], errors='coerce')
+            df_clean[col] = df_clean[col].replace([np.inf, -np.inf], np.nan)
+    
+    return df_clean
+
+def validate_dataframe(df: pd.DataFrame) -> bool:
+    """
+    Perform basic validation on DataFrame.
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    if df.empty:
+        print("Warning: DataFrame is empty")
+        return False
+    
+    return True
+
+def get_cleaning_summary(df_before: pd.DataFrame, 
+                        df_after: pd.DataFrame) -> dict:
+    """
+    Generate a summary of data cleaning operations.
+    """
+    summary = {
+        'rows_removed': len(df_before) - len(df_after),
+        'columns_removed': len(df_before.columns) - len(df_after.columns),
+        'final_shape': df_after.shape,
+        'null_values': df_after.isnull().sum().sum()
     }
     
-    return stats
-
-def process_dataframe(df, column):
-    """
-    Main function to process DataFrame by removing outliers and calculating statistics.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame.
-        column (str): Column name to process.
-    
-    Returns:
-        tuple: (cleaned_df, original_stats, cleaned_stats)
-    """
-    original_stats = calculate_summary_statistics(df, column)
-    cleaned_df = remove_outliers_iqr(df, column)
-    cleaned_stats = calculate_summary_statistics(cleaned_df, column)
-    
-    return cleaned_df, original_stats, cleaned_stats
-
-if __name__ == "__main__":
-    sample_data = {
-        'values': [10, 12, 12, 13, 12, 11, 14, 13, 15, 100, 12, 13, 12, 11, 10, 14, 13, 12, 11, 10]
-    }
-    
-    df = pd.DataFrame(sample_data)
-    print("Original DataFrame:")
-    print(df)
-    
-    cleaned_df, original_stats, cleaned_stats = process_dataframe(df, 'values')
-    
-    print("\nCleaned DataFrame:")
-    print(cleaned_df)
-    
-    print("\nOriginal Statistics:")
-    print(original_stats)
-    
-    print("\nCleaned Statistics:")
-    print(cleaned_stats)
+    return summary
