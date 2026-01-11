@@ -381,3 +381,79 @@ def remove_outliers(df, column, method='iqr', threshold=1.5):
         raise ValueError("Method must be 'iqr' or 'zscore'")
     
     return df[mask]
+import numpy as np
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specified column using the Interquartile Range method.
+    
+    Args:
+        data (list or np.array): The dataset containing the column to clean.
+        column (int): Index of the column to process.
+    
+    Returns:
+        np.array: Data with outliers removed from the specified column.
+    """
+    data = np.array(data)
+    col_data = data[:, column].astype(float)
+    
+    Q1 = np.percentile(col_data, 25)
+    Q3 = np.percentile(col_data, 75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    mask = (col_data >= lower_bound) & (col_data <= upper_bound)
+    cleaned_data = data[mask]
+    
+    return cleaned_data
+
+def calculate_statistics(data, column):
+    """
+    Calculate basic statistics for a column after outlier removal.
+    
+    Args:
+        data (list or np.array): The dataset.
+        column (int): Index of the column to analyze.
+    
+    Returns:
+        dict: Dictionary containing mean, median, and standard deviation.
+    """
+    if len(data) == 0:
+        return {"mean": None, "median": None, "std": None}
+    
+    col_data = data[:, column].astype(float)
+    
+    stats = {
+        "mean": np.mean(col_data),
+        "median": np.median(col_data),
+        "std": np.std(col_data)
+    }
+    
+    return stats
+
+if __name__ == "__main__":
+    sample_data = [
+        [1, 150.5],
+        [2, 162.3],
+        [3, 155.7],
+        [4, 210.8],
+        [5, 148.9],
+        [6, 900.1],
+        [7, 158.2],
+        [8, 152.4]
+    ]
+    
+    print("Original data:")
+    print(sample_data)
+    
+    cleaned = remove_outliers_iqr(sample_data, 1)
+    print("\nCleaned data:")
+    print(cleaned)
+    
+    stats = calculate_statistics(cleaned, 1)
+    print("\nStatistics for cleaned column:")
+    print(f"Mean: {stats['mean']:.2f}")
+    print(f"Median: {stats['median']:.2f}")
+    print(f"Standard Deviation: {stats['std']:.2f}")
