@@ -1,160 +1,112 @@
-
-import numpy as np
 import pandas as pd
-from scipy import stats
+import numpy as np
 
-def remove_outliers_iqr(dataframe, column, threshold=1.5):
+def remove_outliers_iqr(df, column):
     """
-    Remove outliers from a DataFrame column using IQR method.
+    Remove outliers from a DataFrame column using the Interquartile Range method.
     
-    Parameters:
-    dataframe (pd.DataFrame): Input DataFrame
-    column (str): Column name to process
-    threshold (float): IQR multiplier for outlier detection
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to process
     
     Returns:
-    pd.DataFrame: DataFrame with outliers removed
+        pd.DataFrame: DataFrame with outliers removed
     """
-    if column not in dataframe.columns:
+    if column not in df.columns:
         raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    q1 = dataframe[column].quantile(0.25)
-    q3 = dataframe[column].quantile(0.75)
-    iqr = q3 - q1
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
     
-    lower_bound = q1 - threshold * iqr
-    upper_bound = q3 + threshold * iqr
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
     
-    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
-                           (dataframe[column] <= upper_bound)]
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
     
-    return filtered_df.copy()
+    return filtered_df
 
-def zscore_normalize(dataframe, columns=None):
+def clean_numeric_data(df, columns=None):
     """
-    Apply z-score normalization to specified columns.
+    Clean numeric data by removing outliers from specified columns.
+    If no columns specified, clean all numeric columns.
     
-    Parameters:
-    dataframe (pd.DataFrame): Input DataFrame
-    columns (list): List of column names to normalize. If None, normalize all numeric columns.
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns (list, optional): List of column names to clean
     
     Returns:
-    pd.DataFrame: DataFrame with normalized columns
+        pd.DataFrame: Cleaned DataFrame
     """
     if columns is None:
-        numeric_cols = dataframe.select_dtypes(include=[np.number]).columns
-        columns = list(numeric_cols)
+        columns = df.select_dtypes(include=[np.number]).columns.tolist()
     
-    normalized_df = dataframe.copy()
+    cleaned_df = df.copy()
     
-    for col in columns:
-        if col not in normalized_df.columns:
-            raise ValueError(f"Column '{col}' not found in DataFrame")
-        
-        if normalized_df[col].dtype in [np.float64, np.int64]:
-            mean_val = normalized_df[col].mean()
-            std_val = normalized_df[col].std()
-            
-            if std_val > 0:
-                normalized_df[col] = (normalized_df[col] - mean_val) / std_val
-            else:
-                normalized_df[col] = 0
+    for column in columns:
+        if column in df.columns and pd.api.types.is_numeric_dtype(df[column]):
+            original_count = len(cleaned_df)
+            cleaned_df = remove_outliers_iqr(cleaned_df, column)
+            removed_count = original_count - len(cleaned_df)
+            print(f"Removed {removed_count} outliers from column '{column}'")
     
-    return normalized_df
+    return cleaned_df
 
-def minmax_normalize(dataframe, columns=None, feature_range=(0, 1)):
-    """
-    Apply min-max normalization to specified columns.
-    
-    Parameters:
-    dataframe (pd.DataFrame): Input DataFrame
-    columns (list): List of column names to normalize
-    feature_range (tuple): Desired range of transformed data
-    
-    Returns:
-    pd.DataFrame: DataFrame with normalized columns
-    """
-    if columns is None:
-        numeric_cols = dataframe.select_dtypes(include=[np.number]).columns
-        columns = list(numeric_cols)
-    
-    normalized_df = dataframe.copy()
-    min_range, max_range = feature_range
-    
-    for col in columns:
-        if col not in normalized_df.columns:
-            raise ValueError(f"Column '{col}' not found in DataFrame")
-        
-        if normalized_df[col].dtype in [np.float64, np.int64]:
-            min_val = normalized_df[col].min()
-            max_val = normalized_df[col].max()
-            
-            if max_val > min_val:
-                normalized_df[col] = ((normalized_df[col] - min_val) / 
-                                     (max_val - min_val)) * (max_range - min_range) + min_range
-            else:
-                normalized_df[col] = min_range
-    
-    return normalized_df
-
-def handle_missing_values(dataframe, strategy='mean', columns=None):
-    """
-    Handle missing values in DataFrame columns.
-    
-    Parameters:
-    dataframe (pd.DataFrame): Input DataFrame
-    strategy (str): Imputation strategy ('mean', 'median', 'mode', 'constant')
-    columns (list): List of column names to process
-    
-    Returns:
-    pd.DataFrame: DataFrame with missing values handled
-    """
-    if columns is None:
-        columns = dataframe.columns
-    
-    processed_df = dataframe.copy()
-    
-    for col in columns:
-        if col not in processed_df.columns:
-            continue
-        
-        if processed_df[col].isnull().any():
-            if strategy == 'mean' and processed_df[col].dtype in [np.float64, np.int64]:
-                fill_value = processed_df[col].mean()
-            elif strategy == 'median' and processed_df[col].dtype in [np.float64, np.int64]:
-                fill_value = processed_df[col].median()
-            elif strategy == 'mode':
-                fill_value = processed_df[col].mode()[0] if not processed_df[col].mode().empty else 0
-            elif strategy == 'constant':
-                fill_value = 0
-            else:
-                fill_value = processed_df[col].mean()
-            
-            processed_df[col] = processed_df[col].fillna(fill_value)
-    
-    return processed_df
-
-def validate_dataframe(dataframe, required_columns=None, min_rows=1):
+def validate_dataframe(df, required_columns=None):
     """
     Validate DataFrame structure and content.
     
-    Parameters:
-    dataframe (pd.DataFrame): DataFrame to validate
-    required_columns (list): List of required column names
-    min_rows (int): Minimum number of rows required
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+        required_columns (list, optional): List of required column names
     
     Returns:
-    tuple: (is_valid, error_message)
+        bool: True if validation passes, False otherwise
     """
-    if not isinstance(dataframe, pd.DataFrame):
-        return False, "Input is not a pandas DataFrame"
+    if not isinstance(df, pd.DataFrame):
+        print("Error: Input is not a pandas DataFrame")
+        return False
     
-    if len(dataframe) < min_rows:
-        return False, f"DataFrame must have at least {min_rows} rows"
+    if df.empty:
+        print("Warning: DataFrame is empty")
+        return True
     
     if required_columns:
-        missing_cols = [col for col in required_columns if col not in dataframe.columns]
-        if missing_cols:
-            return False, f"Missing required columns: {missing_cols}"
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            print(f"Error: Missing required columns: {missing_columns}")
+            return False
     
-    return True, "DataFrame validation passed"
+    return True
+
+def main():
+    """
+    Example usage of data cleaning functions.
+    """
+    np.random.seed(42)
+    
+    data = {
+        'id': range(100),
+        'value': np.random.normal(100, 15, 100),
+        'score': np.random.uniform(0, 1, 100)
+    }
+    
+    df = pd.DataFrame(data)
+    
+    df.loc[95, 'value'] = 500
+    df.loc[96, 'value'] = -200
+    df.loc[97, 'score'] = 5.0
+    df.loc[98, 'score'] = -2.0
+    
+    print("Original DataFrame shape:", df.shape)
+    print("\nDataFrame info:")
+    print(df.info())
+    
+    if validate_dataframe(df, ['id', 'value', 'score']):
+        cleaned_df = clean_numeric_data(df, ['value', 'score'])
+        print("\nCleaned DataFrame shape:", cleaned_df.shape)
+        print("\nSummary statistics:")
+        print(cleaned_df[['value', 'score']].describe())
+
+if __name__ == "__main__":
+    main()
