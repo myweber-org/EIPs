@@ -126,4 +126,85 @@ if __name__ == "__main__":
     print(f"Outliers removed: {removed}")
     print("Cleaned data shape:", cleaned_df.shape)
     print("Missing values after:", cleaned_df.isnull().sum().sum())
-    print("\nSummary:", summary)
+    print("\nSummary:", summary)import pandas as pd
+import numpy as np
+from typing import List, Optional
+
+def clean_column_names(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Standardize column names to lowercase with underscores.
+    """
+    df.columns = df.columns.str.lower().str.replace(' ', '_')
+    return df
+
+def remove_duplicate_rows(df: pd.DataFrame, subset: Optional[List[str]] = None) -> pd.DataFrame:
+    """
+    Remove duplicate rows from DataFrame.
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def fill_missing_values(df: pd.DataFrame, strategy: str = 'mean', columns: Optional[List[str]] = None) -> pd.DataFrame:
+    """
+    Fill missing values using specified strategy.
+    """
+    df_filled = df.copy()
+    
+    if columns is None:
+        columns = df.columns
+    
+    for col in columns:
+        if df[col].dtype in ['int64', 'float64']:
+            if strategy == 'mean':
+                fill_value = df[col].mean()
+            elif strategy == 'median':
+                fill_value = df[col].median()
+            elif strategy == 'mode':
+                fill_value = df[col].mode()[0] if not df[col].mode().empty else np.nan
+            else:
+                fill_value = 0
+            
+            df_filled[col] = df[col].fillna(fill_value)
+        else:
+            df_filled[col] = df[col].fillna('unknown')
+    
+    return df_filled
+
+def standardize_text_columns(df: pd.DataFrame, columns: Optional[List[str]] = None) -> pd.DataFrame:
+    """
+    Standardize text columns to lowercase and strip whitespace.
+    """
+    df_standardized = df.copy()
+    
+    if columns is None:
+        text_columns = df.select_dtypes(include=['object']).columns
+    else:
+        text_columns = [col for col in columns if col in df.columns]
+    
+    for col in text_columns:
+        df_standardized[col] = df[col].astype(str).str.lower().str.strip()
+    
+    return df_standardized
+
+def clean_dataframe(df: pd.DataFrame, 
+                   clean_names: bool = True,
+                   remove_duplicates: bool = True,
+                   fill_missing: bool = True,
+                   standardize_text: bool = True) -> pd.DataFrame:
+    """
+    Main function to clean DataFrame with multiple steps.
+    """
+    cleaned_df = df.copy()
+    
+    if clean_names:
+        cleaned_df = clean_column_names(cleaned_df)
+    
+    if remove_duplicates:
+        cleaned_df = remove_duplicate_rows(cleaned_df)
+    
+    if fill_missing:
+        cleaned_df = fill_missing_values(cleaned_df)
+    
+    if standardize_text:
+        cleaned_df = standardize_text_columns(cleaned_df)
+    
+    return cleaned_df
