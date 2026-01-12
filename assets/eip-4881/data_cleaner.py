@@ -52,3 +52,58 @@ if __name__ == "__main__":
         print(f"\nStatistics for {col}:")
         for stat_name, stat_value in values.items():
             print(f"  {stat_name}: {stat_value:.4f}")
+import pandas as pd
+import re
+
+def clean_dataset(df, column_names):
+    """
+    Clean a pandas DataFrame by removing duplicates and normalizing specified string columns.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        column_names (list): List of column names to normalize.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    # Remove duplicate rows
+    df_cleaned = df.drop_duplicates().reset_index(drop=True)
+    
+    # Normalize string columns: trim whitespace and convert to lowercase
+    for col in column_names:
+        if col in df_cleaned.columns:
+            df_cleaned[col] = df_cleaned[col].astype(str).apply(
+                lambda x: re.sub(r'\s+', ' ', x.strip()).lower()
+            )
+    
+    return df_cleaned
+
+def validate_email_column(df, email_column):
+    """
+    Validate email addresses in a specified column using regex.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        email_column (str): Name of the column containing email addresses.
+    
+    Returns:
+        pd.DataFrame: DataFrame with an additional 'email_valid' boolean column.
+    """
+    if email_column not in df.columns:
+        raise ValueError(f"Column '{email_column}' not found in DataFrame")
+    
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    df['email_valid'] = df[email_column].astype(str).str.match(email_pattern)
+    
+    return df
+
+# Example usage (commented out for production)
+# if __name__ == "__main__":
+#     sample_data = {
+#         'name': [' John Doe ', 'Jane Smith', 'John Doe', 'ALICE WONDER'],
+#         'email': ['john@example.com', 'invalid-email', 'JOHN@EXAMPLE.COM', 'alice@test.org']
+#     }
+#     df = pd.DataFrame(sample_data)
+#     cleaned_df = clean_dataset(df, ['name'])
+#     validated_df = validate_email_column(cleaned_df, 'email')
+#     print(validated_df)
