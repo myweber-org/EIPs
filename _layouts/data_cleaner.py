@@ -1,48 +1,36 @@
 
 import pandas as pd
+import numpy as np
+from scipy import stats
 
-def clean_dataset(df, drop_na=True, remove_duplicates=True):
-    """
-    Clean a pandas DataFrame by removing null values and duplicates.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame to clean
-    drop_na (bool): Whether to drop rows with null values
-    remove_duplicates (bool): Whether to remove duplicate rows
-    
-    Returns:
-    pd.DataFrame: Cleaned DataFrame
-    """
-    cleaned_df = df.copy()
-    
-    if drop_na:
-        cleaned_df = cleaned_df.dropna()
-    
-    if remove_duplicates:
-        cleaned_df = cleaned_df.drop_duplicates()
-    
-    return cleaned_df
+def load_data(filepath):
+    """Load dataset from CSV file."""
+    return pd.read_csv(filepath)
 
-def validate_dataframe(df, required_columns=None):
-    """
-    Validate that a DataFrame meets basic requirements.
+def remove_outliers(df, column, threshold=3):
+    """Remove outliers using z-score method."""
+    z_scores = np.abs(stats.zscore(df[column]))
+    return df[z_scores < threshold]
+
+def normalize_column(df, column):
+    """Normalize column using min-max scaling."""
+    min_val = df[column].min()
+    max_val = df[column].max()
+    df[column] = (df[column] - min_val) / (max_val - min_val)
+    return df
+
+def clean_dataset(input_file, output_file):
+    """Main cleaning pipeline."""
+    df = load_data(input_file)
     
-    Parameters:
-    df (pd.DataFrame): DataFrame to validate
-    required_columns (list): List of column names that must be present
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
     
-    Returns:
-    tuple: (is_valid, error_message)
-    """
-    if not isinstance(df, pd.DataFrame):
-        return False, "Input is not a pandas DataFrame"
+    for col in numeric_cols:
+        df = remove_outliers(df, col)
+        df = normalize_column(df, col)
     
-    if df.empty:
-        return False, "DataFrame is empty"
-    
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            return False, f"Missing required columns: {missing_columns}"
-    
-    return True, "DataFrame is valid"
+    df.to_csv(output_file, index=False)
+    print(f"Cleaned data saved to {output_file}")
+
+if __name__ == "__main__":
+    clean_dataset("raw_data.csv", "cleaned_data.csv")
