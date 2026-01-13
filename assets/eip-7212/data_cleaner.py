@@ -260,3 +260,42 @@ if __name__ == "__main__":
     
     print("\nFirst 5 rows of cleaned data:")
     print(result_df.head())
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+def load_and_clean_data(filepath):
+    df = pd.read_csv(filepath)
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    
+    for col in numeric_cols:
+        z_scores = np.abs(stats.zscore(df[col].dropna()))
+        outliers = z_scores > 3
+        df.loc[outliers, col] = np.nan
+        
+        col_mean = df[col].mean()
+        col_std = df[col].std()
+        if col_std > 0:
+            df[col] = (df[col] - col_mean) / col_std
+    
+    df = df.dropna(thresh=len(df.columns)*0.7)
+    
+    for col in df.select_dtypes(include=['object']).columns:
+        df[col] = df[col].fillna('Unknown')
+    
+    for col in numeric_cols:
+        df[col] = df[col].fillna(df[col].median())
+    
+    return df
+
+def save_cleaned_data(df, output_path):
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to {output_path}")
+
+if __name__ == "__main__":
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    
+    cleaned_df = load_and_clean_data(input_file)
+    save_cleaned_data(cleaned_df, output_file)
