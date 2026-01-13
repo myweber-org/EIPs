@@ -1,98 +1,122 @@
-
-import pandas as pd
 import numpy as np
+import pandas as pd
 
-def remove_outliers_iqr(df, column):
+def remove_outliers_iqr(data, column, factor=1.5):
     """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
+    Remove outliers using IQR method.
     
     Args:
-        df (pd.DataFrame): Input DataFrame
-        column (str): Column name to process
+        data: pandas DataFrame
+        column: column name to process
+        factor: IQR multiplier (default 1.5)
     
     Returns:
-        pd.DataFrame: DataFrame with outliers removed
+        DataFrame with outliers removed
     """
-    if column not in df.columns:
+    if column not in data.columns:
         raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
     
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
+    lower_bound = q1 - factor * iqr
+    upper_bound = q3 + factor * iqr
     
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    
-    return filtered_df.reset_index(drop=True)
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
 
-def calculate_summary_statistics(df, column):
+def normalize_minmax(data, column):
     """
-    Calculate summary statistics for a column after outlier removal.
+    Normalize data using min-max scaling.
     
     Args:
-        df (pd.DataFrame): Input DataFrame
-        column (str): Column name to analyze
+        data: pandas DataFrame
+        column: column name to normalize
     
     Returns:
-        dict: Dictionary containing summary statistics
+        Series with normalized values
     """
-    if column not in df.columns:
+    if column not in data.columns:
         raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    stats = {
-        'mean': df[column].mean(),
-        'median': df[column].median(),
-        'std': df[column].std(),
-        'min': df[column].min(),
-        'max': df[column].max(),
-        'count': len(df)
-    }
+    min_val = data[column].min()
+    max_val = data[column].max()
     
-    return stats
+    if max_val == min_val:
+        return pd.Series([0.5] * len(data), index=data.index)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
 
-def process_dataset(file_path, column_to_clean):
+def standardize_zscore(data, column):
     """
-    Main function to load, clean, and analyze a dataset.
+    Standardize data using z-score normalization.
     
     Args:
-        file_path (str): Path to CSV file
-        column_to_clean (str): Column name to clean
+        data: pandas DataFrame
+        column: column name to standardize
     
     Returns:
-        tuple: Cleaned DataFrame and summary statistics
+        Series with standardized values
     """
-    try:
-        df = pd.read_csv(file_path)
-        print(f"Original dataset shape: {df.shape}")
-        
-        cleaned_df = remove_outliers_iqr(df, column_to_clean)
-        print(f"Cleaned dataset shape: {cleaned_df.shape}")
-        print(f"Removed {len(df) - len(cleaned_df)} outliers")
-        
-        stats = calculate_summary_statistics(cleaned_df, column_to_clean)
-        
-        return cleaned_df, stats
-        
-    except FileNotFoundError:
-        print(f"Error: File '{file_path}' not found")
-        return None, None
-    except Exception as e:
-        print(f"Error processing dataset: {str(e)}")
-        return None, None
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return pd.Series([0] * len(data), index=data.index)
+    
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
 
-if __name__ == "__main__":
-    sample_data = pd.DataFrame({
-        'values': np.concatenate([
-            np.random.normal(100, 10, 95),
-            np.random.normal(200, 10, 5)
-        ])
-    })
+def clean_dataset(data, numeric_columns=None, outlier_factor=1.5):
+    """
+    Clean dataset by removing outliers and normalizing numeric columns.
     
-    cleaned_data, statistics = process_dataset(sample_data, 'values')
+    Args:
+        data: pandas DataFrame
+        numeric_columns: list of numeric column names (default: all numeric columns)
+        outlier_factor: IQR multiplier for outlier removal
     
-    if cleaned_data is not None:
-        print("\nSummary Statistics:")
-        for key, value in statistics.items():
-            print(f"{key}: {value:.2f}")
+    Returns:
+        Cleaned DataFrame
+    """
+    if numeric_columns is None:
+        numeric_columns = data.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_data = data.copy()
+    
+    for col in numeric_columns:
+        if col in data.columns:
+            cleaned_data = remove_outliers_iqr(cleaned_data, col, outlier_factor)
+            cleaned_data[col] = normalize_minmax(cleaned_data, col)
+    
+    return cleaned_data.reset_index(drop=True)
+
+def validate_data(data, required_columns=None, min_rows=1):
+    """
+    Validate dataset structure and content.
+    
+    Args:
+        data: pandas DataFrame
+        required_columns: list of required column names
+        min_rows: minimum number of rows required
+    
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not isinstance(data, pd.DataFrame):
+        return False, "Input must be a pandas DataFrame"
+    
+    if len(data) < min_rows:
+        return False, f"Dataset must have at least {min_rows} rows"
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in data.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
+    
+    return True, "Dataset is valid"
