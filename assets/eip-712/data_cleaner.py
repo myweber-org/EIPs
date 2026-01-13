@@ -384,3 +384,101 @@ if __name__ == "__main__":
     print("\nCleaned data shape:", cleaned.shape)
     print("\nCleaned summary:")
     print(get_data_summary(cleaned)['numeric_stats']['A'])
+import csv
+import re
+from typing import List, Dict, Optional
+
+def clean_numeric_string(value: str) -> Optional[str]:
+    """Remove non-numeric characters from a string except decimal point and minus sign."""
+    if not isinstance(value, str):
+        return value
+    cleaned = re.sub(r'[^\d.-]', '', value)
+    return cleaned if cleaned else None
+
+def normalize_column_names(headers: List[str]) -> List[str]:
+    """Convert column names to lowercase with underscores."""
+    normalized = []
+    for header in headers:
+        if not isinstance(header, str):
+            header = str(header)
+        header = header.lower().strip()
+        header = re.sub(r'[^\w\s]', '', header)
+        header = re.sub(r'\s+', '_', header)
+        normalized.append(header)
+    return normalized
+
+def remove_empty_rows(data: List[Dict]) -> List[Dict]:
+    """Remove rows where all values are empty or None."""
+    filtered_data = []
+    for row in data:
+        if any(value not in (None, '', ' ') for value in row.values()):
+            filtered_data.append(row)
+    return filtered_data
+
+def validate_email(email: str) -> bool:
+    """Basic email validation."""
+    if not isinstance(email, str):
+        return False
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, email.strip()))
+
+def process_csv_file(input_path: str, output_path: str) -> None:
+    """Main function to clean and process a CSV file."""
+    try:
+        with open(input_path, 'r', newline='', encoding='utf-8') as infile:
+            reader = csv.DictReader(infile)
+            original_headers = reader.fieldnames
+            
+            if not original_headers:
+                raise ValueError("CSV file has no headers")
+            
+            normalized_headers = normalize_column_names(original_headers)
+            cleaned_data = []
+            
+            for row in reader:
+                cleaned_row = {}
+                for orig_header, new_header in zip(original_headers, normalized_headers):
+                    value = row[orig_header]
+                    
+                    if 'email' in new_header and value:
+                        if not validate_email(value):
+                            value = None
+                    
+                    if isinstance(value, str):
+                        value = value.strip()
+                        if 'amount' in new_header or 'price' in new_header:
+                            value = clean_numeric_string(value)
+                    
+                    cleaned_row[new_header] = value
+                
+                cleaned_data.append(cleaned_row)
+            
+            cleaned_data = remove_empty_rows(cleaned_data)
+            
+            with open(output_path, 'w', newline='', encoding='utf-8') as outfile:
+                writer = csv.DictWriter(outfile, fieldnames=normalized_headers)
+                writer.writeheader()
+                writer.writerows(cleaned_data)
+                
+    except FileNotFoundError:
+        print(f"Error: Input file '{input_path}' not found")
+    except Exception as e:
+        print(f"Error processing file: {str(e)}")
+
+if __name__ == "__main__":
+    sample_data = [
+        {"Name": "John Doe", "Email": "john@example.com", "Amount": "$1,000.50"},
+        {"Name": "Jane Smith", "Email": "invalid-email", "Amount": "N/A"},
+        {"Name": "   ", "Email": None, "Amount": ""}
+    ]
+    
+    test_input = "test_input.csv"
+    test_output = "test_output.csv"
+    
+    with open(test_input, 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=["Name", "Email", "Amount"])
+        writer.writeheader()
+        writer.writerows(sample_data)
+    
+    process_csv_file(test_input, test_output)
+    print(f"Data cleaning completed. Output saved to {test_output}")
