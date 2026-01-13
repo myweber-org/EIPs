@@ -573,3 +573,85 @@ if __name__ == "__main__":
     print(cleaned_df)
     print("\nCleaned Validation Stats:")
     print(validate_dataframe(cleaned_df))
+import csv
+import re
+from typing import List, Dict, Optional
+
+def clean_string(value: str) -> str:
+    """Remove extra whitespace and normalize string."""
+    if not isinstance(value, str):
+        return str(value)
+    cleaned = re.sub(r'\s+', ' ', value.strip())
+    return cleaned
+
+def clean_numeric(value: str) -> Optional[float]:
+    """Convert string to float, handling common formatting issues."""
+    if not value:
+        return None
+    cleaned = value.replace(',', '').replace('$', '').strip()
+    try:
+        return float(cleaned)
+    except ValueError:
+        return None
+
+def validate_email(email: str) -> bool:
+    """Basic email validation."""
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, email.strip()))
+
+def process_csv(input_path: str, output_path: str) -> None:
+    """Clean and process a CSV file."""
+    cleaned_rows = []
+    
+    with open(input_path, 'r', newline='', encoding='utf-8') as infile:
+        reader = csv.DictReader(infile)
+        fieldnames = reader.fieldnames
+        
+        for row in reader:
+            cleaned_row = {}
+            for key, value in row.items():
+                if 'email' in key.lower():
+                    cleaned_row[key] = value if validate_email(value) else ''
+                elif any(num_key in key.lower() for num_key in ['price', 'amount', 'quantity']):
+                    cleaned_row[key] = clean_numeric(value)
+                else:
+                    cleaned_row[key] = clean_string(value)
+            cleaned_rows.append(cleaned_row)
+    
+    with open(output_path, 'w', newline='', encoding='utf-8') as outfile:
+        writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(cleaned_rows)
+
+def get_column_stats(data: List[Dict], column_name: str) -> Dict:
+    """Calculate basic statistics for a numeric column."""
+    values = []
+    for row in data:
+        value = row.get(column_name)
+        if isinstance(value, (int, float)):
+            values.append(value)
+    
+    if not values:
+        return {'count': 0, 'mean': None, 'min': None, 'max': None}
+    
+    return {
+        'count': len(values),
+        'mean': sum(values) / len(values),
+        'min': min(values),
+        'max': max(values)
+    }
+
+if __name__ == '__main__':
+    sample_data = [
+        {'name': '  John Doe  ', 'email': 'john@example.com', 'price': '$1,000.50'},
+        {'name': 'Jane Smith', 'email': 'invalid-email', 'price': '2,500.75'},
+        {'name': 'Bob   Wilson', 'email': 'bob@test.org', 'price': '500'}
+    ]
+    
+    for row in sample_data:
+        row['name'] = clean_string(row['name'])
+        row['price'] = clean_numeric(row['price'])
+    
+    print("Cleaned sample data:")
+    for row in sample_data:
+        print(row)
