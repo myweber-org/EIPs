@@ -441,3 +441,135 @@ def validate_dataframe(df, required_columns):
         raise ValueError(f"Missing required columns: {missing_columns}")
     
     return True
+import pandas as pd
+import numpy as np
+from typing import List, Optional
+
+def remove_duplicates(df: pd.DataFrame, subset: Optional[List[str]] = None) -> pd.DataFrame:
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Args:
+        df: Input DataFrame
+        subset: Columns to consider for identifying duplicates
+    
+    Returns:
+        DataFrame with duplicates removed
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def normalize_text_column(df: pd.DataFrame, column: str) -> pd.DataFrame:
+    """
+    Normalize text in a specified column.
+    
+    Args:
+        df: Input DataFrame
+        column: Name of column to normalize
+    
+    Returns:
+        DataFrame with normalized text column
+    """
+    df = df.copy()
+    if column in df.columns:
+        df[column] = df[column].astype(str).str.lower().str.strip()
+    return df
+
+def fill_missing_values(df: pd.DataFrame, strategy: str = 'mean', columns: Optional[List[str]] = None) -> pd.DataFrame:
+    """
+    Fill missing values in DataFrame columns.
+    
+    Args:
+        df: Input DataFrame
+        strategy: Method to fill missing values ('mean', 'median', 'mode', 'zero')
+        columns: Specific columns to fill, fills all numeric columns if None
+    
+    Returns:
+        DataFrame with filled missing values
+    """
+    df = df.copy()
+    
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    for col in columns:
+        if col in df.columns:
+            if strategy == 'mean':
+                df[col] = df[col].fillna(df[col].mean())
+            elif strategy == 'median':
+                df[col] = df[col].fillna(df[col].median())
+            elif strategy == 'mode':
+                df[col] = df[col].fillna(df[col].mode()[0])
+            elif strategy == 'zero':
+                df[col] = df[col].fillna(0)
+    
+    return df
+
+def clean_dataframe(df: pd.DataFrame, 
+                   text_columns: Optional[List[str]] = None,
+                   numeric_strategy: str = 'mean') -> pd.DataFrame:
+    """
+    Perform comprehensive data cleaning on a DataFrame.
+    
+    Args:
+        df: Input DataFrame
+        text_columns: List of text columns to normalize
+        numeric_strategy: Strategy for filling numeric missing values
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    df_clean = df.copy()
+    
+    df_clean = remove_duplicates(df_clean)
+    
+    if text_columns:
+        for col in text_columns:
+            df_clean = normalize_text_column(df_clean, col)
+    
+    df_clean = fill_missing_values(df_clean, strategy=numeric_strategy)
+    
+    return df_clean
+
+def validate_dataframe(df: pd.DataFrame) -> dict:
+    """
+    Validate DataFrame and return statistics.
+    
+    Args:
+        df: Input DataFrame
+    
+    Returns:
+        Dictionary with validation statistics
+    """
+    stats = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_values': df.isnull().sum().sum(),
+        'duplicate_rows': df.duplicated().sum(),
+        'data_types': df.dtypes.to_dict()
+    }
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    if len(numeric_cols) > 0:
+        stats['numeric_stats'] = df[numeric_cols].describe().to_dict()
+    
+    return stats
+
+if __name__ == "__main__":
+    sample_data = {
+        'id': [1, 2, 2, 3, 4, 5],
+        'name': ['Alice', 'Bob', 'bob', 'Charlie', None, 'Eve'],
+        'age': [25, 30, 30, None, 35, 40],
+        'score': [85.5, 92.0, 92.0, 78.5, None, 95.0]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nValidation Stats:")
+    print(validate_dataframe(df))
+    
+    cleaned_df = clean_dataframe(df, text_columns=['name'], numeric_strategy='mean')
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    print("\nCleaned Validation Stats:")
+    print(validate_dataframe(cleaned_df))
