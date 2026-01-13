@@ -1,83 +1,78 @@
-import numpy as np
 import pandas as pd
-from scipy import stats
+import numpy as np
 
-class DataCleaner:
-    def __init__(self, df):
-        self.df = df.copy()
-        self.original_columns = df.columns.tolist()
+def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a DataFrame column using the Interquartile Range method.
     
-    def remove_outliers_iqr(self, column):
-        Q1 = self.df[column].quantile(0.25)
-        Q3 = self.df[column].quantile(0.75)
-        IQR = Q3 - Q1
-        lower_bound = Q1 - 1.5 * IQR
-        upper_bound = Q3 + 1.5 * IQR
-        self.df = self.df[(self.df[column] >= lower_bound) & (self.df[column] <= upper_bound)]
-        return self
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to process
     
-    def remove_outliers_zscore(self, column, threshold=3):
-        z_scores = np.abs(stats.zscore(self.df[column]))
-        self.df = self.df[z_scores < threshold]
-        return self
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    def normalize_minmax(self, column):
-        min_val = self.df[column].min()
-        max_val = self.df[column].max()
-        self.df[column] = (self.df[column] - min_val) / (max_val - min_val)
-        return self
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
     
-    def normalize_zscore(self, column):
-        mean_val = self.df[column].mean()
-        std_val = self.df[column].std()
-        self.df[column] = (self.df[column] - mean_val) / std_val
-        return self
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
     
-    def fill_missing_mean(self, column):
-        self.df[column].fillna(self.df[column].mean(), inplace=True)
-        return self
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
     
-    def fill_missing_median(self, column):
-        self.df[column].fillna(self.df[column].median(), inplace=True)
-        return self
-    
-    def drop_duplicates(self):
-        self.df.drop_duplicates(inplace=True)
-        return self
-    
-    def get_cleaned_data(self):
-        return self.df
-    
-    def summary(self):
-        print(f"Original shape: {len(self.df)} rows, {len(self.original_columns)} columns")
-        print(f"Cleaned shape: {len(self.df)} rows, {len(self.df.columns)} columns")
-        print("\nMissing values:")
-        print(self.df.isnull().sum())
-        print("\nData types:")
-        print(self.df.dtypes)
+    return filtered_df.reset_index(drop=True)
 
-def clean_dataset(df, config):
-    cleaner = DataCleaner(df)
+def calculate_summary_statistics(df):
+    """
+    Calculate summary statistics for numeric columns.
     
-    for column in config.get('outlier_columns_iqr', []):
-        cleaner.remove_outliers_iqr(column)
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
     
-    for column in config.get('outlier_columns_zscore', []):
-        cleaner.remove_outliers_zscore(column)
+    Returns:
+    pd.DataFrame: Summary statistics
+    """
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
     
-    for column in config.get('normalize_minmax', []):
-        cleaner.normalize_minmax(column)
+    if len(numeric_cols) == 0:
+        return pd.DataFrame()
     
-    for column in config.get('normalize_zscore', []):
-        cleaner.normalize_zscore(column)
+    stats = df[numeric_cols].agg(['count', 'mean', 'std', 'min', 'max'])
+    stats.loc['median'] = df[numeric_cols].median()
+    stats.loc['q1'] = df[numeric_cols].quantile(0.25)
+    stats.loc['q3'] = df[numeric_cols].quantile(0.75)
     
-    for column in config.get('fill_missing_mean', []):
-        cleaner.fill_missing_mean(column)
+    return stats
+
+def handle_missing_values(df, strategy='mean'):
+    """
+    Handle missing values in numeric columns.
     
-    for column in config.get('fill_missing_median', []):
-        cleaner.fill_missing_median(column)
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    strategy (str): Imputation strategy ('mean', 'median', 'drop')
     
-    if config.get('drop_duplicates', False):
-        cleaner.drop_duplicates()
+    Returns:
+    pd.DataFrame: DataFrame with handled missing values
+    """
+    if strategy not in ['mean', 'median', 'drop']:
+        raise ValueError("Strategy must be 'mean', 'median', or 'drop'")
     
-    return cleaner.get_cleaned_data()
+    df_clean = df.copy()
+    numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
+    
+    if strategy == 'drop':
+        df_clean = df_clean.dropna(subset=numeric_cols)
+    else:
+        for col in numeric_cols:
+            if strategy == 'mean':
+                fill_value = df_clean[col].mean()
+            else:
+                fill_value = df_clean[col].median()
+            df_clean[col] = df_clean[col].fillna(fill_value)
+    
+    return df_clean.reset_index(drop=True)
