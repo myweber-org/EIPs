@@ -1,97 +1,78 @@
-import pandas as pd
-import numpy as np
-from typing import Optional, Dict, List
+import csv
+import re
+from typing import List, Dict, Any, Optional
 
-class DataCleaner:
-    def __init__(self, df: pd.DataFrame):
-        self.df = df.copy()
-        self.original_shape = df.shape
-        
-    def handle_missing_values(self, strategy: str = 'mean', columns: Optional[List[str]] = None) -> 'DataCleaner':
-        if columns is None:
-            columns = self.df.select_dtypes(include=[np.number]).columns.tolist()
-        
-        for col in columns:
-            if col in self.df.columns and self.df[col].isnull().any():
-                if strategy == 'mean':
-                    fill_value = self.df[col].mean()
-                elif strategy == 'median':
-                    fill_value = self.df[col].median()
-                elif strategy == 'mode':
-                    fill_value = self.df[col].mode()[0]
-                elif strategy == 'drop':
-                    self.df = self.df.dropna(subset=[col])
-                else:
-                    fill_value = 0
-                
-                if strategy != 'drop':
-                    self.df[col] = self.df[col].fillna(fill_value)
-        
-        return self
-    
-    def convert_types(self, type_map: Dict[str, str]) -> 'DataCleaner':
-        for col, dtype in type_map.items():
-            if col in self.df.columns:
-                try:
-                    if dtype == 'datetime':
-                        self.df[col] = pd.to_datetime(self.df[col])
-                    elif dtype == 'category':
-                        self.df[col] = self.df[col].astype('category')
-                    else:
-                        self.df[col] = self.df[col].astype(dtype)
-                except (ValueError, TypeError):
-                    print(f"Warning: Could not convert column {col} to {dtype}")
-        
-        return self
-    
-    def remove_outliers(self, method: str = 'iqr', threshold: float = 1.5) -> 'DataCleaner':
-        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
-        
-        for col in numeric_cols:
-            if method == 'iqr':
-                Q1 = self.df[col].quantile(0.25)
-                Q3 = self.df[col].quantile(0.75)
-                IQR = Q3 - Q1
-                lower_bound = Q1 - threshold * IQR
-                upper_bound = Q3 + threshold * IQR
-                
-                mask = (self.df[col] >= lower_bound) & (self.df[col] <= upper_bound)
-                self.df = self.df[mask]
-        
-        return self
-    
-    def get_cleaned_data(self) -> pd.DataFrame:
-        return self.df
-    
-    def get_cleaning_report(self) -> Dict:
-        report = {
-            'original_shape': self.original_shape,
-            'cleaned_shape': self.df.shape,
-            'rows_removed': self.original_shape[0] - self.df.shape[0],
-            'columns_removed': self.original_shape[1] - self.df.shape[1],
-            'missing_values_remaining': int(self.df.isnull().sum().sum())
-        }
-        return report
+def clean_string(value: str) -> str:
+    """Remove extra whitespace and normalize string."""
+    if not isinstance(value, str):
+        return str(value) if value is not None else ""
+    return re.sub(r'\s+', ' ', value.strip())
 
-def clean_csv_file(input_path: str, output_path: str, **kwargs) -> Dict:
+def clean_numeric(value: Any) -> Optional[float]:
+    """Convert value to float, handling common issues."""
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        cleaned = value.replace(',', '').strip()
+        try:
+            return float(cleaned)
+        except ValueError:
+            return None
+    return None
+
+def clean_csv_row(row: Dict[str, Any]) -> Dict[str, Any]:
+    """Apply cleaning functions to all values in a row."""
+    cleaned = {}
+    for key, value in row.items():
+        if isinstance(value, str):
+            cleaned[key] = clean_string(value)
+        elif isinstance(value, (int, float)):
+            cleaned[key] = clean_numeric(value)
+        else:
+            cleaned[key] = value
+    return cleaned
+
+def read_and_clean_csv(filepath: str) -> List[Dict[str, Any]]:
+    """Read CSV file and clean all rows."""
+    cleaned_data = []
     try:
-        df = pd.read_csv(input_path)
-        cleaner = DataCleaner(df)
-        
-        if 'missing_strategy' in kwargs:
-            cleaner.handle_missing_values(strategy=kwargs['missing_strategy'])
-        
-        if 'type_map' in kwargs:
-            cleaner.convert_types(kwargs['type_map'])
-        
-        if 'remove_outliers' in kwargs and kwargs['remove_outliers']:
-            cleaner.remove_outliers()
-        
-        cleaned_df = cleaner.get_cleaned_data()
-        cleaned_df.to_csv(output_path, index=False)
-        
-        return cleaner.get_cleaning_report()
-    
+        with open(filepath, 'r', encoding='utf-8') as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                cleaned_data.append(clean_csv_row(row))
+    except FileNotFoundError:
+        print(f"Error: File not found at {filepath}")
     except Exception as e:
-        print(f"Error cleaning file: {str(e)}")
-        return {'error': str(e)}
+        print(f"Error reading CSV: {e}")
+    return cleaned_data
+
+def write_cleaned_csv(data: List[Dict[str, Any]], output_path: str) -> bool:
+    """Write cleaned data to a new CSV file."""
+    if not data:
+        return False
+    try:
+        fieldnames = data[0].keys()
+        with open(output_path, 'w', newline='', encoding='utf-8') as file:
+            writer = csv.DictWriter(file, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(data)
+        return True
+    except Exception as e:
+        print(f"Error writing CSV: {e}")
+        return False
+
+def validate_email(email: str) -> bool:
+    """Simple email validation."""
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, email)) if email else False
+
+def clean_phone_number(phone: str) -> str:
+    """Standardize phone number format."""
+    if not phone:
+        return ""
+    digits = re.sub(r'\D', '', phone)
+    if len(digits) == 10:
+        return f"({digits[:3]}) {digits[3:6]}-{digits[6:]}"
+    return digits
