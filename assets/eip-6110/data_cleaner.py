@@ -218,4 +218,106 @@ if __name__ == "__main__":
     cleaned_df = clean_dataset(df, duplicate_threshold=0.95, missing_strategy='median')
     
     is_valid = validate_dataset(cleaned_df, min_rows=5, required_columns=['feature_a', 'feature_b'])
-    print(f"Dataset is valid: {is_valid}")
+    print(f"Dataset is valid: {is_valid}")import pandas as pd
+import numpy as np
+
+def clean_csv_data(filepath, drop_na=True, fill_strategy='mean'):
+    """
+    Load and clean CSV data by handling missing values.
+    
+    Args:
+        filepath (str): Path to the CSV file.
+        drop_na (bool): If True, drop rows with missing values.
+        fill_strategy (str): Strategy to fill missing values if drop_na is False.
+                             Options: 'mean', 'median', 'mode', or 'zero'.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    try:
+        df = pd.read_csv(filepath)
+    except FileNotFoundError:
+        print(f"Error: File not found at {filepath}")
+        return None
+    
+    if df.empty:
+        print("Warning: The loaded DataFrame is empty.")
+        return df
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    non_numeric_cols = df.select_dtypes(exclude=[np.number]).columns
+    
+    if drop_na:
+        df_cleaned = df.dropna()
+    else:
+        df_cleaned = df.copy()
+        for col in numeric_cols:
+            if df_cleaned[col].isnull().any():
+                if fill_strategy == 'mean':
+                    fill_value = df_cleaned[col].mean()
+                elif fill_strategy == 'median':
+                    fill_value = df_cleaned[col].median()
+                elif fill_strategy == 'mode':
+                    fill_value = df_cleaned[col].mode().iloc[0] if not df_cleaned[col].mode().empty else 0
+                elif fill_strategy == 'zero':
+                    fill_value = 0
+                else:
+                    fill_value = df_cleaned[col].mean()
+                df_cleaned[col].fillna(fill_value, inplace=True)
+        
+        for col in non_numeric_cols:
+            df_cleaned[col].fillna('Unknown', inplace=True)
+    
+    df_cleaned = df_cleaned.reset_index(drop=True)
+    print(f"Data cleaning complete. Original shape: {df.shape}, Cleaned shape: {df_cleaned.shape}")
+    return df_cleaned
+
+def remove_outliers_iqr(df, column, multiplier=1.5):
+    """
+    Remove outliers from a specified column using the IQR method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        column (str): Column name to process.
+        multiplier (float): IQR multiplier for outlier detection.
+    
+    Returns:
+        pd.DataFrame: DataFrame with outliers removed.
+    """
+    if column not in df.columns:
+        print(f"Error: Column '{column}' not found in DataFrame.")
+        return df
+    
+    if not np.issubdtype(df[column].dtype, np.number):
+        print(f"Error: Column '{column}' is not numeric.")
+        return df
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - multiplier * IQR
+    upper_bound = Q3 + multiplier * IQR
+    
+    df_filtered = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    outliers_removed = len(df) - len(df_filtered)
+    print(f"Removed {outliers_removed} outliers from column '{column}'.")
+    
+    return df_filtered.reset_index(drop=True)
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'A': [1, 2, np.nan, 4, 5, 100],
+        'B': [10, 20, 30, np.nan, 50, 60],
+        'C': ['x', 'y', None, 'z', 'x', 'y']
+    })
+    
+    sample_data.to_csv('sample_data.csv', index=False)
+    
+    cleaned = clean_csv_data('sample_data.csv', drop_na=False, fill_strategy='median')
+    if cleaned is not None:
+        print("Cleaned DataFrame head:")
+        print(cleaned.head())
+        
+        cleaned_no_outliers = remove_outliers_iqr(cleaned, 'A')
+        print("DataFrame after outlier removal head:")
+        print(cleaned_no_outliers.head())
