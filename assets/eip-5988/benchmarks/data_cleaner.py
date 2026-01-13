@@ -208,3 +208,11 @@ if __name__ == "__main__":
     
     is_valid = validate_data(cleaned_df, required_columns=['id', 'value', 'category'], min_rows=3)
     print(f"\nData validation result: {is_valid}")
+def deduplicate_list(input_list):
+    seen = set()
+    result = []
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
