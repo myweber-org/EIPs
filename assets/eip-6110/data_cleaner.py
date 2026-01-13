@@ -321,3 +321,112 @@ if __name__ == "__main__":
         cleaned_no_outliers = remove_outliers_iqr(cleaned, 'A')
         print("DataFrame after outlier removal head:")
         print(cleaned_no_outliers.head())
+import pandas as pd
+import numpy as np
+from pathlib import Path
+
+def clean_csv_data(input_file, output_file=None):
+    """
+    Load and clean CSV data by handling missing values,
+    removing duplicates, and standardizing formats.
+    """
+    try:
+        df = pd.read_csv(input_file)
+        
+        # Remove duplicate rows
+        initial_count = len(df)
+        df.drop_duplicates(inplace=True)
+        duplicates_removed = initial_count - len(df)
+        
+        # Handle missing values
+        missing_before = df.isnull().sum().sum()
+        
+        # Fill numeric columns with median
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            df[col].fillna(df[col].median(), inplace=True)
+        
+        # Fill categorical columns with mode
+        categorical_cols = df.select_dtypes(include=['object']).columns
+        for col in categorical_cols:
+            df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else 'Unknown', inplace=True)
+        
+        missing_after = df.isnull().sum().sum()
+        
+        # Standardize column names
+        df.columns = df.columns.str.strip().str.lower().str.replace(' ', '_')
+        
+        # Remove leading/trailing whitespace from string columns
+        for col in categorical_cols:
+            df[col] = df[col].astype(str).str.strip()
+        
+        # Generate output filename if not provided
+        if output_file is None:
+            input_path = Path(input_file)
+            output_file = input_path.parent / f"cleaned_{input_path.name}"
+        
+        # Save cleaned data
+        df.to_csv(output_file, index=False)
+        
+        # Print cleaning summary
+        print(f"Data cleaning completed successfully!")
+        print(f"Original rows: {initial_count}")
+        print(f"Duplicates removed: {duplicates_removed}")
+        print(f"Missing values handled: {missing_before} -> {missing_after}")
+        print(f"Cleaned data saved to: {output_file}")
+        
+        return df, output_file
+        
+    except FileNotFoundError:
+        print(f"Error: Input file '{input_file}' not found.")
+        return None, None
+    except pd.errors.EmptyDataError:
+        print(f"Error: Input file '{input_file}' is empty.")
+        return None, None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None, None
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate dataframe structure and content.
+    """
+    if df is None or df.empty:
+        print("Error: DataFrame is empty or None.")
+        return False
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            print(f"Error: Missing required columns: {missing_cols}")
+            return False
+    
+    # Check for any remaining NaN values
+    if df.isnull().any().any():
+        print("Warning: DataFrame still contains NaN values.")
+    
+    return True
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'Name': ['Alice', 'Bob', 'Charlie', None, 'Eve'],
+        'Age': [25, None, 30, 35, 28],
+        'City': ['New York', 'London', None, 'Paris', 'Tokyo'],
+        'Score': [85.5, 92.0, 78.5, None, 88.0]
+    }
+    
+    # Create sample CSV for testing
+    test_df = pd.DataFrame(sample_data)
+    test_df.to_csv('sample_data.csv', index=False)
+    
+    # Clean the sample data
+    cleaned_df, output_path = clean_csv_data('sample_data.csv')
+    
+    if cleaned_df is not None:
+        print("\nCleaned DataFrame preview:")
+        print(cleaned_df.head())
+        
+        # Validate the cleaned data
+        is_valid = validate_dataframe(cleaned_df, ['name', 'age', 'city', 'score'])
+        print(f"\nData validation: {'PASSED' if is_valid else 'FAILED'}")
