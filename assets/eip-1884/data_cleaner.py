@@ -363,4 +363,55 @@ def remove_outliers_iqr(df, column, multiplier=1.5):
     
     filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
     
-    return filtered_df
+    return filtered_dfimport csv
+import sys
+
+def remove_duplicates(input_file, output_file, key_columns=None):
+    """
+    Remove duplicate rows from a CSV file based on specified key columns.
+    If key_columns is None, all columns are used for duplicate detection.
+    """
+    seen = set()
+    unique_rows = []
+    
+    try:
+        with open(input_file, 'r', newline='', encoding='utf-8') as infile:
+            reader = csv.reader(infile)
+            headers = next(reader)
+            
+            if key_columns is None:
+                key_columns = list(range(len(headers)))
+            else:
+                key_columns = [headers.index(col) for col in key_columns]
+            
+            for row in reader:
+                key = tuple(row[i] for i in key_columns)
+                if key not in seen:
+                    seen.add(key)
+                    unique_rows.append(row)
+        
+        with open(output_file, 'w', newline='', encoding='utf-8') as outfile:
+            writer = csv.writer(outfile)
+            writer.writerow(headers)
+            writer.writerows(unique_rows)
+        
+        print(f"Processed {len(unique_rows)} unique rows from {input_file}")
+        print(f"Output saved to {output_file}")
+        
+    except FileNotFoundError:
+        print(f"Error: Input file '{input_file}' not found.")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error processing file: {e}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    if len(sys.argv) < 3:
+        print("Usage: python data_cleaner.py <input_file> <output_file> [key_column1 key_column2 ...]")
+        sys.exit(1)
+    
+    input_file = sys.argv[1]
+    output_file = sys.argv[2]
+    key_columns = sys.argv[3:] if len(sys.argv) > 3 else None
+    
+    remove_duplicates(input_file, output_file, key_columns)
