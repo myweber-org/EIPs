@@ -1,63 +1,41 @@
+
+import pandas as pd
 import numpy as np
 
-def remove_outliers_iqr(data, column):
+def remove_outliers_iqr(df, column):
     """
-    Remove outliers from a specified column using the Interquartile Range method.
+    Remove outliers from a DataFrame column using the Interquartile Range (IQR) method.
     
     Parameters:
-    data (list or array-like): The dataset containing the column to clean.
-    column (int or str): The index or name of the column to process.
+    df (pd.DataFrame): The input DataFrame.
+    column (str): The column name to clean.
     
     Returns:
-    numpy.ndarray: Data with outliers removed from the specified column.
+    pd.DataFrame: DataFrame with outliers removed from the specified column.
     """
-    if isinstance(data, list):
-        data = np.array(data)
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
     
-    column_data = data[:, column] if data.ndim > 1 else data
-    
-    q1 = np.percentile(column_data, 25)
-    q3 = np.percentile(column_data, 75)
-    iqr = q3 - q1
-    
-    lower_bound = q1 - 1.5 * iqr
-    upper_bound = q3 + 1.5 * iqr
-    
-    mask = (column_data >= lower_bound) & (column_data <= upper_bound)
-    
-    if data.ndim > 1:
-        return data[mask]
-    else:
-        return data[mask]
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    return filtered_df
 
-def calculate_basic_stats(data):
-    """
-    Calculate basic statistics for the data.
+def main():
+    data = {'values': [10, 12, 12, 13, 12, 11, 10, 100, 12, 14, 12, 10, 9, 8, 15, 200]}
+    df = pd.DataFrame(data)
     
-    Parameters:
-    data (array-like): Input data.
+    print("Original DataFrame:")
+    print(df)
     
-    Returns:
-    dict: Dictionary containing mean, median, and standard deviation.
-    """
-    if len(data) == 0:
-        return {"mean": 0, "median": 0, "std": 0}
+    cleaned_df = remove_outliers_iqr(df, 'values')
     
-    return {
-        "mean": np.mean(data),
-        "median": np.median(data),
-        "std": np.std(data)
-    }
+    print("\nCleaned DataFrame (outliers removed):")
+    print(cleaned_df)
+    
+    print(f"\nOriginal shape: {df.shape}")
+    print(f"Cleaned shape: {cleaned_df.shape}")
 
 if __name__ == "__main__":
-    sample_data = np.random.randn(1000) * 10 + 50
-    sample_data[50] = 200
-    sample_data[150] = -100
-    
-    print("Original data shape:", sample_data.shape)
-    print("Original stats:", calculate_basic_stats(sample_data))
-    
-    cleaned_data = remove_outliers_iqr(sample_data, 0)
-    
-    print("Cleaned data shape:", cleaned_data.shape)
-    print("Cleaned stats:", calculate_basic_stats(cleaned_data))
+    main()
