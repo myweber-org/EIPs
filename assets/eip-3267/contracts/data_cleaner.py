@@ -1,54 +1,55 @@
-import pandas as pd
-import sys
 
-def remove_duplicates(input_file, output_file=None, subset=None):
+import pandas as pd
+import re
+
+def clean_dataframe(df, columns_to_clean=None, remove_duplicates=True, case_normalization='lower'):
     """
-    Remove duplicate rows from a CSV file.
-    
-    Args:
-        input_file (str): Path to input CSV file
-        output_file (str, optional): Path to output CSV file. If None, overwrites input file
-        subset (list, optional): List of column names to consider for identifying duplicates
+    Clean a pandas DataFrame by removing duplicates and normalizing string columns.
     """
-    try:
-        df = pd.read_csv(input_file)
-        
-        if subset:
-            df_clean = df.drop_duplicates(subset=subset)
-        else:
-            df_clean = df.drop_duplicates()
-        
-        removed_count = len(df) - len(df_clean)
-        
-        if output_file is None:
-            output_file = input_file
-        
-        df_clean.to_csv(output_file, index=False)
-        
-        print(f"Removed {removed_count} duplicate rows")
-        print(f"Original rows: {len(df)}")
-        print(f"Cleaned rows: {len(df_clean)}")
-        print(f"Saved to: {output_file}")
-        
-        return df_clean
-        
-    except FileNotFoundError:
-        print(f"Error: File '{input_file}' not found")
-        sys.exit(1)
-    except pd.errors.EmptyDataError:
-        print(f"Error: File '{input_file}' is empty")
-        sys.exit(1)
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        sys.exit(1)
+    df_clean = df.copy()
+
+    if remove_duplicates:
+        initial_rows = df_clean.shape[0]
+        df_clean = df_clean.drop_duplicates()
+        removed = initial_rows - df_clean.shape[0]
+        print(f"Removed {removed} duplicate row(s).")
+
+    if columns_to_clean is None:
+        columns_to_clean = df_clean.select_dtypes(include=['object']).columns.tolist()
+
+    for col in columns_to_clean:
+        if col in df_clean.columns and df_clean[col].dtype == 'object':
+            df_clean[col] = df_clean[col].apply(lambda x: normalize_string(x, case_normalization) if pd.notnull(x) else x)
+
+    return df_clean
+
+def normalize_string(s, normalization='lower'):
+    s = str(s).strip()
+    s = re.sub(r'\s+', ' ', s)
+
+    if normalization == 'lower':
+        s = s.lower()
+    elif normalization == 'upper':
+        s = s.upper()
+    elif normalization == 'title':
+        s = s.title()
+
+    return s
+
+def example_usage():
+    data = {
+        'Name': ['  alice  ', 'Bob', 'Alice', 'bob', 'CHARLIE', '  charlie  '],
+        'Age': [25, 30, 25, 30, 35, 35],
+        'City': ['New York', 'los angeles', 'New York', 'LOS ANGELES', 'London', 'london']
+    }
+    df = pd.DataFrame(data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n")
+
+    df_clean = clean_dataframe(df, columns_to_clean=['Name', 'City'], remove_duplicates=True, case_normalization='title')
+    print("Cleaned DataFrame:")
+    print(df_clean)
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python data_cleaner.py <input_file> [output_file]")
-        print("Example: python data_cleaner.py data.csv cleaned_data.csv")
-        sys.exit(1)
-    
-    input_file = sys.argv[1]
-    output_file = sys.argv[2] if len(sys.argv) > 2 else None
-    
-    remove_duplicates(input_file, output_file)
+    example_usage()
