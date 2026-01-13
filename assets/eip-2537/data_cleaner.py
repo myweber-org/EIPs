@@ -138,3 +138,93 @@ def clean_dataset(data, numeric_columns=None, outlier_factor=1.5,
     report['final_shape'] = cleaned_data.shape
     
     return cleaned_data, report
+import pandas as pd
+
+def clean_dataset(df, columns_to_check=None, fill_na_method='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    columns_to_check (list): List of column names to check for duplicates.
+                             If None, checks all columns.
+    fill_na_method (str): Method to fill missing values.
+                          Options: 'mean', 'median', 'mode', or 'drop'.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    # Create a copy to avoid modifying the original
+    cleaned_df = df.copy()
+    
+    # Remove duplicates
+    if columns_to_check is None:
+        cleaned_df = cleaned_df.drop_duplicates()
+    else:
+        cleaned_df = cleaned_df.drop_duplicates(subset=columns_to_check)
+    
+    # Handle missing values
+    if fill_na_method == 'drop':
+        cleaned_df = cleaned_df.dropna()
+    else:
+        numeric_cols = cleaned_df.select_dtypes(include=['number']).columns
+        
+        for col in numeric_cols:
+            if cleaned_df[col].isna().any():
+                if fill_na_method == 'mean':
+                    fill_value = cleaned_df[col].mean()
+                elif fill_na_method == 'median':
+                    fill_value = cleaned_df[col].median()
+                elif fill_na_method == 'mode':
+                    fill_value = cleaned_df[col].mode()[0]
+                else:
+                    raise ValueError(f"Unsupported fill_na_method: {fill_na_method}")
+                
+                cleaned_df[col] = cleaned_df[col].fillna(fill_value)
+    
+    # Reset index after cleaning
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    return cleaned_df
+
+def validate_dataset(df, required_columns=None, min_rows=1):
+    """
+    Validate dataset structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+    required_columns (list): List of required column names.
+    min_rows (int): Minimum number of rows required.
+    
+    Returns:
+    tuple: (is_valid, message)
+    """
+    if len(df) < min_rows:
+        return False, f"Dataset has fewer than {min_rows} rows"
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
+    
+    return True, "Dataset is valid"
+
+# Example usage (commented out for production)
+# if __name__ == "__main__":
+#     # Create sample data
+#     data = {
+#         'A': [1, 2, 2, None, 5],
+#         'B': [10, 20, 20, 40, None],
+#         'C': ['x', 'y', 'y', 'z', 'x']
+#     }
+#     
+#     df = pd.DataFrame(data)
+#     print("Original DataFrame:")
+#     print(df)
+#     
+#     cleaned = clean_dataset(df, fill_na_method='mean')
+#     print("\nCleaned DataFrame:")
+#     print(cleaned)
+#     
+#     is_valid, message = validate_dataset(cleaned, required_columns=['A', 'B'])
+#     print(f"\nValidation: {message}")
