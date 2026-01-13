@@ -182,4 +182,52 @@ if __name__ == "__main__":
     print(cleaned)
     
     is_valid = validate_data(cleaned, required_columns=['A', 'B', 'C'], min_rows=3)
-    print(f"\nData is valid: {is_valid}")
+    print(f"\nData is valid: {is_valid}")import re
+import string
+
+def clean_text(text):
+    """
+    Cleans the input text by:
+    1. Converting to lowercase.
+    2. Removing punctuation.
+    3. Removing extra whitespace.
+    4. Removing numbers.
+    """
+    if not isinstance(text, str):
+        return ""
+
+    # Convert to lowercase
+    text = text.lower()
+
+    # Remove numbers
+    text = re.sub(r'\d+', '', text)
+
+    # Remove punctuation
+    translator = str.maketrans('', '', string.punctuation)
+    text = text.translate(translator)
+
+    # Remove extra whitespace
+    text = ' '.join(text.split())
+
+    return text
+
+def normalize_whitespace(text):
+    """
+    Normalizes whitespace in the input text by replacing
+    any sequence of whitespace characters with a single space.
+    """
+    if not isinstance(text, str):
+        return ""
+    return ' '.join(text.split())
+
+def remove_special_characters(text, keep_chars=''):
+    """
+    Removes special characters from the input text.
+    The `keep_chars` parameter allows specifying characters to preserve.
+    """
+    if not isinstance(text, str):
+        return ""
+
+    # Define characters to remove (all except alphanumeric and kept chars)
+    pattern = f'[^a-zA-Z0-9\\s{re.escape(keep_chars)}]'
+    return re.sub(pattern, '', text)
