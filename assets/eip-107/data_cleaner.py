@@ -745,4 +745,80 @@ if __name__ == "__main__":
     cleaned_df = clean_dataset(sample_df, ['value'])
     
     print("\nCleaned dataset shape:", cleaned_df.shape)
-    print("Cleaned statistics:", calculate_summary_statistics(cleaned_df, 'value'))
+    print("Cleaned statistics:", calculate_summary_statistics(cleaned_df, 'value'))import pandas as pd
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
+
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        subset (list, optional): Column labels to consider for duplicates.
+        keep (str, optional): Which duplicates to keep.
+
+    Returns:
+        pd.DataFrame: DataFrame with duplicates removed.
+    """
+    if df.empty:
+        return df
+
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+    return cleaned_df
+
+def clean_missing_values(df, strategy='drop', columns=None):
+    """
+    Handle missing values in a DataFrame.
+
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        strategy (str): 'drop' or 'fill'.
+        columns (list, optional): Columns to apply cleaning.
+
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    if df.empty:
+        return df
+
+    if columns:
+        target_cols = [col for col in columns if col in df.columns]
+    else:
+        target_cols = df.columns
+
+    if strategy == 'drop':
+        cleaned_df = df.dropna(subset=target_cols)
+    elif strategy == 'fill':
+        cleaned_df = df.copy()
+        for col in target_cols:
+            if pd.api.types.is_numeric_dtype(df[col]):
+                cleaned_df[col] = df[col].fillna(df[col].median())
+            else:
+                cleaned_df[col] = df[col].fillna('Unknown')
+    else:
+        raise ValueError("Strategy must be 'drop' or 'fill'")
+
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list, optional): Required column names.
+
+    Returns:
+        bool: True if valid, False otherwise.
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False
+
+    if df.empty:
+        return False
+
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            return False
+
+    return True
