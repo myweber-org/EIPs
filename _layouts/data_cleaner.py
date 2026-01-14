@@ -203,4 +203,137 @@ def get_data_summary(df):
             'median': df[col].median()
         }
     
-    return summary
+    return summaryimport numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column, multiplier=1.5):
+    """
+    Remove outliers using IQR method
+    """
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - multiplier * iqr
+    upper_bound = q3 + multiplier * iqr
+    
+    return data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+
+def z_score_normalization(data, column):
+    """
+    Apply z-score normalization to a column
+    """
+    mean = data[column].mean()
+    std = data[column].std()
+    
+    if std > 0:
+        data[column + '_normalized'] = (data[column] - mean) / std
+    else:
+        data[column + '_normalized'] = 0
+    
+    return data
+
+def min_max_scaling(data, column):
+    """
+    Apply min-max scaling to a column
+    """
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val > min_val:
+        data[column + '_scaled'] = (data[column] - min_val) / (max_val - min_val)
+    else:
+        data[column + '_scaled'] = 0
+    
+    return data
+
+def handle_missing_values(data, strategy='mean'):
+    """
+    Handle missing values in numeric columns
+    """
+    numeric_cols = data.select_dtypes(include=[np.number]).columns
+    
+    for col in numeric_cols:
+        if data[col].isnull().any():
+            if strategy == 'mean':
+                fill_value = data[col].mean()
+            elif strategy == 'median':
+                fill_value = data[col].median()
+            elif strategy == 'mode':
+                fill_value = data[col].mode()[0]
+            else:
+                fill_value = 0
+            
+            data[col] = data[col].fillna(fill_value)
+    
+    return data
+
+def clean_dataset(data, outlier_columns=None, normalize_columns=None, scale_columns=None):
+    """
+    Comprehensive data cleaning pipeline
+    """
+    cleaned_data = data.copy()
+    
+    # Handle missing values
+    cleaned_data = handle_missing_values(cleaned_data)
+    
+    # Remove outliers from specified columns
+    if outlier_columns:
+        for col in outlier_columns:
+            if col in cleaned_data.columns:
+                cleaned_data = remove_outliers_iqr(cleaned_data, col)
+    
+    # Apply normalization to specified columns
+    if normalize_columns:
+        for col in normalize_columns:
+            if col in cleaned_data.columns:
+                cleaned_data = z_score_normalization(cleaned_data, col)
+    
+    # Apply scaling to specified columns
+    if scale_columns:
+        for col in scale_columns:
+            if col in cleaned_data.columns:
+                cleaned_data = min_max_scaling(cleaned_data, col)
+    
+    return cleaned_data
+
+# Example usage function
+def demonstrate_cleaning():
+    """
+    Demonstrate the data cleaning functions
+    """
+    # Create sample data
+    np.random.seed(42)
+    sample_data = pd.DataFrame({
+        'feature1': np.random.normal(100, 15, 100),
+        'feature2': np.random.exponential(50, 100),
+        'feature3': np.random.randint(1, 100, 100)
+    })
+    
+    # Add some outliers
+    sample_data.loc[0, 'feature1'] = 500
+    sample_data.loc[1, 'feature2'] = 1000
+    
+    # Add some missing values
+    sample_data.loc[2, 'feature1'] = np.nan
+    sample_data.loc[3, 'feature2'] = np.nan
+    
+    print("Original data shape:", sample_data.shape)
+    print("Missing values:\n", sample_data.isnull().sum())
+    
+    # Clean the data
+    cleaned = clean_dataset(
+        sample_data,
+        outlier_columns=['feature1', 'feature2'],
+        normalize_columns=['feature1'],
+        scale_columns=['feature2', 'feature3']
+    )
+    
+    print("\nCleaned data shape:", cleaned.shape)
+    print("Missing values after cleaning:\n", cleaned.isnull().sum())
+    
+    return cleaned
+
+if __name__ == "__main__":
+    result = demonstrate_cleaning()
+    print("\nCleaning demonstration completed successfully.")
