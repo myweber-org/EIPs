@@ -4,7 +4,7 @@ import pandas as pd
 
 def remove_outliers_iqr(df, column):
     """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
+    Remove outliers from a DataFrame column using the IQR method.
     
     Parameters:
     df (pd.DataFrame): Input DataFrame
@@ -27,13 +27,13 @@ def remove_outliers_iqr(df, column):
     
     return filtered_df.reset_index(drop=True)
 
-def calculate_summary_statistics(df, column):
+def calculate_summary_stats(df, column):
     """
-    Calculate summary statistics for a column after outlier removal.
+    Calculate summary statistics for a column.
     
     Parameters:
     df (pd.DataFrame): Input DataFrame
-    column (str): Column name to analyze
+    column (str): Column name
     
     Returns:
     dict: Dictionary containing summary statistics
@@ -47,59 +47,56 @@ def calculate_summary_statistics(df, column):
         'std': df[column].std(),
         'min': df[column].min(),
         'max': df[column].max(),
-        'count': df[column].count()
+        'count': len(df[column]),
+        'missing': df[column].isnull().sum()
     }
     
     return stats
 
-def clean_dataset(df, columns_to_clean):
+def clean_numeric_data(df, columns=None):
     """
-    Clean multiple columns in a DataFrame by removing outliers.
+    Clean numeric columns by removing outliers and filling missing values.
     
     Parameters:
     df (pd.DataFrame): Input DataFrame
-    columns_to_clean (list): List of column names to clean
+    columns (list): List of column names to clean. If None, clean all numeric columns.
     
     Returns:
     pd.DataFrame: Cleaned DataFrame
-    dict: Dictionary of summary statistics for each cleaned column
     """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
     cleaned_df = df.copy()
-    statistics = {}
     
-    for column in columns_to_clean:
-        if column in cleaned_df.columns:
-            original_count = len(cleaned_df)
-            cleaned_df = remove_outliers_iqr(cleaned_df, column)
-            removed_count = original_count - len(cleaned_df)
+    for col in columns:
+        if col in cleaned_df.columns:
+            # Fill missing values with median
+            median_val = cleaned_df[col].median()
+            cleaned_df[col] = cleaned_df[col].fillna(median_val)
             
-            stats = calculate_summary_statistics(cleaned_df, column)
-            stats['outliers_removed'] = removed_count
-            statistics[column] = stats
+            # Remove outliers
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
     
-    return cleaned_df, statistics
+    return cleaned_df
 
 if __name__ == "__main__":
+    # Example usage
     sample_data = {
-        'temperature': [22, 23, 24, 25, 26, 27, 28, 29, 30, 100],
-        'humidity': [45, 46, 47, 48, 49, 50, 51, 52, 53, 200],
-        'pressure': [1013, 1014, 1015, 1016, 1017, 1018, 1019, 1020, 1021, 500]
+        'values': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 100],
+        'category': ['A', 'B', 'A', 'B', 'A', 'B', 'A', 'B', 'A', 'B', 'A']
     }
     
     df = pd.DataFrame(sample_data)
     print("Original DataFrame:")
     print(df)
-    print("\n" + "="*50 + "\n")
+    print("\nSummary statistics:")
+    print(calculate_summary_stats(df, 'values'))
     
-    columns_to_clean = ['temperature', 'humidity', 'pressure']
-    cleaned_df, stats = clean_dataset(df, columns_to_clean)
+    cleaned = remove_outliers_iqr(df, 'values')
+    print("\nCleaned DataFrame (outliers removed):")
+    print(cleaned)
     
-    print("Cleaned DataFrame:")
-    print(cleaned_df)
-    print("\n" + "="*50 + "\n")
-    
-    print("Summary Statistics:")
-    for column, column_stats in stats.items():
-        print(f"\n{column}:")
-        for stat_name, stat_value in column_stats.items():
-            print(f"  {stat_name}: {stat_value}")
+    full_clean = clean_numeric_data(df, ['values'])
+    print("\nFully cleaned DataFrame:")
+    print(full_clean)
