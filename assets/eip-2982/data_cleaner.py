@@ -1,143 +1,134 @@
 
 import pandas as pd
+import re
 
-def remove_duplicates(df, subset=None, keep='first'):
+def clean_dataframe(df, column_mapping=None, drop_duplicates=True, normalize_text=True):
     """
-    Remove duplicate rows from a DataFrame.
+    Clean a pandas DataFrame by removing duplicates and normalizing text columns.
     
     Args:
-        df (pd.DataFrame): Input DataFrame
-        subset (list, optional): Columns to consider for duplicates
-        keep (str, optional): Which duplicates to keep ('first', 'last', False)
+        df: pandas DataFrame to clean
+        column_mapping: dictionary mapping old column names to new ones
+        drop_duplicates: whether to remove duplicate rows
+        normalize_text: whether to normalize text columns (strip, lower case)
     
     Returns:
-        pd.DataFrame: DataFrame with duplicates removed
+        Cleaned pandas DataFrame
     """
-    if df.empty:
-        return df
+    cleaned_df = df.copy()
     
-    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+    # Rename columns if mapping provided
+    if column_mapping:
+        cleaned_df = cleaned_df.rename(columns=column_mapping)
+    
+    # Remove duplicate rows
+    if drop_duplicates:
+        initial_rows = len(cleaned_df)
+        cleaned_df = cleaned_df.drop_duplicates()
+        removed = initial_rows - len(cleaned_df)
+        print(f"Removed {removed} duplicate rows")
+    
+    # Normalize text columns
+    if normalize_text:
+        text_columns = cleaned_df.select_dtypes(include=['object']).columns
+        for col in text_columns:
+            cleaned_df[col] = cleaned_df[col].astype(str).str.strip().str.lower()
+            # Remove extra whitespace
+            cleaned_df[col] = cleaned_df[col].apply(lambda x: re.sub(r'\s+', ' ', x))
+    
+    # Reset index after cleaning
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
     return cleaned_df
 
-def clean_numeric_column(df, column_name, fill_method='mean'):
+def validate_email_column(df, email_column):
     """
-    Clean numeric column by handling missing values.
+    Validate email addresses in a specified column.
     
     Args:
-        df (pd.DataFrame): Input DataFrame
-        column_name (str): Name of column to clean
-        fill_method (str): Method to fill missing values ('mean', 'median', 'zero')
+        df: pandas DataFrame
+        email_column: name of the column containing email addresses
     
     Returns:
-        pd.DataFrame: DataFrame with cleaned column
+        DataFrame with validation results
     """
-    if column_name not in df.columns:
-        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    if email_column not in df.columns:
+        raise ValueError(f"Column '{email_column}' not found in DataFrame")
     
-    df_copy = df.copy()
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     
-    if fill_method == 'mean':
-        fill_value = df_copy[column_name].mean()
-    elif fill_method == 'median':
-        fill_value = df_copy[column_name].median()
-    elif fill_method == 'zero':
-        fill_value = 0
-    else:
-        raise ValueError("fill_method must be 'mean', 'median', or 'zero'")
+    validation_results = df.copy()
+    validation_results['email_valid'] = validation_results[email_column].apply(
+        lambda x: bool(re.match(email_pattern, str(x)))
+    )
     
-    df_copy[column_name] = df_copy[column_name].fillna(fill_value)
-    return df_copy
+    valid_count = validation_results['email_valid'].sum()
+    total_count = len(validation_results)
+    
+    print(f"Email validation results: {valid_count}/{total_count} valid emails ({valid_count/total_count*100:.1f}%)")
+    
+    return validation_results
 
-def validate_dataframe(df, required_columns=None):
+def remove_outliers_iqr(df, column, multiplier=1.5):
     """
-    Validate DataFrame structure and content.
+    Remove outliers from a numeric column using the IQR method.
     
     Args:
-        df (pd.DataFrame): DataFrame to validate
-        required_columns (list, optional): List of required column names
+        df: pandas DataFrame
+        column: name of the numeric column
+        multiplier: IQR multiplier (default 1.5)
     
     Returns:
-        tuple: (is_valid, error_message)
-    """
-    if not isinstance(df, pd.DataFrame):
-        return False, "Input is not a pandas DataFrame"
-    
-    if df.empty:
-        return False, "DataFrame is empty"
-    
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            return False, f"Missing required columns: {missing_columns}"
-    
-    return True, "DataFrame is valid"
-import pandas as pd
-import numpy as np
-
-def remove_outliers_iqr(df, column):
-    """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to clean
-    
-    Returns:
-    pd.DataFrame: DataFrame with outliers removed
+        DataFrame with outliers removed
     """
     if column not in df.columns:
         raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
+    if not pd.api.types.is_numeric_dtype(df[column]):
+        raise ValueError(f"Column '{column}' is not numeric")
     
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
+    q1 = df[column].quantile(0.25)
+    q3 = df[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - multiplier * iqr
+    upper_bound = q3 + multiplier * iqr
     
     filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
     
-    return filtered_df.reset_index(drop=True)
+    removed = len(df) - len(filtered_df)
+    print(f"Removed {removed} outliers from column '{column}'")
+    
+    return filtered_df
 
-def clean_dataset(df, numeric_columns=None):
-    """
-    Clean a dataset by removing outliers from all numeric columns.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    numeric_columns (list): List of numeric column names to clean
-    
-    Returns:
-    pd.DataFrame: Cleaned DataFrame
-    """
-    if numeric_columns is None:
-        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
-    
-    cleaned_df = df.copy()
-    
-    for column in numeric_columns:
-        if column in cleaned_df.columns:
-            original_len = len(cleaned_df)
-            cleaned_df = remove_outliers_iqr(cleaned_df, column)
-            removed_count = original_len - len(cleaned_df)
-            print(f"Removed {removed_count} outliers from column '{column}'")
-    
-    return cleaned_df
-
+# Example usage
 if __name__ == "__main__":
+    # Create sample data
     sample_data = {
-        'A': np.random.normal(100, 15, 1000),
-        'B': np.random.exponential(50, 1000),
-        'C': np.random.uniform(0, 200, 1000)
+        'name': ['John Doe', 'Jane Smith', 'John Doe', 'Bob Johnson', 'Alice Brown  '],
+        'email': ['john@example.com', 'jane@example.com', 'invalid-email', 'bob@example.com', 'alice@example.com'],
+        'age': [25, 30, 25, 150, 28],  # 150 is an outlier
+        'salary': [50000, 60000, 50000, 70000, 55000]
     }
     
-    sample_data['A'][:5] = [500, 600, -300, 700, 800]
-    
     df = pd.DataFrame(sample_data)
-    print(f"Original dataset shape: {df.shape}")
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
     
-    cleaned_df = clean_dataset(df)
-    print(f"Cleaned dataset shape: {cleaned_df.shape}")
+    # Clean the data
+    cleaned = clean_dataframe(df, column_mapping=None, drop_duplicates=True, normalize_text=True)
+    print("Cleaned DataFrame:")
+    print(cleaned)
+    print("\n" + "="*50 + "\n")
     
-    print("\nSummary statistics:")
-    print(cleaned_df.describe())
+    # Validate emails
+    validated = validate_email_column(cleaned, 'email')
+    print("Validation results:")
+    print(validated[['name', 'email', 'email_valid']])
+    print("\n" + "="*50 + "\n")
+    
+    # Remove outliers from age
+    no_outliers = remove_outliers_iqr(cleaned, 'age')
+    print("DataFrame without outliers in 'age' column:")
+    print(no_outliers)
