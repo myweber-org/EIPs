@@ -597,4 +597,118 @@ if __name__ == "__main__":
     input_csv = "raw_data.csv"
     output_csv = "cleaned_data.csv"
     
-    clean_csv_data(input_csv, output_csv)
+    clean_csv_data(input_csv, output_csv)import pandas as pd
+import numpy as np
+
+def remove_missing_rows(df, columns=None):
+    """
+    Remove rows with missing values from specified columns or entire DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns (list, optional): List of columns to check for missing values.
+                                  If None, checks all columns.
+    
+    Returns:
+        pd.DataFrame: DataFrame with rows containing missing values removed.
+    """
+    if columns is None:
+        return df.dropna()
+    else:
+        return df.dropna(subset=columns)
+
+def fill_missing_with_mean(df, columns):
+    """
+    Fill missing values in specified columns with column mean.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns (list): List of columns to fill missing values
+    
+    Returns:
+        pd.DataFrame: DataFrame with missing values filled.
+    """
+    df_filled = df.copy()
+    for col in columns:
+        if col in df.columns:
+            df_filled[col] = df_filled[col].fillna(df_filled[col].mean())
+    return df_filled
+
+def remove_outliers_iqr(df, columns, multiplier=1.5):
+    """
+    Remove outliers using the Interquartile Range (IQR) method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns (list): List of columns to check for outliers
+        multiplier (float): IQR multiplier for outlier detection
+    
+    Returns:
+        pd.DataFrame: DataFrame with outliers removed.
+    """
+    df_clean = df.copy()
+    for col in columns:
+        if col in df.columns:
+            Q1 = df_clean[col].quantile(0.25)
+            Q3 = df_clean[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - multiplier * IQR
+            upper_bound = Q3 + multiplier * IQR
+            df_clean = df_clean[(df_clean[col] >= lower_bound) & 
+                               (df_clean[col] <= upper_bound)]
+    return df_clean.reset_index(drop=True)
+
+def standardize_columns(df, columns):
+    """
+    Standardize specified columns using z-score normalization.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns (list): List of columns to standardize
+    
+    Returns:
+        pd.DataFrame: DataFrame with standardized columns.
+    """
+    df_standardized = df.copy()
+    for col in columns:
+        if col in df.columns:
+            mean_val = df_standardized[col].mean()
+            std_val = df_standardized[col].std()
+            if std_val > 0:
+                df_standardized[col] = (df_standardized[col] - mean_val) / std_val
+    return df_standardized
+
+def clean_dataset(df, missing_strategy='remove', outlier_removal=True, 
+                  standardization=True, numeric_columns=None):
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        missing_strategy (str): Strategy for handling missing values.
+                               'remove' or 'fill'
+        outlier_removal (bool): Whether to remove outliers
+        standardization (bool): Whether to standardize numeric columns
+        numeric_columns (list, optional): List of numeric columns to process.
+                                         If None, automatically detects numeric columns.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    if numeric_columns is None:
+        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    df_clean = df.copy()
+    
+    if missing_strategy == 'remove':
+        df_clean = remove_missing_rows(df_clean, numeric_columns)
+    elif missing_strategy == 'fill':
+        df_clean = fill_missing_with_mean(df_clean, numeric_columns)
+    
+    if outlier_removal and numeric_columns:
+        df_clean = remove_outliers_iqr(df_clean, numeric_columns)
+    
+    if standardization and numeric_columns:
+        df_clean = standardize_columns(df_clean, numeric_columns)
+    
+    return df_clean
