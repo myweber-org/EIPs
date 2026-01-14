@@ -166,3 +166,85 @@ def clean_dataset(filepath):
 if __name__ == "__main__":
     cleaned_df = clean_dataset('sample_data.csv')
     cleaned_df.to_csv('cleaned_data.csv', index=False)
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+def detect_outliers_iqr(data, column, threshold=1.5):
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    outliers = data[(data[column] < lower_bound) | (data[column] > upper_bound)]
+    return outliers
+
+def remove_outliers(data, column, threshold=1.5):
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
+
+def normalize_minmax(data, column):
+    min_val = data[column].min()
+    max_val = data[column].max()
+    if max_val == min_val:
+        return data[column].apply(lambda x: 0.5)
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def normalize_zscore(data, column):
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    if std_val == 0:
+        return data[column].apply(lambda x: 0)
+    normalized = (data[column] - mean_val) / std_val
+    return normalized
+
+def handle_missing_values(data, strategy='mean', columns=None):
+    if columns is None:
+        columns = data.columns
+    
+    cleaned_data = data.copy()
+    
+    for col in columns:
+        if cleaned_data[col].isnull().any():
+            if strategy == 'mean':
+                fill_value = cleaned_data[col].mean()
+            elif strategy == 'median':
+                fill_value = cleaned_data[col].median()
+            elif strategy == 'mode':
+                fill_value = cleaned_data[col].mode()[0]
+            elif strategy == 'drop':
+                cleaned_data = cleaned_data.dropna(subset=[col])
+                continue
+            else:
+                fill_value = 0
+            
+            cleaned_data[col] = cleaned_data[col].fillna(fill_value)
+    
+    return cleaned_data
+
+def validate_data_types(data, schema):
+    validation_report = {}
+    
+    for column, expected_type in schema.items():
+        if column not in data.columns:
+            validation_report[column] = 'Column not found'
+            continue
+        
+        actual_type = str(data[column].dtype)
+        
+        if expected_type == 'numeric':
+            is_numeric = np.issubdtype(data[column].dtype, np.number)
+            validation_report[column] = 'Valid' if is_numeric else f'Expected numeric, got {actual_type}'
+        elif expected_type == 'categorical':
+            is_categorical = data[column].dtype == 'object'
+            validation_report[column] = 'Valid' if is_categorical else f'Expected categorical, got {actual_type}'
+        else:
+            validation_report[column] = f'Unknown type specification: {expected_type}'
+    
+    return validation_report
