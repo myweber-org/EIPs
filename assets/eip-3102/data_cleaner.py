@@ -1,72 +1,41 @@
 import pandas as pd
-import numpy as np
 
-def remove_outliers_iqr(df, column):
+def clean_dataset(df):
     """
-    Remove outliers from a DataFrame column using the Interquartile Range (IQR) method.
-    
-    Parameters:
-    df (pd.DataFrame): The input DataFrame.
-    column (str): The column name to process.
-    
-    Returns:
-    pd.DataFrame: DataFrame with outliers removed from the specified column.
+    Clean the dataset by removing duplicates and handling missing values.
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    # Remove duplicate rows
+    df_cleaned = df.drop_duplicates()
     
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
+    # Fill missing numeric values with column mean
+    numeric_cols = df_cleaned.select_dtypes(include=['number']).columns
+    df_cleaned[numeric_cols] = df_cleaned[numeric_cols].fillna(df_cleaned[numeric_cols].mean())
     
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
+    # Fill missing categorical values with mode
+    categorical_cols = df_cleaned.select_dtypes(include=['object']).columns
+    for col in categorical_cols:
+        mode_value = df_cleaned[col].mode()[0] if not df_cleaned[col].mode().empty else 'Unknown'
+        df_cleaned[col] = df_cleaned[col].fillna(mode_value)
     
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    
-    return filtered_df.reset_index(drop=True)
+    return df_cleaned
 
-def calculate_summary_statistics(df, column):
+def save_cleaned_data(df, output_path):
     """
-    Calculate summary statistics for a DataFrame column.
-    
-    Parameters:
-    df (pd.DataFrame): The input DataFrame.
-    column (str): The column name to analyze.
-    
-    Returns:
-    dict: Dictionary containing count, mean, std, min, max, and IQR.
+    Save cleaned dataset to CSV file.
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    stats = {
-        'count': df[column].count(),
-        'mean': df[column].mean(),
-        'std': df[column].std(),
-        'min': df[column].min(),
-        'max': df[column].max(),
-        'q1': df[column].quantile(0.25),
-        'q3': df[column].quantile(0.75),
-        'iqr': df[column].quantile(0.75) - df[column].quantile(0.25)
-    }
-    
-    return stats
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to {output_path}")
 
 if __name__ == "__main__":
-    sample_data = {
-        'values': [10, 12, 12, 13, 14, 15, 15, 16, 17, 18, 100, 120]
-    }
-    df = pd.DataFrame(sample_data)
+    # Example usage
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
     
-    print("Original DataFrame:")
-    print(df)
-    print("\nOriginal Statistics:")
-    print(calculate_summary_statistics(df, 'values'))
-    
-    cleaned_df = remove_outliers_iqr(df, 'values')
-    
-    print("\nCleaned DataFrame:")
-    print(cleaned_df)
-    print("\nCleaned Statistics:")
-    print(calculate_summary_statistics(cleaned_df, 'values'))
+    try:
+        raw_data = pd.read_csv(input_file)
+        cleaned_data = clean_dataset(raw_data)
+        save_cleaned_data(cleaned_data, output_file)
+    except FileNotFoundError:
+        print(f"Error: File {input_file} not found.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
