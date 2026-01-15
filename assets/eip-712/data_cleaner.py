@@ -633,3 +633,89 @@ def clean_dataset(df: pd.DataFrame,
                 cleaned_df = normalize_column(cleaned_df, col)
     
     return cleaned_df
+import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a DataFrame column using the Interquartile Range method.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to clean
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df
+
+def calculate_statistics(df, column):
+    """
+    Calculate basic statistics for a column.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to analyze
+    
+    Returns:
+    dict: Dictionary containing statistics
+    """
+    stats = {
+        'mean': df[column].mean(),
+        'median': df[column].median(),
+        'std': df[column].std(),
+        'min': df[column].min(),
+        'max': df[column].max(),
+        'count': len(df[column])
+    }
+    
+    return stats
+
+def clean_dataset(df, numeric_columns):
+    """
+    Clean a dataset by removing outliers from multiple numeric columns.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    numeric_columns (list): List of column names to clean
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    dict: Dictionary of statistics before and after cleaning
+    """
+    original_stats = {}
+    cleaned_stats = {}
+    
+    cleaned_df = df.copy()
+    
+    for col in numeric_columns:
+        if col in df.columns:
+            original_stats[col] = calculate_statistics(df, col)
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+            cleaned_stats[col] = calculate_statistics(cleaned_df, col)
+    
+    return cleaned_df, {'original': original_stats, 'cleaned': cleaned_stats}
+
+if __name__ == "__main__":
+    sample_data = {
+        'id': range(1, 101),
+        'value': np.random.randn(100) * 10 + 50
+    }
+    
+    df = pd.DataFrame(sample_data)
+    df.loc[95:99, 'value'] = [150, -30, 200, 180, 250]
+    
+    cleaned_df, stats = clean_dataset(df, ['value'])
+    
+    print(f"Original data points: {len(df)}")
+    print(f"Cleaned data points: {len(cleaned_df)}")
+    print(f"Removed outliers: {len(df) - len(cleaned_df)}")
