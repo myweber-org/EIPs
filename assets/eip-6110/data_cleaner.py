@@ -1008,3 +1008,11 @@ if __name__ == "__main__":
     else:
         print("Usage: python data_cleaner.py <input_file> [output_file]")
         print("Example: python data_cleaner.py data.csv cleaned_data.csv")
+def remove_duplicates(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
