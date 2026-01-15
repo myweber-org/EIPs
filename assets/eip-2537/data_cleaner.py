@@ -1,126 +1,66 @@
 import pandas as pd
 import numpy as np
-from typing import Optional, List, Union
 
-def remove_duplicates(df: pd.DataFrame, subset: Optional[List[str]] = None) -> pd.DataFrame:
+def clean_csv_data(file_path, strategy='mean', columns=None):
     """
-    Remove duplicate rows from DataFrame.
+    Clean a CSV file by handling missing values.
     
     Args:
-        df: Input DataFrame
-        subset: Columns to consider for identifying duplicates
+        file_path (str): Path to the CSV file.
+        strategy (str): Strategy for imputation ('mean', 'median', 'mode', 'drop').
+        columns (list): Specific columns to clean. If None, clean all columns.
     
     Returns:
-        DataFrame with duplicates removed
-    """
-    return df.drop_duplicates(subset=subset, keep='first')
-
-def handle_missing_values(df: pd.DataFrame, 
-                         strategy: str = 'drop', 
-                         fill_value: Union[int, float, str] = None) -> pd.DataFrame:
-    """
-    Handle missing values in DataFrame.
-    
-    Args:
-        df: Input DataFrame
-        strategy: 'drop' to remove rows, 'fill' to fill values
-        fill_value: Value to fill when strategy is 'fill'
-    
-    Returns:
-        DataFrame with handled missing values
-    """
-    if strategy == 'drop':
-        return df.dropna()
-    elif strategy == 'fill':
-        if fill_value is not None:
-            return df.fillna(fill_value)
-        else:
-            return df.fillna(df.mean(numeric_only=True))
-    return df
-
-def normalize_column(df: pd.DataFrame, column: str) -> pd.DataFrame:
-    """
-    Normalize a numeric column to range [0, 1].
-    
-    Args:
-        df: Input DataFrame
-        column: Column name to normalize
-    
-    Returns:
-        DataFrame with normalized column
-    """
-    if column in df.columns and pd.api.types.is_numeric_dtype(df[column]):
-        col_min = df[column].min()
-        col_max = df[column].max()
-        
-        if col_max != col_min:
-            df[column] = (df[column] - col_min) / (col_max - col_min)
-    
-    return df
-
-def clean_column_names(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Clean column names by removing whitespace and converting to lowercase.
-    
-    Args:
-        df: Input DataFrame
-    
-    Returns:
-        DataFrame with cleaned column names
-    """
-    df.columns = df.columns.str.strip().str.lower().str.replace(' ', '_')
-    return df
-
-def validate_dataframe(df: pd.DataFrame, 
-                      required_columns: List[str] = None) -> bool:
-    """
-    Validate DataFrame structure and content.
-    
-    Args:
-        df: DataFrame to validate
-        required_columns: List of columns that must be present
-    
-    Returns:
-        Boolean indicating if DataFrame is valid
-    """
-    if df.empty:
-        return False
-    
-    if required_columns:
-        missing_cols = [col for col in required_columns if col not in df.columns]
-        if missing_cols:
-            return False
-    
-    return True
-
-def process_csv_file(filepath: str, 
-                    cleaning_steps: List[str] = None) -> pd.DataFrame:
-    """
-    Main function to process CSV file with cleaning steps.
-    
-    Args:
-        filepath: Path to CSV file
-        cleaning_steps: List of cleaning steps to apply
-    
-    Returns:
-        Cleaned DataFrame
+        pd.DataFrame: Cleaned DataFrame.
     """
     try:
-        df = pd.read_csv(filepath)
-        
-        if cleaning_steps is None:
-            cleaning_steps = ['clean_names', 'remove_duplicates', 'handle_missing']
-        
-        for step in cleaning_steps:
-            if step == 'clean_names':
-                df = clean_column_names(df)
-            elif step == 'remove_duplicates':
-                df = remove_duplicates(df)
-            elif step == 'handle_missing':
-                df = handle_missing_values(df, strategy='fill')
-        
-        return df
-    
+        df = pd.read_csv(file_path)
+    except FileNotFoundError:
+        print(f"Error: File '{file_path}' not found.")
+        return None
     except Exception as e:
-        print(f"Error processing file: {e}")
-        return pd.DataFrame()
+        print(f"Error reading file: {e}")
+        return None
+    
+    if columns is None:
+        columns = df.columns
+    
+    for col in columns:
+        if col not in df.columns:
+            print(f"Warning: Column '{col}' not found in DataFrame.")
+            continue
+        
+        if df[col].isnull().any():
+            if strategy == 'mean' and pd.api.types.is_numeric_dtype(df[col]):
+                df[col].fillna(df[col].mean(), inplace=True)
+            elif strategy == 'median' and pd.api.types.is_numeric_dtype(df[col]):
+                df[col].fillna(df[col].median(), inplace=True)
+            elif strategy == 'mode':
+                df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else np.nan, inplace=True)
+            elif strategy == 'drop':
+                df.dropna(subset=[col], inplace=True)
+            else:
+                print(f"Warning: Strategy '{strategy}' not applicable for column '{col}'. Skipping.")
+    
+    return df
+
+def save_cleaned_data(df, output_path):
+    """
+    Save the cleaned DataFrame to a CSV file.
+    
+    Args:
+        df (pd.DataFrame): Cleaned DataFrame.
+        output_path (str): Path to save the cleaned CSV file.
+    """
+    if df is not None:
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to '{output_path}'")
+    else:
+        print("No data to save.")
+
+if __name__ == "__main__":
+    input_file = "data.csv"
+    output_file = "cleaned_data.csv"
+    
+    cleaned_df = clean_csv_data(input_file, strategy='mean')
+    save_cleaned_data(cleaned_df, output_file)
