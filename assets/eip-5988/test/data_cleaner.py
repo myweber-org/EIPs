@@ -307,4 +307,129 @@ if __name__ == "__main__":
     print(cleaned)
     
     is_valid, message = validate_dataframe(cleaned)
-    print(f"\nValidation: {is_valid} - {message}")
+    print(f"\nValidation: {is_valid} - {message}")import pandas as pd
+import numpy as np
+
+def clean_dataframe(df, column_mapping=None, drop_duplicates=True, fill_na=True):
+    """
+    Clean a pandas DataFrame by standardizing columns, removing duplicates,
+    and handling missing values.
+    """
+    cleaned_df = df.copy()
+    
+    # Standardize column names if mapping is provided
+    if column_mapping:
+        cleaned_df = cleaned_df.rename(columns=column_mapping)
+    
+    # Remove duplicate rows
+    if drop_duplicates:
+        initial_count = len(cleaned_df)
+        cleaned_df = cleaned_df.drop_duplicates()
+        removed_count = initial_count - len(cleaned_df)
+        print(f"Removed {removed_count} duplicate rows")
+    
+    # Fill missing values with appropriate defaults
+    if fill_na:
+        for col in cleaned_df.columns:
+            if cleaned_df[col].dtype == 'object':
+                cleaned_df[col] = cleaned_df[col].fillna('Unknown')
+            elif cleaned_df[col].dtype in ['int64', 'float64']:
+                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].median())
+    
+    # Convert date columns if they exist
+    date_columns = [col for col in cleaned_df.columns if 'date' in col.lower()]
+    for col in date_columns:
+        try:
+            cleaned_df[col] = pd.to_datetime(cleaned_df[col], errors='coerce')
+        except:
+            print(f"Could not convert column {col} to datetime")
+    
+    return cleaned_df
+
+def validate_data(df, required_columns=None, unique_constraints=None):
+    """
+    Validate DataFrame structure and data quality.
+    """
+    validation_results = {
+        'is_valid': True,
+        'issues': []
+    }
+    
+    # Check required columns
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            validation_results['is_valid'] = False
+            validation_results['issues'].append(f"Missing columns: {missing_columns}")
+    
+    # Check unique constraints
+    if unique_constraints:
+        for constraint in unique_constraints:
+            if constraint in df.columns:
+                duplicate_count = df[constraint].duplicated().sum()
+                if duplicate_count > 0:
+                    validation_results['is_valid'] = False
+                    validation_results['issues'].append(
+                        f"Column '{constraint}' has {duplicate_count} duplicate values"
+                    )
+    
+    # Check for null values in critical columns
+    critical_columns = [col for col in df.columns if 'id' in col.lower() or 'key' in col.lower()]
+    for col in critical_columns:
+        null_count = df[col].isnull().sum()
+        if null_count > 0:
+            validation_results['issues'].append(
+                f"Column '{col}' has {null_count} null values"
+            )
+    
+    return validation_results
+
+def export_cleaned_data(df, output_path, format='csv'):
+    """
+    Export cleaned DataFrame to specified format.
+    """
+    if format.lower() == 'csv':
+        df.to_csv(output_path, index=False)
+    elif format.lower() == 'excel':
+        df.to_excel(output_path, index=False)
+    elif format.lower() == 'json':
+        df.to_json(output_path, orient='records')
+    else:
+        raise ValueError(f"Unsupported format: {format}")
+    
+    print(f"Data exported successfully to {output_path}")
+
+# Example usage
+if __name__ == "__main__":
+    # Create sample data
+    sample_data = {
+        'user_id': [1, 2, 2, 3, 4, None],
+        'user_name': ['Alice', 'Bob', 'Bob', 'Charlie', None, 'Eve'],
+        'join_date': ['2023-01-01', '2023-01-02', '2023-01-02', '2023-01-03', '2023-01-04', '2023-01-05'],
+        'score': [85.5, 92.0, 92.0, 78.5, None, 88.0]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    # Clean the data
+    column_mapping = {'user_name': 'username'}
+    cleaned_df = clean_dataframe(df, column_mapping=column_mapping)
+    
+    print("Cleaned DataFrame:")
+    print(cleaned_df)
+    print("\n" + "="*50 + "\n")
+    
+    # Validate the cleaned data
+    validation = validate_data(cleaned_df, 
+                              required_columns=['user_id', 'username'],
+                              unique_constraints=['user_id'])
+    
+    print("Validation Results:")
+    print(f"Is Valid: {validation['is_valid']}")
+    if validation['issues']:
+        print("Issues Found:")
+        for issue in validation['issues']:
+            print(f"  - {issue}")
