@@ -1,84 +1,45 @@
-
 import pandas as pd
-import numpy as np
 
-def remove_outliers_iqr(df, column):
+def clean_dataset(df):
     """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
+    Remove null values and duplicate rows from a pandas DataFrame.
     
-    Parameters:
-    df (pd.DataFrame): The input DataFrame.
-    column (str): The column name to clean.
+    Args:
+        df (pd.DataFrame): Input DataFrame to be cleaned.
     
     Returns:
-    pd.DataFrame: DataFrame with outliers removed.
+        pd.DataFrame: Cleaned DataFrame.
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    # Remove rows with any null values
+    df_cleaned = df.dropna()
     
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
+    # Remove duplicate rows
+    df_cleaned = df_cleaned.drop_duplicates()
     
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
+    # Reset index after cleaning
+    df_cleaned = df_cleaned.reset_index(drop=True)
     
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    
-    return filtered_df.reset_index(drop=True)
+    return df_cleaned
 
-def calculate_summary_statistics(df, column):
+def filter_by_column(df, column_name, min_value=None, max_value=None):
     """
-    Calculate summary statistics for a DataFrame column.
+    Filter DataFrame based on column value range.
     
-    Parameters:
-    df (pd.DataFrame): The input DataFrame.
-    column (str): The column name to analyze.
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        column_name (str): Column to filter by.
+        min_value: Minimum value for filtering (inclusive).
+        max_value: Maximum value for filtering (inclusive).
     
     Returns:
-    dict: Dictionary containing summary statistics.
+        pd.DataFrame: Filtered DataFrame.
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    filtered_df = df.copy()
     
-    stats = {
-        'mean': df[column].mean(),
-        'median': df[column].median(),
-        'std': df[column].std(),
-        'min': df[column].min(),
-        'max': df[column].max(),
-        'count': df[column].count(),
-        'missing': df[column].isnull().sum()
-    }
+    if min_value is not None:
+        filtered_df = filtered_df[filtered_df[column_name] >= min_value]
     
-    return stats
-
-def example_usage():
-    """
-    Example usage of the data cleaning functions.
-    """
-    np.random.seed(42)
-    data = {
-        'id': range(100),
-        'value': np.random.normal(100, 15, 100)
-    }
+    if max_value is not None:
+        filtered_df = filtered_df[filtered_df[column_name] <= max_value]
     
-    df = pd.DataFrame(data)
-    
-    df.loc[10, 'value'] = 500
-    df.loc[20, 'value'] = -100
-    
-    print("Original DataFrame shape:", df.shape)
-    print("Original statistics:", calculate_summary_statistics(df, 'value'))
-    
-    cleaned_df = remove_outliers_iqr(df, 'value')
-    
-    print("\nCleaned DataFrame shape:", cleaned_df.shape)
-    print("Cleaned statistics:", calculate_summary_statistics(cleaned_df, 'value'))
-    
-    return cleaned_df
-
-if __name__ == "__main__":
-    result_df = example_usage()
-    print("\nFirst 5 rows of cleaned data:")
-    print(result_df.head())
+    return filtered_df
