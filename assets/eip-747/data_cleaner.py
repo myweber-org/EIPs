@@ -74,4 +74,142 @@ if __name__ == "__main__":
     output_file = "cleaned_data.csv"
     
     cleaned_df = load_and_clean_data(input_file)
-    save_cleaned_data(cleaned_df, output_file)
+    save_cleaned_data(cleaned_df, output_file)import pandas as pd
+import numpy as np
+
+def remove_missing_rows(df, columns=None):
+    """
+    Remove rows with missing values from DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns (list, optional): Specific columns to check for missing values.
+                                 If None, checks all columns.
+    
+    Returns:
+        pd.DataFrame: DataFrame with rows containing missing values removed.
+    """
+    if columns is None:
+        return df.dropna()
+    else:
+        return df.dropna(subset=columns)
+
+def fill_missing_with_mean(df, columns):
+    """
+    Fill missing values in specified columns with column mean.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns (list): List of column names to fill
+    
+    Returns:
+        pd.DataFrame: DataFrame with missing values filled
+    """
+    df_filled = df.copy()
+    for col in columns:
+        if col in df.columns:
+            df_filled[col] = df_filled[col].fillna(df_filled[col].mean())
+    return df_filled
+
+def detect_outliers_iqr(df, column, threshold=1.5):
+    """
+    Detect outliers using Interquartile Range method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to check for outliers
+        threshold (float): IQR multiplier threshold
+    
+    Returns:
+        pd.DataFrame: DataFrame containing outlier rows
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - threshold * IQR
+    upper_bound = Q3 + threshold * IQR
+    
+    outliers = df[(df[column] < lower_bound) | (df[column] > upper_bound)]
+    return outliers
+
+def remove_outliers_iqr(df, column, threshold=1.5):
+    """
+    Remove outliers using Interquartile Range method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to remove outliers from
+        threshold (float): IQR multiplier threshold
+    
+    Returns:
+        pd.DataFrame: DataFrame with outliers removed
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - threshold * IQR
+    upper_bound = Q3 + threshold * IQR
+    
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+def standardize_column(df, column):
+    """
+    Standardize a column using z-score normalization.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to standardize
+    
+    Returns:
+        pd.DataFrame: DataFrame with standardized column
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    df_standardized = df.copy()
+    mean_val = df_standardized[column].mean()
+    std_val = df_standardized[column].std()
+    
+    if std_val > 0:
+        df_standardized[column] = (df_standardized[column] - mean_val) / std_val
+    
+    return df_standardized
+
+def clean_dataset(df, missing_strategy='remove', outlier_strategy='remove', 
+                  columns_to_clean=None, outlier_threshold=1.5):
+    """
+    Comprehensive data cleaning function.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        missing_strategy (str): 'remove' or 'mean'
+        outlier_strategy (str): 'remove' or 'detect'
+        columns_to_clean (list): Specific columns to clean
+        outlier_threshold (float): IQR threshold for outlier detection
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    # Handle missing values
+    if missing_strategy == 'remove':
+        cleaned_df = remove_missing_rows(cleaned_df, columns_to_clean)
+    elif missing_strategy == 'mean' and columns_to_clean:
+        cleaned_df = fill_missing_with_mean(cleaned_df, columns_to_clean)
+    
+    # Handle outliers
+    if outlier_strategy == 'remove' and columns_to_clean:
+        for col in columns_to_clean:
+            if col in cleaned_df.columns:
+                cleaned_df = remove_outliers_iqr(cleaned_df, col, outlier_threshold)
+    
+    return cleaned_df
