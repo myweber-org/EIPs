@@ -119,4 +119,46 @@ def log_transform_skewed(data, skewed_columns):
             transformed_data[col] = np.log(transformed_data[col] - transformed_data[col].min() + 1)
         else:
             transformed_data[col] = np.log(transformed_data[col])
-    return transformed_data
+    return transformed_dataimport pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+def normalize_minmax(df, column):
+    min_val = df[column].min()
+    max_val = df[column].max()
+    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
+    return df
+
+def clean_dataset(file_path):
+    try:
+        df = pd.read_csv(file_path)
+        print(f"Original shape: {df.shape}")
+        
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        
+        for col in numeric_cols:
+            df = remove_outliers_iqr(df, col)
+        
+        print(f"After outlier removal: {df.shape}")
+        
+        for col in numeric_cols:
+            df = normalize_minmax(df, col)
+        
+        cleaned_path = file_path.replace('.csv', '_cleaned.csv')
+        df.to_csv(cleaned_path, index=False)
+        print(f"Cleaned data saved to: {cleaned_path}")
+        return cleaned_path
+    
+    except Exception as e:
+        print(f"Error cleaning data: {e}")
+        return None
+
+if __name__ == "__main__":
+    clean_dataset("sample_data.csv")
