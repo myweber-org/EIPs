@@ -1,100 +1,93 @@
 
 import pandas as pd
-import re
+import numpy as np
 
-def clean_dataset(df, column_mapping=None, drop_duplicates=True, normalize_text=True):
+def clean_dataframe(df, drop_duplicates=True, fill_missing=True):
     """
-    Clean a pandas DataFrame by removing duplicates and normalizing text columns.
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
     
     Args:
-        df: Input pandas DataFrame
-        column_mapping: Dictionary mapping original column names to new names
-        drop_duplicates: Whether to remove duplicate rows
-        normalize_text: Whether to normalize text columns (strip, lower case)
+        df (pd.DataFrame): Input DataFrame to clean
+        drop_duplicates (bool): Whether to drop duplicate rows
+        fill_missing (bool): Whether to fill missing values with column means
     
     Returns:
-        Cleaned pandas DataFrame
+        pd.DataFrame: Cleaned DataFrame
     """
     cleaned_df = df.copy()
     
-    # Rename columns if mapping provided
-    if column_mapping:
-        cleaned_df = cleaned_df.rename(columns=column_mapping)
-    
-    # Remove duplicate rows
     if drop_duplicates:
         initial_rows = len(cleaned_df)
-        cleaned_df = cleaned_df.drop_duplicates().reset_index(drop=True)
+        cleaned_df = cleaned_df.drop_duplicates()
         removed = initial_rows - len(cleaned_df)
         print(f"Removed {removed} duplicate rows")
     
-    # Normalize text columns
-    if normalize_text:
-        text_columns = cleaned_df.select_dtypes(include=['object']).columns
-        for col in text_columns:
-            cleaned_df[col] = cleaned_df[col].astype(str).str.strip().str.lower()
-            # Remove extra whitespace
-            cleaned_df[col] = cleaned_df[col].apply(lambda x: re.sub(r'\s+', ' ', x))
-        print(f"Normalized {len(text_columns)} text columns")
+    if fill_missing:
+        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            if cleaned_df[col].isnull().any():
+                mean_val = cleaned_df[col].mean()
+                cleaned_df[col] = cleaned_df[col].fillna(mean_val)
+                print(f"Filled missing values in '{col}' with mean: {mean_val:.2f}")
     
-    # Convert date columns if detected
-    date_patterns = ['date', 'time', 'created', 'updated']
-    for col in cleaned_df.columns:
-        if any(pattern in col.lower() for pattern in date_patterns):
-            try:
-                cleaned_df[col] = pd.to_datetime(cleaned_df[col], errors='coerce')
-            except:
-                pass
+    categorical_cols = cleaned_df.select_dtypes(include=['object']).columns
+    for col in categorical_cols:
+        if cleaned_df[col].isnull().any():
+            cleaned_df[col] = cleaned_df[col].fillna('Unknown')
+            print(f"Filled missing values in '{col}' with 'Unknown'")
     
     return cleaned_df
 
-def validate_data(df, required_columns=None, min_rows=1):
+def validate_dataframe(df):
     """
-    Validate the cleaned DataFrame meets basic requirements.
+    Validate DataFrame for common data quality issues.
     
     Args:
-        df: DataFrame to validate
-        required_columns: List of column names that must be present
-        min_rows: Minimum number of rows required
+        df (pd.DataFrame): DataFrame to validate
     
     Returns:
-        Tuple of (is_valid, error_message)
+        dict: Dictionary containing validation results
     """
-    if len(df) < min_rows:
-        return False, f"Dataset has only {len(df)} rows, minimum required is {min_rows}"
+    validation_results = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_values': df.isnull().sum().sum(),
+        'duplicate_rows': df.duplicated().sum(),
+        'numeric_columns': list(df.select_dtypes(include=[np.number]).columns),
+        'categorical_columns': list(df.select_dtypes(include=['object']).columns)
+    }
     
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            return False, f"Missing required columns: {missing_columns}"
-    
-    # Check for excessive null values
-    null_percentage = df.isnull().sum().sum() / (len(df) * len(df.columns))
-    if null_percentage > 0.5:
-        return False, f"High percentage of null values: {null_percentage:.1%}"
-    
-    return True, "Data validation passed"
+    return validation_results
 
-# Example usage
+def save_cleaned_data(df, output_path):
+    """
+    Save cleaned DataFrame to CSV file.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to save
+        output_path (str): Path where to save the CSV file
+    """
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to: {output_path}")
+
 if __name__ == "__main__":
-    # Create sample data
+    # Example usage
     sample_data = {
-        'user_id': [1, 2, 2, 3, 4],
-        'user_name': [' John ', 'Alice', 'alice', 'Bob ', ' Charlie '],
-        'signup_date': ['2023-01-01', '2023-01-02', '2023-01-02', 'invalid', '2023-01-03'],
-        'email': ['JOHN@EXAMPLE.COM', 'alice@example.com', 'alice@example.com', 'bob@example.com', 'charlie@example.com']
+        'id': [1, 2, 3, 3, 4, 5],
+        'name': ['Alice', 'Bob', 'Charlie', 'Charlie', 'David', 'Eve'],
+        'age': [25, 30, None, 35, 28, None],
+        'score': [85.5, 92.0, 78.5, 78.5, 88.0, 95.5],
+        'department': ['HR', 'IT', 'Finance', 'Finance', None, 'Marketing']
     }
     
     df = pd.DataFrame(sample_data)
-    print("Original data:")
+    print("Original DataFrame:")
     print(df)
-    print("\n" + "="*50 + "\n")
+    print("\nValidation results:")
+    print(validate_dataframe(df))
     
-    # Clean the data
-    cleaned = clean_dataset(df, column_mapping={'user_name': 'username'})
-    print("\nCleaned data:")
-    print(cleaned)
+    cleaned_df = clean_dataframe(df)
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
     
-    # Validate
-    is_valid, message = validate_data(cleaned, required_columns=['user_id', 'username'])
-    print(f"\nValidation: {message}")
+    save_cleaned_data(cleaned_df, 'cleaned_data.csv')
