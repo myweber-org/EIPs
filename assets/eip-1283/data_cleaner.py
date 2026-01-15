@@ -116,3 +116,99 @@ if __name__ == "__main__":
     
     cleaned_df = load_and_clean_data(input_file)
     save_cleaned_data(cleaned_df, output_file)
+import pandas as pd
+import re
+
+def clean_dataframe(df, column_mapping=None, drop_duplicates=True, normalize_text=True):
+    """
+    Clean a pandas DataFrame by removing duplicates and normalizing text columns.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean
+    column_mapping (dict): Optional dictionary to rename columns
+    drop_duplicates (bool): Whether to remove duplicate rows
+    normalize_text (bool): Whether to normalize text columns (strip, lower case)
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    
+    # Create a copy to avoid modifying the original
+    cleaned_df = df.copy()
+    
+    # Rename columns if mapping provided
+    if column_mapping:
+        cleaned_df = cleaned_df.rename(columns=column_mapping)
+    
+    # Remove duplicate rows
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates().reset_index(drop=True)
+    
+    # Normalize text columns
+    if normalize_text:
+        text_columns = cleaned_df.select_dtypes(include=['object']).columns
+        for col in text_columns:
+            cleaned_df[col] = cleaned_df[col].astype(str).str.strip().str.lower()
+    
+    return cleaned_df
+
+def validate_email(email_series):
+    """
+    Validate email addresses in a pandas Series.
+    
+    Parameters:
+    email_series (pd.Series): Series containing email addresses
+    
+    Returns:
+    pd.Series: Boolean series indicating valid emails
+    """
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return email_series.str.match(email_pattern, na=False)
+
+def remove_special_characters(text_series, keep_chars='a-zA-Z0-9\s'):
+    """
+    Remove special characters from text, keeping only specified characters.
+    
+    Parameters:
+    text_series (pd.Series): Series containing text data
+    keep_chars (str): Regex pattern of characters to keep
+    
+    Returns:
+    pd.Series: Cleaned text series
+    """
+    pattern = f'[^{keep_chars}]'
+    return text_series.str.replace(pattern, '', regex=True)
+
+def normalize_dates(date_series, date_format='%Y-%m-%d'):
+    """
+    Normalize dates to a consistent format.
+    
+    Parameters:
+    date_series (pd.Series): Series containing date strings
+    date_format (str): Target date format
+    
+    Returns:
+    pd.Series: Normalized date strings
+    """
+    try:
+        return pd.to_datetime(date_series).dt.strftime(date_format)
+    except:
+        return date_series
+
+def calculate_missing_stats(df):
+    """
+    Calculate missing value statistics for a DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    
+    Returns:
+    pd.DataFrame: Statistics about missing values
+    """
+    missing_counts = df.isnull().sum()
+    missing_percent = (missing_counts / len(df)) * 100
+    missing_stats = pd.DataFrame({
+        'missing_count': missing_counts,
+        'missing_percent': missing_percent
+    })
+    return missing_stats.sort_values('missing_percent', ascending=False)
