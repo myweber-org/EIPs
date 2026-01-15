@@ -1,153 +1,97 @@
 
-import numpy as np
 import pandas as pd
+import numpy as np
 
-def remove_outliers_iqr(df, column):
+def clean_dataset(df, text_columns=None, fill_na=True):
     """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
+    Clean a pandas DataFrame by handling missing values and standardizing text.
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to clean
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean
+        text_columns (list): List of column names containing text data
+        fill_na (bool): Whether to fill missing values
     
     Returns:
-    pd.DataFrame: DataFrame with outliers removed
+        pd.DataFrame: Cleaned DataFrame
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    df_clean = df.copy()
     
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
+    if fill_na:
+        for col in df_clean.columns:
+            if df_clean[col].dtype in ['int64', 'float64']:
+                df_clean[col].fillna(df_clean[col].median(), inplace=True)
+            elif df_clean[col].dtype == 'object':
+                df_clean[col].fillna('unknown', inplace=True)
     
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
+    if text_columns:
+        for col in text_columns:
+            if col in df_clean.columns:
+                df_clean[col] = df_clean[col].astype(str).str.lower().str.strip()
     
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    df_clean = df_clean.replace([np.inf, -np.inf], np.nan)
+    if fill_na:
+        df_clean = df_clean.fillna(method='ffill').fillna(method='bfill')
     
-    return filtered_df.reset_index(drop=True)
+    return df_clean
 
-def calculate_summary_statistics(df, column):
+def validate_dataframe(df, required_columns=None):
     """
-    Calculate summary statistics for a column after outlier removal.
+    Validate DataFrame structure and content.
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to analyze
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+        required_columns (list): List of required column names
     
     Returns:
-    dict: Dictionary containing summary statistics
+        dict: Validation results
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    stats = {
-        'mean': df[column].mean(),
-        'median': df[column].median(),
-        'std': df[column].std(),
-        'min': df[column].min(),
-        'max': df[column].max(),
-        'count': df[column].count()
+    validation_result = {
+        'is_valid': True,
+        'errors': [],
+        'warnings': []
     }
     
-    return stats
-
-def example_usage():
-    """
-    Example usage of the data cleaning functions.
-    """
-    np.random.seed(42)
+    if not isinstance(df, pd.DataFrame):
+        validation_result['is_valid'] = False
+        validation_result['errors'].append('Input is not a pandas DataFrame')
+        return validation_result
     
-    data = {
-        'id': range(100),
-        'value': np.random.normal(100, 15, 100)
-    }
+    if df.empty:
+        validation_result['warnings'].append('DataFrame is empty')
     
-    df = pd.DataFrame(data)
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            validation_result['is_valid'] = False
+            validation_result['errors'].append(f'Missing required columns: {missing_columns}')
     
-    print("Original DataFrame shape:", df.shape)
-    print("Original statistics:", calculate_summary_statistics(df, 'value'))
+    duplicate_rows = df.duplicated().sum()
+    if duplicate_rows > 0:
+        validation_result['warnings'].append(f'Found {duplicate_rows} duplicate rows')
     
-    cleaned_df = remove_outliers_iqr(df, 'value')
+    null_counts = df.isnull().sum()
+    columns_with_nulls = null_counts[null_counts > 0].index.tolist()
+    if columns_with_nulls:
+        validation_result['warnings'].append(f'Columns with null values: {columns_with_nulls}')
     
-    print("\nCleaned DataFrame shape:", cleaned_df.shape)
-    print("Cleaned statistics:", calculate_summary_statistics(cleaned_df, 'value'))
-    
-    return cleaned_df
+    return validation_result
 
 if __name__ == "__main__":
-    result_df = example_usage()
-    print(f"\nOutliers removed: {100 - len(result_df)}")
-import numpy as np
-import pandas as pd
-
-def remove_outliers_iqr(df, column):
-    """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to clean
-    
-    Returns:
-    pd.DataFrame: DataFrame with outliers removed
-    """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    
-    return filtered_df.reset_index(drop=True)
-
-def calculate_statistics(df, column):
-    """
-    Calculate basic statistics for a column.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name
-    
-    Returns:
-    dict: Dictionary containing statistics
-    """
-    stats = {
-        'mean': df[column].mean(),
-        'median': df[column].median(),
-        'std': df[column].std(),
-        'min': df[column].min(),
-        'max': df[column].max(),
-        'count': len(df[column])
-    }
-    return stats
-
-def example_usage():
-    """
-    Example usage of the data cleaning functions.
-    """
-    np.random.seed(42)
-    data = {
-        'id': range(100),
-        'value': np.random.normal(100, 15, 100)
+    sample_data = {
+        'name': ['Alice', 'Bob', None, 'David', 'Eve'],
+        'age': [25, 30, np.nan, 35, 40],
+        'score': [85.5, 92.0, 78.5, np.inf, 88.0]
     }
     
-    df = pd.DataFrame(data)
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50)
     
-    print("Original DataFrame shape:", df.shape)
-    print("Original statistics:", calculate_statistics(df, 'value'))
+    cleaned_df = clean_dataset(df, text_columns=['name'])
+    print("Cleaned DataFrame:")
+    print(cleaned_df)
     
-    cleaned_df = remove_outliers_iqr(df, 'value')
-    
-    print("\nCleaned DataFrame shape:", cleaned_df.shape)
-    print("Cleaned statistics:", calculate_statistics(cleaned_df, 'value'))
-    
-    return cleaned_df
-
-if __name__ == "__main__":
-    result_df = example_usage()
+    validation = validate_dataframe(cleaned_df, required_columns=['name', 'age'])
+    print("\nValidation Results:")
+    print(validation)
