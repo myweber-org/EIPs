@@ -86,3 +86,68 @@ if __name__ == "__main__":
     
     weather = get_weather(city, api_key)
     display_weather(weather)
+import requests
+import json
+import os
+
+def get_weather(city_name, api_key):
+    base_url = "http://api.openweathermap.org/data/2.5/weather?"
+    complete_url = f"{base_url}q={city_name}&appid={api_key}&units=metric"
+    
+    try:
+        response = requests.get(complete_url)
+        response.raise_for_status()
+        data = response.json()
+        
+        if data["cod"] != 200:
+            print(f"Error: {data.get('message', 'Unknown error')}")
+            return None
+            
+        main_data = data["main"]
+        weather_data = data["weather"][0]
+        temperature = main_data["temp"]
+        pressure = main_data["pressure"]
+        humidity = main_data["humidity"]
+        description = weather_data["description"]
+        
+        weather_info = {
+            "city": city_name,
+            "temperature": temperature,
+            "pressure": pressure,
+            "humidity": humidity,
+            "description": description
+        }
+        
+        return weather_info
+        
+    except requests.exceptions.RequestException as e:
+        print(f"Network error occurred: {e}")
+        return None
+    except (KeyError, json.JSONDecodeError) as e:
+        print(f"Error parsing response: {e}")
+        return None
+
+def main():
+    api_key = os.environ.get("OPENWEATHER_API_KEY")
+    
+    if not api_key:
+        print("Please set OPENWEATHER_API_KEY environment variable")
+        return
+    
+    city = input("Enter city name: ").strip()
+    
+    if not city:
+        print("City name cannot be empty")
+        return
+    
+    weather = get_weather(city, api_key)
+    
+    if weather:
+        print(f"\nWeather in {weather['city']}:")
+        print(f"Temperature: {weather['temperature']}°C")
+        print(f"Pressure: {weather['pressure']} hPa")
+        print(f"Humidity: {weather['humidity']}%")
+        print(f"Description: {weather['description'].capitalize()}")
+
+if __name__ == "__main__":
+    main()
