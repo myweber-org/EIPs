@@ -212,4 +212,77 @@ def clean_dataset(df, missing_strategy='remove', outlier_strategy='remove',
             if col in cleaned_df.columns:
                 cleaned_df = remove_outliers_iqr(cleaned_df, col, outlier_threshold)
     
+    return cleaned_dfimport pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a DataFrame column using the IQR method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to process
+    
+    Returns:
+        pd.DataFrame: DataFrame with outliers removed
+    """
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df
+
+def clean_dataset(df, numeric_columns):
+    """
+    Clean dataset by removing outliers from multiple numeric columns.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        numeric_columns (list): List of numeric column names
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    for column in numeric_columns:
+        if column in cleaned_df.columns:
+            initial_rows = len(cleaned_df)
+            cleaned_df = remove_outliers_iqr(cleaned_df, column)
+            removed_count = initial_rows - len(cleaned_df)
+            print(f"Removed {removed_count} outliers from column '{column}'")
+    
     return cleaned_df
+
+def main():
+    # Example usage
+    data = {
+        'id': range(1, 101),
+        'value': np.concatenate([
+            np.random.normal(100, 10, 90),
+            np.random.normal(300, 50, 10)  # Outliers
+        ]),
+        'score': np.concatenate([
+            np.random.normal(50, 5, 85),
+            np.random.normal(150, 20, 15)  # Outliers
+        ])
+    }
+    
+    df = pd.DataFrame(data)
+    print(f"Original dataset shape: {df.shape}")
+    
+    numeric_cols = ['value', 'score']
+    cleaned_df = clean_dataset(df, numeric_cols)
+    
+    print(f"Cleaned dataset shape: {cleaned_df.shape}")
+    print(f"Removed {len(df) - len(cleaned_df)} total outliers")
+    
+    return cleaned_df
+
+if __name__ == "__main__":
+    cleaned_data = main()
