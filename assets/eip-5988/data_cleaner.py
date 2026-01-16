@@ -381,3 +381,86 @@ if __name__ == "__main__":
     df_clean['feature_b_standardized'] = standardize_zscore(df_clean, 'feature_b')
     
     print("Data cleaning completed successfully")
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_duplicates=True, handle_nulls='drop'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling null values.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    drop_duplicates (bool): Whether to remove duplicate rows.
+    handle_nulls (str): Method to handle nulls - 'drop', 'fill_mean', or 'fill_median'.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        initial_rows = len(cleaned_df)
+        cleaned_df = cleaned_df.drop_duplicates()
+        removed = initial_rows - len(cleaned_df)
+        print(f"Removed {removed} duplicate rows")
+    
+    if handle_nulls == 'drop':
+        cleaned_df = cleaned_df.dropna()
+        print("Dropped rows with null values")
+    elif handle_nulls == 'fill_mean':
+        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+        cleaned_df[numeric_cols] = cleaned_df[numeric_cols].fillna(cleaned_df[numeric_cols].mean())
+        print("Filled numeric nulls with column means")
+    elif handle_nulls == 'fill_median':
+        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+        cleaned_df[numeric_cols] = cleaned_df[numeric_cols].fillna(cleaned_df[numeric_cols].median())
+        print("Filled numeric nulls with column medians")
+    
+    return cleaned_df
+
+def validate_dataset(df, required_columns=None):
+    """
+    Validate dataset structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+    required_columns (list): List of column names that must be present.
+    
+    Returns:
+    dict: Validation results.
+    """
+    validation_results = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'null_counts': df.isnull().sum().to_dict(),
+        'duplicate_rows': df.duplicated().sum()
+    }
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        validation_results['missing_columns'] = missing_columns
+        validation_results['all_required_present'] = len(missing_columns) == 0
+    
+    return validation_results
+
+if __name__ == "__main__":
+    sample_data = {
+        'id': [1, 2, 2, 3, 4, 5],
+        'value': [10.5, 20.3, 20.3, None, 40.1, 50.0],
+        'category': ['A', 'B', 'B', 'C', None, 'A']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original dataset:")
+    print(df)
+    print("\nDataset info:")
+    print(df.info())
+    
+    cleaned = clean_dataset(df, drop_duplicates=True, handle_nulls='fill_mean')
+    print("\nCleaned dataset:")
+    print(cleaned)
+    
+    validation = validate_dataset(cleaned, required_columns=['id', 'value'])
+    print("\nValidation results:")
+    for key, value in validation.items():
+        print(f"{key}: {value}")
