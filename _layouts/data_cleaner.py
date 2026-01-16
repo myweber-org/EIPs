@@ -81,4 +81,74 @@ if __name__ == "__main__":
     print(cleaned)
     
     is_valid = validate_data(cleaned, required_columns=['A', 'B'], min_rows=3)
-    print(f"\nData valid: {is_valid}")
+    print(f"\nData valid: {is_valid}")import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column, threshold=1.5):
+    """
+    Remove outliers from a specified column using the IQR method.
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - threshold * IQR
+    upper_bound = Q3 + threshold * IQR
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
+
+def normalize_column(data, column, method='minmax'):
+    """
+    Normalize a column using specified method.
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    if method == 'minmax':
+        min_val = data[column].min()
+        max_val = data[column].max()
+        if max_val == min_val:
+            return data[column].apply(lambda x: 0.5)
+        normalized = (data[column] - min_val) / (max_val - min_val)
+    elif method == 'zscore':
+        mean_val = data[column].mean()
+        std_val = data[column].std()
+        if std_val == 0:
+            return data[column].apply(lambda x: 0)
+        normalized = (data[column] - mean_val) / std_val
+    else:
+        raise ValueError("Method must be 'minmax' or 'zscore'")
+    
+    return normalized
+
+def clean_dataset(data, numeric_columns, outlier_threshold=1.5, normalize_method='minmax'):
+    """
+    Apply outlier removal and normalization to multiple numeric columns.
+    """
+    cleaned_data = data.copy()
+    
+    for col in numeric_columns:
+        if col in cleaned_data.columns:
+            cleaned_data = remove_outliers_iqr(cleaned_data, col, outlier_threshold)
+            cleaned_data[col] = normalize_column(cleaned_data, col, normalize_method)
+    
+    return cleaned_data
+
+def validate_data(data, required_columns, check_missing=True):
+    """
+    Validate dataset structure and content.
+    """
+    missing_cols = [col for col in required_columns if col not in data.columns]
+    if missing_cols:
+        raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    if check_missing:
+        missing_values = data[required_columns].isnull().sum().sum()
+        if missing_values > 0:
+            print(f"Warning: Found {missing_values} missing values in required columns")
+    
+    return True
