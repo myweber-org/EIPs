@@ -1,164 +1,102 @@
 
 import pandas as pd
-import numpy as np
-from scipy import stats
+import hashlib
 
-def remove_outliers_iqr(df, column):
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-
-def normalize_minmax(df, column):
-    min_val = df[column].min()
-    max_val = df[column].max()
-    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
-    return df
-
-def clean_dataset(file_path, numeric_columns):
-    df = pd.read_csv(file_path)
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
     
-    for column in numeric_columns:
-        if column in df.columns:
-            df = remove_outliers_iqr(df, column)
-            df = normalize_minmax(df, column)
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        subset (list, optional): Columns to consider for duplicates
+        keep (str, optional): Which duplicates to keep ('first', 'last', False)
     
-    return df
+    Returns:
+        pd.DataFrame: DataFrame with duplicates removed
+    """
+    return df.drop_duplicates(subset=subset, keep=keep)
 
-if __name__ == "__main__":
-    cleaned_data = clean_dataset('raw_data.csv', ['age', 'income', 'score'])
-    cleaned_data.to_csv('cleaned_data.csv', index=False)
-    print("Data cleaning completed. Cleaned data saved to 'cleaned_data.csv'")
-def remove_duplicates_preserve_order(sequence):
-    seen = set()
-    result = []
-    for item in sequence:
-        if item not in seen:
-            seen.add(item)
-            result.append(item)
-    return resultimport numpy as np
-import pandas as pd
-from scipy import stats
+def generate_hash(row):
+    """
+    Generate a hash for a row to identify duplicates.
+    
+    Args:
+        row (pd.Series): Row from DataFrame
+    
+    Returns:
+        str: MD5 hash of the row
+    """
+    row_str = str(row.values.tolist()).encode('utf-8')
+    return hashlib.md5(row_str).hexdigest()
 
-def remove_outliers_iqr(data, column, threshold=1.5):
+def clean_dataframe(df, columns_to_check=None):
     """
-    Remove outliers using IQR method.
+    Clean DataFrame by removing duplicates and adding hash column.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns_to_check (list, optional): Columns to check for duplicates
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
     """
-    q1 = data[column].quantile(0.25)
-    q3 = data[column].quantile(0.75)
-    iqr = q3 - q1
-    lower_bound = q1 - threshold * iqr
-    upper_bound = q3 + threshold * iqr
-    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
-    return filtered_data
-
-def normalize_minmax(data, column):
-    """
-    Normalize data using min-max scaling.
-    """
-    min_val = data[column].min()
-    max_val = data[column].max()
-    if max_val == min_val:
-        return data[column].apply(lambda x: 0.5)
-    normalized = (data[column] - min_val) / (max_val - min_val)
-    return normalized
-
-def standardize_zscore(data, column):
-    """
-    Standardize data using z-score.
-    """
-    mean_val = data[column].mean()
-    std_val = data[column].std()
-    if std_val == 0:
-        return data[column].apply(lambda x: 0)
-    standardized = (data[column] - mean_val) / std_val
-    return standardized
-
-def clean_dataset(df, numeric_columns, outlier_threshold=1.5, normalization_method='minmax'):
-    """
-    Main cleaning function for numeric columns.
-    """
+    # Create a copy to avoid modifying original
     cleaned_df = df.copy()
     
-    for col in numeric_columns:
-        if col not in cleaned_df.columns:
-            continue
-            
-        # Remove outliers
-        cleaned_df = remove_outliers_iqr(cleaned_df, col, outlier_threshold)
-        
-        # Apply normalization
-        if normalization_method == 'minmax':
-            cleaned_df[col] = normalize_minmax(cleaned_df, col)
-        elif normalization_method == 'zscore':
-            cleaned_df[col] = standardize_zscore(cleaned_df, col)
+    # Add hash column for duplicate detection
+    cleaned_df['row_hash'] = cleaned_df.apply(generate_hash, axis=1)
+    
+    # Remove duplicates based on hash or specified columns
+    if columns_to_check:
+        cleaned_df = remove_duplicates(cleaned_df, subset=columns_to_check)
+    else:
+        cleaned_df = remove_duplicates(cleaned_df, subset=['row_hash'])
+    
+    # Remove the temporary hash column
+    cleaned_df = cleaned_df.drop(columns=['row_hash'])
+    
+    # Reset index
+    cleaned_df = cleaned_df.reset_index(drop=True)
     
     return cleaned_df
 
-def detect_skewed_columns(data, threshold=0.5):
+def validate_dataframe(df):
     """
-    Detect columns with significant skewness.
-    """
-    skewed_cols = []
-    for col in data.select_dtypes(include=[np.number]).columns:
-        skewness = stats.skew(data[col].dropna())
-        if abs(skewness) > threshold:
-            skewed_cols.append((col, skewness))
-    return sorted(skewed_cols, key=lambda x: abs(x[1]), reverse=True)
-
-def log_transform_skewed(data, skewed_columns):
-    """
-    Apply log transformation to reduce skewness.
-    """
-    transformed_data = data.copy()
-    for col, _ in skewed_columns:
-        if transformed_data[col].min() <= 0:
-            # Add constant to handle zero/negative values
-            transformed_data[col] = np.log(transformed_data[col] - transformed_data[col].min() + 1)
-        else:
-            transformed_data[col] = np.log(transformed_data[col])
-    return transformed_dataimport pandas as pd
-import numpy as np
-
-def remove_outliers_iqr(df, column):
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-
-def normalize_minmax(df, column):
-    min_val = df[column].min()
-    max_val = df[column].max()
-    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
-    return df
-
-def clean_dataset(file_path):
-    try:
-        df = pd.read_csv(file_path)
-        print(f"Original shape: {df.shape}")
-        
-        numeric_cols = df.select_dtypes(include=[np.number]).columns
-        
-        for col in numeric_cols:
-            df = remove_outliers_iqr(df, col)
-        
-        print(f"After outlier removal: {df.shape}")
-        
-        for col in numeric_cols:
-            df = normalize_minmax(df, col)
-        
-        cleaned_path = file_path.replace('.csv', '_cleaned.csv')
-        df.to_csv(cleaned_path, index=False)
-        print(f"Cleaned data saved to: {cleaned_path}")
-        return cleaned_path
+    Validate DataFrame for common data quality issues.
     
-    except Exception as e:
-        print(f"Error cleaning data: {e}")
-        return None
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+    
+    Returns:
+        dict: Dictionary with validation results
+    """
+    validation_results = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'null_values': df.isnull().sum().to_dict(),
+        'duplicate_rows': df.duplicated().sum(),
+        'data_types': df.dtypes.to_dict()
+    }
+    
+    return validation_results
 
 if __name__ == "__main__":
-    clean_dataset("sample_data.csv")
+    # Example usage
+    sample_data = {
+        'id': [1, 2, 3, 1, 4, 2],
+        'name': ['Alice', 'Bob', 'Charlie', 'Alice', 'David', 'Bob'],
+        'age': [25, 30, 35, 25, 40, 30],
+        'city': ['NYC', 'LA', 'Chicago', 'NYC', 'Miami', 'LA']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nValidation Results:")
+    print(validate_dataframe(df))
+    
+    cleaned_df = clean_dataframe(df, columns_to_check=['id', 'name'])
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    print("\nCleaned Validation Results:")
+    print(validate_dataframe(cleaned_df))
