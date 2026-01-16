@@ -130,4 +130,153 @@ if __name__ == "__main__":
     result = clean_dataset(sample_data, numeric_cols)
     print(f"Original shape: {sample_data.shape}")
     print(f"Cleaned shape: {result.shape}")
-    print(result.head())
+    print(result.head())import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(df, columns, factor=1.5):
+    """
+    Remove outliers using IQR method.
+    
+    Parameters:
+    df: pandas DataFrame
+    columns: list of column names to process
+    factor: IQR multiplier (default 1.5)
+    
+    Returns:
+    DataFrame with outliers removed
+    """
+    df_clean = df.copy()
+    for col in columns:
+        if col in df.columns:
+            Q1 = df[col].quantile(0.25)
+            Q3 = df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - factor * IQR
+            upper_bound = Q3 + factor * IQR
+            df_clean = df_clean[(df_clean[col] >= lower_bound) & (df_clean[col] <= upper_bound)]
+    return df_clean
+
+def normalize_minmax(df, columns):
+    """
+    Normalize data using min-max scaling.
+    
+    Parameters:
+    df: pandas DataFrame
+    columns: list of column names to normalize
+    
+    Returns:
+    DataFrame with normalized columns
+    """
+    df_norm = df.copy()
+    for col in columns:
+        if col in df.columns:
+            min_val = df[col].min()
+            max_val = df[col].max()
+            if max_val > min_val:
+                df_norm[col] = (df[col] - min_val) / (max_val - min_val)
+    return df_norm
+
+def standardize_zscore(df, columns):
+    """
+    Standardize data using z-score normalization.
+    
+    Parameters:
+    df: pandas DataFrame
+    columns: list of column names to standardize
+    
+    Returns:
+    DataFrame with standardized columns
+    """
+    df_std = df.copy()
+    for col in columns:
+        if col in df.columns:
+            mean_val = df[col].mean()
+            std_val = df[col].std()
+            if std_val > 0:
+                df_std[col] = (df[col] - mean_val) / std_val
+    return df_std
+
+def handle_missing_values(df, strategy='mean', columns=None):
+    """
+    Handle missing values in DataFrame.
+    
+    Parameters:
+    df: pandas DataFrame
+    strategy: 'mean', 'median', 'mode', or 'drop'
+    columns: list of columns to process (None for all numeric columns)
+    
+    Returns:
+    DataFrame with handled missing values
+    """
+    df_processed = df.copy()
+    
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    for col in columns:
+        if col in df.columns and df[col].isnull().any():
+            if strategy == 'mean':
+                fill_value = df[col].mean()
+            elif strategy == 'median':
+                fill_value = df[col].median()
+            elif strategy == 'mode':
+                fill_value = df[col].mode()[0] if not df[col].mode().empty else 0
+            elif strategy == 'drop':
+                df_processed = df_processed.dropna(subset=[col])
+                continue
+            else:
+                raise ValueError(f"Unknown strategy: {strategy}")
+            
+            df_processed[col] = df[col].fillna(fill_value)
+    
+    return df_processed
+
+def create_data_summary(df):
+    """
+    Create a summary statistics DataFrame.
+    
+    Parameters:
+    df: pandas DataFrame
+    
+    Returns:
+    DataFrame with summary statistics
+    """
+    summary = pd.DataFrame({
+        'count': df.count(),
+        'mean': df.mean(numeric_only=True),
+        'std': df.std(numeric_only=True),
+        'min': df.min(numeric_only=True),
+        '25%': df.quantile(0.25, numeric_only=True),
+        '50%': df.quantile(0.5, numeric_only=True),
+        '75%': df.quantile(0.75, numeric_only=True),
+        'max': df.max(numeric_only=True),
+        'missing': df.isnull().sum(),
+        'unique': df.nunique()
+    })
+    
+    return summary.T
+
+def validate_dataframe(df, required_columns=None, min_rows=1):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df: pandas DataFrame to validate
+    required_columns: list of required column names
+    min_rows: minimum number of rows required
+    
+    Returns:
+    tuple: (is_valid, error_message)
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
+    if len(df) < min_rows:
+        return False, f"DataFrame has fewer than {min_rows} rows"
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
+    
+    return True, "DataFrame is valid"
