@@ -134,4 +134,94 @@ def validate_data(df, required_columns=None, min_rows=1):
         if missing_cols:
             return False, f"Missing required columns: {missing_cols}"
     
-    return True, "Data validation passed"
+    return True, "Data validation passed"import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(data, column, factor=1.5):
+    """
+    Remove outliers using the Interquartile Range method.
+    """
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - factor * IQR
+    upper_bound = Q3 + factor * IQR
+    return data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+
+def normalize_minmax(data, column):
+    """
+    Normalize data to [0, 1] range using min-max scaling.
+    """
+    min_val = data[column].min()
+    max_val = data[column].max()
+    if max_val == min_val:
+        return data[column].apply(lambda x: 0.5)
+    return (data[column] - min_val) / (max_val - min_val)
+
+def standardize_zscore(data, column):
+    """
+    Standardize data using z-score normalization.
+    """
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    if std_val == 0:
+        return data[column].apply(lambda x: 0)
+    return (data[column] - mean_val) / std_val
+
+def clean_dataset(df, numeric_columns, outlier_factor=1.5, normalization_method='minmax'):
+    """
+    Clean dataset by removing outliers and applying normalization.
+    """
+    cleaned_df = df.copy()
+    
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col, outlier_factor)
+    
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            if normalization_method == 'minmax':
+                cleaned_df[col] = normalize_minmax(cleaned_df, col)
+            elif normalization_method == 'zscore':
+                cleaned_df[col] = standardize_zscore(cleaned_df, col)
+    
+    return cleaned_df
+
+def validate_cleaned_data(df, original_df, numeric_columns):
+    """
+    Validate cleaning process by comparing statistics.
+    """
+    validation_report = {}
+    
+    for col in numeric_columns:
+        if col in df.columns and col in original_df.columns:
+            validation_report[col] = {
+                'original_mean': original_df[col].mean(),
+                'cleaned_mean': df[col].mean(),
+                'original_std': original_df[col].std(),
+                'cleaned_std': df[col].std(),
+                'original_range': original_df[col].max() - original_df[col].min(),
+                'cleaned_range': df[col].max() - df[col].min(),
+                'rows_removed': len(original_df) - len(df)
+            }
+    
+    return pd.DataFrame(validation_report).T
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'feature1': np.random.normal(100, 15, 1000),
+        'feature2': np.random.exponential(50, 1000),
+        'feature3': np.random.uniform(0, 200, 1000)
+    })
+    
+    numeric_cols = ['feature1', 'feature2', 'feature3']
+    
+    cleaned_data = clean_dataset(sample_data, numeric_cols, outlier_factor=1.5, normalization_method='minmax')
+    
+    validation_results = validate_cleaned_data(cleaned_data, sample_data, numeric_cols)
+    
+    print(f"Original dataset shape: {sample_data.shape}")
+    print(f"Cleaned dataset shape: {cleaned_data.shape}")
+    print(f"Rows removed: {len(sample_data) - len(cleaned_data)}")
+    print("\nValidation Statistics:")
+    print(validation_results)
