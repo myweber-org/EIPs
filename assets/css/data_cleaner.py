@@ -2,80 +2,68 @@
 import pandas as pd
 import numpy as np
 
-def clean_csv_data(filepath, fill_method='mean', drop_threshold=0.5):
+def remove_outliers_iqr(df, column):
     """
-    Load and clean CSV data by handling missing values.
+    Remove outliers from a DataFrame column using the Interquartile Range method.
     
-    Parameters:
-    filepath (str): Path to the CSV file
-    fill_method (str): Method for filling missing values ('mean', 'median', 'mode', 'zero')
-    drop_threshold (float): Drop columns with missing ratio above this threshold
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to process
     
     Returns:
-    pd.DataFrame: Cleaned dataframe
+        pd.DataFrame: DataFrame with outliers removed
     """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    try:
-        df = pd.read_csv(filepath)
-    except FileNotFoundError:
-        raise FileNotFoundError(f"File not found: {filepath}")
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
     
-    original_shape = df.shape
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
     
-    # Calculate missing ratio for each column
-    missing_ratio = df.isnull().sum() / len(df)
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
     
-    # Drop columns with high missing ratio
-    columns_to_drop = missing_ratio[missing_ratio > drop_threshold].index
-    df = df.drop(columns=columns_to_drop)
-    
-    # Fill missing values based on specified method
-    for column in df.columns:
-        if df[column].isnull().any():
-            if fill_method == 'mean':
-                fill_value = df[column].mean()
-            elif fill_method == 'median':
-                fill_value = df[column].median()
-            elif fill_method == 'mode':
-                fill_value = df[column].mode()[0]
-            elif fill_method == 'zero':
-                fill_value = 0
-            else:
-                raise ValueError(f"Unknown fill method: {fill_method}")
-            
-            df[column] = df[column].fillna(fill_value)
-    
-    # Remove duplicate rows
-    df = df.drop_duplicates()
-    
-    # Reset index after cleaning
-    df = df.reset_index(drop=True)
-    
-    print(f"Original shape: {original_shape}")
-    print(f"Cleaned shape: {df.shape}")
-    print(f"Dropped columns: {list(columns_to_drop)}")
-    print(f"Missing values filled using: {fill_method}")
-    
-    return df
+    return filtered_df
 
-def save_cleaned_data(df, output_path):
+def clean_dataset(df, numeric_columns=None):
     """
-    Save cleaned dataframe to CSV file.
+    Clean dataset by removing outliers from all numeric columns.
     
-    Parameters:
-    df (pd.DataFrame): Cleaned dataframe
-    output_path (str): Path to save the cleaned CSV file
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        numeric_columns (list, optional): List of numeric columns to clean.
+                                         If None, uses all numeric columns.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
     """
-    df.to_csv(output_path, index=False)
-    print(f"Cleaned data saved to: {output_path}")
+    if numeric_columns is None:
+        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_df = df.copy()
+    
+    for column in numeric_columns:
+        if column in df.columns:
+            original_count = len(cleaned_df)
+            cleaned_df = remove_outliers_iqr(cleaned_df, column)
+            removed_count = original_count - len(cleaned_df)
+            print(f"Removed {removed_count} outliers from column '{column}'")
+    
+    return cleaned_df
 
 if __name__ == "__main__":
-    # Example usage
-    input_file = "raw_data.csv"
-    output_file = "cleaned_data.csv"
+    sample_data = {
+        'A': np.random.normal(100, 15, 1000),
+        'B': np.random.exponential(50, 1000),
+        'C': np.random.uniform(0, 200, 1000)
+    }
     
-    try:
-        cleaned_df = clean_csv_data(input_file, fill_method='median', drop_threshold=0.3)
-        save_cleaned_data(cleaned_df, output_file)
-    except Exception as e:
-        print(f"Error during data cleaning: {e}")
+    sample_df = pd.DataFrame(sample_data)
+    sample_df.loc[::100, 'A'] = 500
+    
+    print(f"Original shape: {sample_df.shape}")
+    cleaned_df = clean_dataset(sample_df)
+    print(f"Cleaned shape: {cleaned_df.shape}")
+    print(f"Removed {len(sample_df) - len(cleaned_df)} total outliers")
