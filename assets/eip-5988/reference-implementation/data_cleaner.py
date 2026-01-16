@@ -76,3 +76,41 @@ def remove_duplicates(seq):
             seen.add(item)
             result.append(item)
     return result
+import pandas as pd
+import re
+
+def clean_dataframe(df, text_column):
+    """
+    Remove duplicate rows and normalize text in specified column.
+    """
+    # Remove duplicates
+    df_cleaned = df.drop_duplicates().reset_index(drop=True)
+    
+    # Normalize text: lowercase and remove extra whitespace
+    if text_column in df_cleaned.columns:
+        df_cleaned[text_column] = df_cleaned[text_column].apply(
+            lambda x: re.sub(r'\s+', ' ', str(x).strip().lower())
+        )
+    
+    return df_cleaned
+
+def validate_email_column(df, email_column):
+    """
+    Validate email format in specified column.
+    """
+    if email_column not in df.columns:
+        raise ValueError(f"Column '{email_column}' not found in DataFrame")
+    
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    df['is_valid_email'] = df[email_column].apply(
+        lambda x: bool(re.match(email_pattern, str(x)))
+    )
+    
+    return df
+
+def save_cleaned_data(df, output_path):
+    """
+    Save cleaned DataFrame to CSV file.
+    """
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to: {output_path}")
