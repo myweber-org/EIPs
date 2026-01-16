@@ -222,4 +222,66 @@ def main():
     print(f"Cleaned statistics: {calculate_summary_statistics(cleaned_df, 'value')}")
 
 if __name__ == "__main__":
-    main()
+    main()import csv
+import os
+
+def read_csv(file_path):
+    """Read a CSV file and return its contents as a list of dictionaries."""
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"The file {file_path} does not exist.")
+    
+    data = []
+    with open(file_path, mode='r', newline='', encoding='utf-8') as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            data.append(row)
+    return data
+
+def remove_empty_rows(data):
+    """Remove rows where all values are empty strings."""
+    cleaned_data = []
+    for row in data:
+        if any(value.strip() for value in row.values()):
+            cleaned_data.append(row)
+    return cleaned_data
+
+def standardize_column_names(data, column_mapping):
+    """Rename columns based on a provided mapping dictionary."""
+    if not data:
+        return data
+    
+    standardized_data = []
+    for row in data:
+        new_row = {}
+        for old_key, value in row.items():
+            new_key = column_mapping.get(old_key, old_key)
+            new_row[new_key] = value
+        standardized_data.append(new_row)
+    return standardized_data
+
+def write_csv(data, file_path, fieldnames=None):
+    """Write data to a CSV file."""
+    if not data:
+        print("No data to write.")
+        return
+    
+    if fieldnames is None:
+        fieldnames = data[0].keys()
+    
+    with open(file_path, mode='w', newline='', encoding='utf-8') as file:
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(data)
+    
+    print(f"Data successfully written to {file_path}")
+
+def clean_csv(input_path, output_path, column_mapping=None):
+    """Main function to clean a CSV file."""
+    try:
+        data = read_csv(input_path)
+        data = remove_empty_rows(data)
+        if column_mapping:
+            data = standardize_column_names(data, column_mapping)
+        write_csv(data, output_path)
+    except Exception as e:
+        print(f"An error occurred during cleaning: {e}")
