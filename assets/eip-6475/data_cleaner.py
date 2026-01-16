@@ -614,4 +614,96 @@ def validate_data(df, required_columns=None, min_rows=1):
         if missing_cols:
             return False, f"Missing required columns: {missing_cols}"
     
-    return True, "Data validation passed"
+    return True, "Data validation passed"import pandas as pd
+import numpy as np
+from typing import Optional
+
+def clean_csv_data(
+    input_path: str,
+    output_path: Optional[str] = None,
+    missing_strategy: str = 'mean',
+    drop_threshold: float = 0.5
+) -> pd.DataFrame:
+    """
+    Load and clean CSV data by handling missing values and filtering columns.
+    
+    Parameters:
+    input_path: Path to input CSV file
+    output_path: Optional path to save cleaned data
+    missing_strategy: Strategy for handling missing values ('mean', 'median', 'mode', 'drop')
+    drop_threshold: Maximum fraction of missing values allowed per column
+    
+    Returns:
+    Cleaned DataFrame
+    """
+    
+    # Load data
+    df = pd.read_csv(input_path)
+    
+    # Remove columns with too many missing values
+    missing_ratio = df.isnull().sum() / len(df)
+    cols_to_drop = missing_ratio[missing_ratio > drop_threshold].index
+    df = df.drop(columns=cols_to_drop)
+    
+    # Handle remaining missing values
+    for column in df.columns:
+        if df[column].isnull().any():
+            if missing_strategy == 'mean' and pd.api.types.is_numeric_dtype(df[column]):
+                df[column].fillna(df[column].mean(), inplace=True)
+            elif missing_strategy == 'median' and pd.api.types.is_numeric_dtype(df[column]):
+                df[column].fillna(df[column].median(), inplace=True)
+            elif missing_strategy == 'mode':
+                df[column].fillna(df[column].mode()[0], inplace=True)
+            elif missing_strategy == 'drop':
+                df = df.dropna(subset=[column])
+    
+    # Remove duplicate rows
+    df = df.drop_duplicates()
+    
+    # Reset index after cleaning
+    df = df.reset_index(drop=True)
+    
+    # Save cleaned data if output path provided
+    if output_path:
+        df.to_csv(output_path, index=False)
+    
+    return df
+
+def validate_dataframe(df: pd.DataFrame) -> dict:
+    """
+    Validate DataFrame structure and content.
+    
+    Returns dictionary with validation results.
+    """
+    validation_report = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_values': df.isnull().sum().sum(),
+        'duplicate_rows': df.duplicated().sum(),
+        'numeric_columns': list(df.select_dtypes(include=[np.number]).columns),
+        'categorical_columns': list(df.select_dtypes(include=['object']).columns),
+        'date_columns': list(df.select_dtypes(include=['datetime']).columns)
+    }
+    
+    return validation_report
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = pd.DataFrame({
+        'A': [1, 2, np.nan, 4, 5],
+        'B': [np.nan, np.nan, np.nan, 4, 5],
+        'C': ['x', 'y', 'z', 'x', 'y'],
+        'D': [10, 20, 30, 40, 50]
+    })
+    
+    sample_data.to_csv('sample_data.csv', index=False)
+    
+    cleaned_df = clean_csv_data(
+        'sample_data.csv',
+        'cleaned_data.csv',
+        missing_strategy='mean',
+        drop_threshold=0.3
+    )
+    
+    report = validate_dataframe(cleaned_df)
+    print("Validation Report:", report)
