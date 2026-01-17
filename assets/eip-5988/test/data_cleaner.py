@@ -77,3 +77,97 @@ def validate_email_column(df, email_column):
     print(f"Found {valid_count} valid email addresses out of {len(df)} rows.")
     
     return df
+import pandas as pd
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        subset (list, optional): Column labels to consider for duplicates.
+        keep (str, optional): Which duplicates to keep.
+    
+    Returns:
+        pd.DataFrame: DataFrame with duplicates removed.
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+    return cleaned_df
+
+def clean_missing_values(df, strategy='drop', columns=None):
+    """
+    Handle missing values in DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        strategy (str): 'drop' or 'fill'.
+        columns (list, optional): Specific columns to clean.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    if strategy == 'drop':
+        if columns:
+            df = df.dropna(subset=columns)
+        else:
+            df = df.dropna()
+    elif strategy == 'fill':
+        if columns:
+            for col in columns:
+                if col in df.columns:
+                    df[col] = df[col].fillna(df[col].mean())
+        else:
+            df = df.fillna(df.mean())
+    
+    return df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list): List of required column names.
+    
+    Returns:
+        bool: True if validation passes.
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            print(f"Missing columns: {missing_cols}")
+            return False
+    
+    if df.empty:
+        print("DataFrame is empty")
+        return False
+    
+    return True
+
+def process_dataframe(df, operations=None):
+    """
+    Apply multiple cleaning operations to DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        operations (list): List of operation dictionaries.
+    
+    Returns:
+        pd.DataFrame: Processed DataFrame.
+    """
+    if operations is None:
+        operations = []
+    
+    for op in operations:
+        if op.get('type') == 'remove_duplicates':
+            df = remove_duplicates(df, **op.get('params', {}))
+        elif op.get('type') == 'clean_missing':
+            df = clean_missing_values(df, **op.get('params', {}))
+    
+    return df
