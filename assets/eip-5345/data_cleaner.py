@@ -1,93 +1,50 @@
 
 import pandas as pd
-import numpy as np
+import re
 
-def clean_dataframe(df, drop_duplicates=True, fill_missing=True):
+def clean_dataframe(df, columns_to_clean=None, remove_duplicates=True, normalize_text=True):
     """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame to clean
-        drop_duplicates (bool): Whether to drop duplicate rows
-        fill_missing (bool): Whether to fill missing values with column means
-    
-    Returns:
-        pd.DataFrame: Cleaned DataFrame
+    Clean a pandas DataFrame by removing duplicates and normalizing text columns.
     """
-    cleaned_df = df.copy()
+    df_clean = df.copy()
     
-    if drop_duplicates:
-        initial_rows = len(cleaned_df)
-        cleaned_df = cleaned_df.drop_duplicates()
-        removed = initial_rows - len(cleaned_df)
-        print(f"Removed {removed} duplicate rows")
+    if remove_duplicates:
+        initial_rows = len(df_clean)
+        df_clean = df_clean.drop_duplicates().reset_index(drop=True)
+        removed = initial_rows - len(df_clean)
+        print(f"Removed {removed} duplicate rows.")
     
-    if fill_missing:
-        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
-        for col in numeric_cols:
-            if cleaned_df[col].isnull().any():
-                mean_val = cleaned_df[col].mean()
-                cleaned_df[col] = cleaned_df[col].fillna(mean_val)
-                print(f"Filled missing values in '{col}' with mean: {mean_val:.2f}")
+    if normalize_text and columns_to_clean:
+        for col in columns_to_clean:
+            if col in df_clean.columns and df_clean[col].dtype == 'object':
+                df_clean[col] = df_clean[col].apply(_normalize_string)
+                print(f"Normalized text in column: {col}")
     
-    categorical_cols = cleaned_df.select_dtypes(include=['object']).columns
-    for col in categorical_cols:
-        if cleaned_df[col].isnull().any():
-            cleaned_df[col] = cleaned_df[col].fillna('Unknown')
-            print(f"Filled missing values in '{col}' with 'Unknown'")
-    
-    return cleaned_df
+    return df_clean
 
-def validate_dataframe(df):
+def _normalize_string(text):
     """
-    Validate DataFrame for common data quality issues.
-    
-    Args:
-        df (pd.DataFrame): DataFrame to validate
-    
-    Returns:
-        dict: Dictionary containing validation results
+    Normalize a string: lowercase, remove extra whitespace, and strip.
     """
-    validation_results = {
-        'total_rows': len(df),
-        'total_columns': len(df.columns),
-        'missing_values': df.isnull().sum().sum(),
-        'duplicate_rows': df.duplicated().sum(),
-        'numeric_columns': list(df.select_dtypes(include=[np.number]).columns),
-        'categorical_columns': list(df.select_dtypes(include=['object']).columns)
-    }
-    
-    return validation_results
+    if pd.isna(text):
+        return text
+    text = str(text)
+    text = text.lower()
+    text = re.sub(r'\s+', ' ', text)
+    return text.strip()
 
-def save_cleaned_data(df, output_path):
+def validate_email_column(df, email_column):
     """
-    Save cleaned DataFrame to CSV file.
-    
-    Args:
-        df (pd.DataFrame): DataFrame to save
-        output_path (str): Path where to save the CSV file
+    Validate email addresses in a specified column.
     """
-    df.to_csv(output_path, index=False)
-    print(f"Cleaned data saved to: {output_path}")
-
-if __name__ == "__main__":
-    # Example usage
-    sample_data = {
-        'id': [1, 2, 3, 3, 4, 5],
-        'name': ['Alice', 'Bob', 'Charlie', 'Charlie', 'David', 'Eve'],
-        'age': [25, 30, None, 35, 28, None],
-        'score': [85.5, 92.0, 78.5, 78.5, 88.0, 95.5],
-        'department': ['HR', 'IT', 'Finance', 'Finance', None, 'Marketing']
-    }
+    if email_column not in df.columns:
+        raise ValueError(f"Column '{email_column}' not found in DataFrame.")
     
-    df = pd.DataFrame(sample_data)
-    print("Original DataFrame:")
-    print(df)
-    print("\nValidation results:")
-    print(validate_dataframe(df))
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    df['is_valid_email'] = df[email_column].apply(lambda x: bool(re.match(pattern, str(x))) if pd.notna(x) else False)
     
-    cleaned_df = clean_dataframe(df)
-    print("\nCleaned DataFrame:")
-    print(cleaned_df)
+    valid_count = df['is_valid_email'].sum()
+    total_count = len(df)
+    print(f"Valid emails: {valid_count}/{total_count} ({valid_count/total_count*100:.2f}%)")
     
-    save_cleaned_data(cleaned_df, 'cleaned_data.csv')
+    return df
