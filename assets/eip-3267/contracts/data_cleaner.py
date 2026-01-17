@@ -190,4 +190,96 @@ if __name__ == "__main__":
         validate_dataframe(cleaned_df, required_columns=['customer_id', 'first_name', 'last_name'])
         print("\nData validation passed!")
     except ValueError as e:
-        print(f"\nData validation failed: {e}")
+        print(f"\nData validation failed: {e}")import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a DataFrame column using the IQR method.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to process
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df.reset_index(drop=True)
+
+def calculate_summary_statistics(df, column):
+    """
+    Calculate summary statistics for a DataFrame column.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to analyze
+    
+    Returns:
+    dict: Dictionary containing summary statistics
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    stats = {
+        'mean': df[column].mean(),
+        'median': df[column].median(),
+        'std': df[column].std(),
+        'min': df[column].min(),
+        'max': df[column].max(),
+        'count': df[column].count(),
+        'missing': df[column].isnull().sum()
+    }
+    
+    return stats
+
+def validate_numeric_data(df, column):
+    """
+    Validate that a column contains only numeric data.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to validate
+    
+    Returns:
+    bool: True if column contains only numeric data, False otherwise
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    return pd.api.types.is_numeric_dtype(df[column])
+
+if __name__ == "__main__":
+    sample_data = {
+        'values': [10, 12, 13, 15, 18, 20, 22, 25, 30, 100]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print()
+    
+    cleaned_df = remove_outliers_iqr(df, 'values')
+    print("DataFrame after outlier removal:")
+    print(cleaned_df)
+    print()
+    
+    stats = calculate_summary_statistics(cleaned_df, 'values')
+    print("Summary statistics:")
+    for key, value in stats.items():
+        print(f"{key}: {value}")
+    print()
+    
+    is_numeric = validate_numeric_data(df, 'values')
+    print(f"Column 'values' is numeric: {is_numeric}")
