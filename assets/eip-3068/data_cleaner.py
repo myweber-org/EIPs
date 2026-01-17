@@ -147,3 +147,79 @@ if __name__ == "__main__":
     test_file.unlink()
     if cleaned_file and Path(cleaned_file).exists():
         Path(cleaned_file).unlink()
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df):
+    """
+    Clean a pandas DataFrame by removing duplicates,
+    handling missing values, and standardizing text columns.
+    """
+    # Remove duplicate rows
+    df_clean = df.drop_duplicates()
+
+    # Fill missing numeric values with column median
+    numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        df_clean[col] = df_clean[col].fillna(df_clean[col].median())
+
+    # Fill missing categorical values with 'Unknown'
+    categorical_cols = df_clean.select_dtypes(include=['object']).columns
+    for col in categorical_cols:
+        df_clean[col] = df_clean[col].fillna('Unknown')
+
+    # Standardize text columns: lowercase and strip whitespace
+    for col in categorical_cols:
+        df_clean[col] = df_clean[col].str.lower().str.strip()
+
+    # Remove rows where all values are null
+    df_clean = df_clean.dropna(how='all')
+
+    return df_clean
+
+def validate_data(df):
+    """
+    Perform basic validation on the cleaned dataset.
+    """
+    if df.empty:
+        raise ValueError("DataFrame is empty after cleaning")
+
+    # Check for remaining null values
+    null_counts = df.isnull().sum()
+    if null_counts.any():
+        print("Warning: DataFrame contains null values")
+        print(null_counts[null_counts > 0])
+
+    # Validate numeric ranges (example for common columns)
+    if 'age' in df.columns:
+        if (df['age'] < 0).any() or (df['age'] > 120).any():
+            print("Warning: Age values outside reasonable range")
+
+    return True
+
+def save_cleaned_data(df, output_path):
+    """
+    Save the cleaned DataFrame to a CSV file.
+    """
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to {output_path}")
+
+if __name__ == "__main__":
+    # Example usage
+    try:
+        # Load data
+        raw_data = pd.read_csv('raw_data.csv')
+        
+        # Clean data
+        cleaned_data = clean_dataset(raw_data)
+        
+        # Validate data
+        validate_data(cleaned_data)
+        
+        # Save cleaned data
+        save_cleaned_data(cleaned_data, 'cleaned_data.csv')
+        
+    except FileNotFoundError:
+        print("Error: Input file not found")
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
