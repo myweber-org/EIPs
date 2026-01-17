@@ -1,51 +1,48 @@
-import re
-import unicodedata
+import numpy as np
+import pandas as pd
 
-def normalize_text(text):
-    """Normalize text by removing extra whitespace and converting to lowercase."""
-    if not isinstance(text, str):
-        return ''
-    text = text.strip()
-    text = re.sub(r'\s+', ' ', text)
-    return text.lower()
+def remove_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
 
-def remove_special_characters(text, keep_spaces=True):
-    """Remove special characters from text."""
-    if not isinstance(text, str):
-        return ''
-    if keep_spaces:
-        pattern = r'[^a-zA-Z0-9\s]'
-    else:
-        pattern = r'[^a-zA-Z0-9]'
-    return re.sub(pattern, '', text)
+def normalize_minmax(df, column):
+    min_val = df[column].min()
+    max_val = df[column].max()
+    if max_val == min_val:
+        return df[column].apply(lambda x: 0.5)
+    return df[column].apply(lambda x: (x - min_val) / (max_val - min_val))
 
-def clean_whitespace(text):
-    """Clean excessive whitespace characters."""
-    if not isinstance(text, str):
-        return ''
-    text = re.sub(r'\t+', ' ', text)
-    text = re.sub(r'\n+', ' ', text)
-    text = re.sub(r'\r+', ' ', text)
-    text = re.sub(r' +', ' ', text)
-    return text.strip()
+def clean_dataset(df, numeric_columns):
+    cleaned_df = df.copy()
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+            cleaned_df[col] = normalize_minmax(cleaned_df, col)
+    return cleaned_df.reset_index(drop=True)
 
-def normalize_unicode(text, form='NFKD'):
-    """Normalize unicode characters to their ASCII representation."""
-    if not isinstance(text, str):
-        return ''
-    normalized = unicodedata.normalize(form, text)
-    return ''.join([c for c in normalized if not unicodedata.combining(c)])
+def validate_dataframe(df):
+    required_checks = [
+        (lambda x: isinstance(x, pd.DataFrame), "Input must be a pandas DataFrame"),
+        (lambda x: not x.empty, "DataFrame cannot be empty"),
+        (lambda x: x.isnull().sum().sum() == 0, "DataFrame contains null values")
+    ]
+    for check_func, error_msg in required_checks:
+        if not check_func(df):
+            raise ValueError(error_msg)
+    return True
 
-def full_clean(text, normalize_unicode_flag=True):
-    """Apply all cleaning functions to text."""
-    if normalize_unicode_flag:
-        text = normalize_unicode(text)
-    text = normalize_text(text)
-    text = remove_special_characters(text)
-    text = clean_whitespace(text)
-    return text
-
-if __name__ == '__main__':
-    sample_text = "  Hello   World!!  \nThis is a test.  "
-    print(f"Original: '{sample_text}'")
-    print(f"Cleaned: '{full_clean(sample_text)}'")
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'feature_a': np.random.normal(100, 15, 50),
+        'feature_b': np.random.exponential(2, 50),
+        'category': np.random.choice(['X', 'Y', 'Z'], 50)
+    })
+    print("Original shape:", sample_data.shape)
+    cleaned = clean_dataset(sample_data, ['feature_a', 'feature_b'])
+    print("Cleaned shape:", cleaned.shape)
+    print("Sample cleaned data:")
+    print(cleaned.head())
