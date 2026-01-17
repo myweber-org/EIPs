@@ -353,4 +353,64 @@ if __name__ == "__main__":
     cleaned = clean_dataset(sample_data, ['feature_a', 'feature_b'])
     print("Cleaned shape:", cleaned.shape)
     print("Sample cleaned data:")
-    print(cleaned.head())
+    print(cleaned.head())import pandas as pd
+import numpy as np
+
+def remove_duplicates(df, subset=None):
+    """
+    Remove duplicate rows from DataFrame.
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def fill_missing_values(df, strategy='mean', columns=None):
+    """
+    Fill missing values in specified columns.
+    """
+    df_filled = df.copy()
+    
+    if columns is None:
+        columns = df.columns
+    
+    for col in columns:
+        if df[col].dtype in [np.float64, np.int64]:
+            if strategy == 'mean':
+                df_filled[col] = df[col].fillna(df[col].mean())
+            elif strategy == 'median':
+                df_filled[col] = df[col].fillna(df[col].median())
+            elif strategy == 'mode':
+                df_filled[col] = df[col].fillna(df[col].mode()[0])
+        else:
+            df_filled[col] = df[col].fillna(df[col].mode()[0])
+    
+    return df_filled
+
+def normalize_column(df, column):
+    """
+    Normalize a numeric column to 0-1 range.
+    """
+    if df[column].dtype in [np.float64, np.int64]:
+        min_val = df[column].min()
+        max_val = df[column].max()
+        
+        if max_val != min_val:
+            df[column] = (df[column] - min_val) / (max_val - min_val)
+    
+    return df
+
+def clean_dataset(filepath, output_path=None):
+    """
+    Main cleaning pipeline for CSV datasets.
+    """
+    df = pd.read_csv(filepath)
+    
+    df = remove_duplicates(df)
+    df = fill_missing_values(df, strategy='median')
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        df = normalize_column(df, col)
+    
+    if output_path:
+        df.to_csv(output_path, index=False)
+    
+    return df
