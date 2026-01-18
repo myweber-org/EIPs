@@ -1,66 +1,96 @@
 import pandas as pd
 import numpy as np
+from pathlib import Path
 
-def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
+def clean_csv_data(input_path, output_path=None, strategy='mean'):
     """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    Clean a CSV file by handling missing values.
+    
+    Parameters:
+    input_path (str): Path to the input CSV file.
+    output_path (str, optional): Path for the cleaned CSV file.
+                                 If None, overwrites the input file.
+    strategy (str): Method for handling missing values.
+                    Options: 'mean', 'median', 'drop', 'zero'.
+    
+    Returns:
+    pandas.DataFrame: The cleaned DataFrame.
     """
-    cleaned_df = df.copy()
     
-    if drop_duplicates:
-        initial_rows = cleaned_df.shape[0]
-        cleaned_df = cleaned_df.drop_duplicates()
-        removed = initial_rows - cleaned_df.shape[0]
-        print(f"Removed {removed} duplicate rows.")
+    if not Path(input_path).exists():
+        raise FileNotFoundError(f"Input file not found: {input_path}")
     
-    if fill_missing:
-        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
-        for col in numeric_cols:
-            if cleaned_df[col].isnull().any():
-                if fill_missing == 'mean':
-                    fill_value = cleaned_df[col].mean()
-                elif fill_missing == 'median':
-                    fill_value = cleaned_df[col].median()
-                elif fill_missing == 'zero':
-                    fill_value = 0
-                else:
-                    fill_value = fill_missing
-                
-                cleaned_df[col] = cleaned_df[col].fillna(fill_value)
-                print(f"Filled missing values in column '{col}' with {fill_value}.")
+    df = pd.read_csv(input_path)
     
-    return cleaned_df
+    original_shape = df.shape
+    print(f"Original data shape: {original_shape}")
+    print(f"Missing values per column:\n{df.isnull().sum()}")
+    
+    if strategy == 'drop':
+        df_cleaned = df.dropna()
+    elif strategy == 'mean':
+        df_cleaned = df.fillna(df.select_dtypes(include=[np.number]).mean())
+    elif strategy == 'median':
+        df_cleaned = df.fillna(df.select_dtypes(include=[np.number]).median())
+    elif strategy == 'zero':
+        df_cleaned = df.fillna(0)
+    else:
+        raise ValueError(f"Unknown strategy: {strategy}")
+    
+    final_shape = df_cleaned.shape
+    print(f"Cleaned data shape: {final_shape}")
+    print(f"Rows removed: {original_shape[0] - final_shape[0]}")
+    
+    if output_path is None:
+        output_path = input_path
+    
+    df_cleaned.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to: {output_path}")
+    
+    return df_cleaned
 
-def validate_dataset(df):
+def detect_outliers_iqr(df, column):
     """
-    Validate the cleaned dataset for remaining issues.
-    """
-    validation_results = {
-        'total_rows': df.shape[0],
-        'total_columns': df.shape[1],
-        'missing_values': df.isnull().sum().sum(),
-        'duplicate_rows': df.duplicated().sum()
-    }
+    Detect outliers in a column using the IQR method.
     
-    return validation_results
+    Parameters:
+    df (pandas.DataFrame): Input DataFrame.
+    column (str): Column name to check for outliers.
+    
+    Returns:
+    pandas.DataFrame: DataFrame containing outliers.
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    outliers = df[(df[column] < lower_bound) | (df[column] > upper_bound)]
+    
+    print(f"Outlier detection for column '{column}':")
+    print(f"  Q1: {Q1:.2f}, Q3: {Q3:.2f}, IQR: {IQR:.2f}")
+    print(f"  Lower bound: {lower_bound:.2f}, Upper bound: {upper_bound:.2f}")
+    print(f"  Found {len(outliers)} outliers out of {len(df)} rows")
+    
+    return outliers
 
 if __name__ == "__main__":
     sample_data = {
-        'A': [1, 2, 2, 4, 5, None, 7],
-        'B': [10, 20, 20, None, 50, 60, 70],
-        'C': [100, 200, 300, 400, 500, 600, 700]
+        'A': [1, 2, np.nan, 4, 5, 100],
+        'B': [10, np.nan, 30, 40, 50, 60],
+        'C': ['x', 'y', 'z', np.nan, 'y', 'x']
     }
     
-    df = pd.DataFrame(sample_data)
-    print("Original dataset:")
-    print(df)
-    print("\n" + "="*50 + "\n")
+    test_df = pd.DataFrame(sample_data)
+    test_df.to_csv('test_data.csv', index=False)
     
-    cleaned_df = clean_dataset(df, drop_duplicates=True, fill_missing='mean')
-    print("\nCleaned dataset:")
-    print(cleaned_df)
+    cleaned_df = clean_csv_data('test_data.csv', 'cleaned_data.csv', strategy='mean')
     
-    validation = validate_dataset(cleaned_df)
-    print("\nValidation results:")
-    for key, value in validation.items():
-        print(f"{key}: {value}")
+    outliers = detect_outliers_iqr(cleaned_df, 'A')
+    print("\nOutliers in column 'A':")
+    print(outliers)
