@@ -73,3 +73,109 @@ if __name__ == "__main__":
     
     is_valid, message = validate_dataframe(cleaned, required_columns=['A', 'B', 'C'])
     print(f"\nValidation: {message}")
+import pandas as pd
+import numpy as np
+
+def clean_dataframe(df, column_names=None, remove_duplicates=True, normalize_text=True):
+    """
+    Clean a pandas DataFrame by removing duplicates and normalizing text columns.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean
+    column_names (list): Specific columns to clean, if None clean all object columns
+    remove_duplicates (bool): Whether to remove duplicate rows
+    normalize_text (bool): Whether to normalize text columns (lowercase, strip whitespace)
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    
+    cleaned_df = df.copy()
+    
+    if remove_duplicates:
+        initial_rows = len(cleaned_df)
+        cleaned_df = cleaned_df.drop_duplicates()
+        removed = initial_rows - len(cleaned_df)
+        print(f"Removed {removed} duplicate rows")
+    
+    if normalize_text:
+        if column_names is None:
+            text_columns = cleaned_df.select_dtypes(include=['object']).columns
+        else:
+            text_columns = [col for col in column_names if col in cleaned_df.columns]
+        
+        for col in text_columns:
+            cleaned_df[col] = cleaned_df[col].astype(str).str.lower().str.strip()
+            cleaned_df[col] = cleaned_df[col].replace('nan', np.nan)
+            cleaned_df[col] = cleaned_df[col].replace('none', np.nan)
+        
+        print(f"Normalized {len(text_columns)} text columns")
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None, check_missing=True):
+    """
+    Validate DataFrame structure and data quality.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of columns that must be present
+    check_missing (bool): Whether to check for missing values
+    
+    Returns:
+    dict: Dictionary with validation results
+    """
+    
+    validation_results = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_values': {},
+        'column_types': {},
+        'validation_passed': True
+    }
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            validation_results['missing_columns'] = missing_cols
+            validation_results['validation_passed'] = False
+    
+    if check_missing:
+        for col in df.columns:
+            missing_count = df[col].isna().sum()
+            if missing_count > 0:
+                validation_results['missing_values'][col] = missing_count
+    
+    for col in df.columns:
+        validation_results['column_types'][col] = str(df[col].dtype)
+    
+    return validation_results
+
+def sample_data_for_testing():
+    """Create sample DataFrame for testing the cleaning functions."""
+    
+    data = {
+        'name': ['John Doe', 'Jane Smith', 'John Doe', 'Bob Johnson', 'Alice Brown', ''],
+        'email': ['john@example.com', 'jane@example.com', 'JOHN@example.com', 'bob@example.com', None, 'test@example.com'],
+        'age': [25, 30, 25, 35, 28, 40],
+        'city': ['New York', 'Los Angeles', 'new york', 'Chicago', 'Boston', 'Chicago']
+    }
+    
+    return pd.DataFrame(data)
+
+if __name__ == "__main__":
+    # Example usage
+    df = sample_data_for_testing()
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    cleaned_df = clean_dataframe(df)
+    print("Cleaned DataFrame:")
+    print(cleaned_df)
+    print("\n" + "="*50 + "\n")
+    
+    validation = validate_dataframe(cleaned_df, required_columns=['name', 'email', 'age'])
+    print("Validation Results:")
+    for key, value in validation.items():
+        print(f"{key}: {value}")
