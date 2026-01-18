@@ -99,3 +99,86 @@ if __name__ == "__main__":
             os.remove('test_data.csv')
         if os.path.exists('cleaned_test_data.csv'):
             os.remove('cleaned_test_data.csv')
+import pandas as pd
+import re
+
+def clean_dataframe(df, column_mapping=None, drop_duplicates=True, normalize_text=True):
+    """
+    Clean a pandas DataFrame by removing duplicates and normalizing text columns.
+    
+    Args:
+        df: pandas DataFrame to clean
+        column_mapping: Optional dictionary to rename columns
+        drop_duplicates: Whether to remove duplicate rows
+        normalize_text: Whether to normalize text columns (strip, lowercase)
+    
+    Returns:
+        Cleaned pandas DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    if column_mapping:
+        cleaned_df = cleaned_df.rename(columns=column_mapping)
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates().reset_index(drop=True)
+    
+    if normalize_text:
+        for col in cleaned_df.select_dtypes(include=['object']).columns:
+            cleaned_df[col] = cleaned_df[col].astype(str).str.strip().str.lower()
+    
+    return cleaned_df
+
+def remove_special_characters(text, keep_pattern=r'[a-zA-Z0-9\s]'):
+    """
+    Remove special characters from text while keeping specified patterns.
+    
+    Args:
+        text: Input string
+        keep_pattern: Regex pattern of characters to keep
+    
+    Returns:
+        Cleaned string
+    """
+    if pd.isna(text):
+        return text
+    
+    text = str(text)
+    return re.sub(f'[^{keep_pattern}]', '', text)
+
+def validate_email(email):
+    """
+    Validate email format using regex pattern.
+    
+    Args:
+        email: Email string to validate
+    
+    Returns:
+        Boolean indicating if email is valid
+    """
+    if pd.isna(email):
+        return False
+    
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, str(email).strip()))
+
+def create_clean_data_pipeline(df, cleaning_steps=None):
+    """
+    Create a data cleaning pipeline with multiple steps.
+    
+    Args:
+        df: Input DataFrame
+        cleaning_steps: List of cleaning functions to apply
+    
+    Returns:
+        Cleaned DataFrame after applying all steps
+    """
+    if cleaning_steps is None:
+        cleaning_steps = [clean_dataframe]
+    
+    result = df.copy()
+    for step in cleaning_steps:
+        if callable(step):
+            result = step(result)
+    
+    return result
