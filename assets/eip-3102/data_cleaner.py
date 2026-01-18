@@ -102,4 +102,87 @@ if __name__ == "__main__":
     
     cleaned_df = clean_dataframe(df, normalize_cols=['score'])
     print("\nCleaned DataFrame:")
-    print(cleaned_df)
+    print(cleaned_df)import pandas as pd
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    subset (list, optional): Columns to consider for duplicates.
+    keep (str, optional): Which duplicates to keep.
+    
+    Returns:
+    pd.DataFrame: DataFrame with duplicates removed.
+    """
+    if df.empty:
+        return df
+    
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+    return cleaned_df
+
+def clean_numeric_columns(df, columns):
+    """
+    Clean numeric columns by converting to numeric and filling NaN.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    columns (list): List of column names to clean.
+    
+    Returns:
+    pd.DataFrame: DataFrame with cleaned numeric columns.
+    """
+    for col in columns:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+            df[col] = df[col].fillna(df[col].mean())
+    return df
+
+def validate_dataframe(df, required_columns):
+    """
+    Validate DataFrame structure and required columns.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    required_columns (list): List of required column names.
+    
+    Returns:
+    bool: True if validation passes, False otherwise.
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False
+    
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    
+    if missing_columns:
+        print(f"Missing columns: {missing_columns}")
+        return False
+    
+    return True
+
+def process_dataframe(df, config):
+    """
+    Main processing function for data cleaning pipeline.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    config (dict): Configuration dictionary with cleaning options.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    if not validate_dataframe(df, config.get('required_columns', [])):
+        raise ValueError("DataFrame validation failed")
+    
+    if config.get('remove_duplicates', False):
+        df = remove_duplicates(
+            df, 
+            subset=config.get('duplicate_subset'),
+            keep=config.get('duplicate_keep', 'first')
+        )
+    
+    if config.get('clean_numeric', False):
+        df = clean_numeric_columns(df, config.get('numeric_columns', []))
+    
+    return df
