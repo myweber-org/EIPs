@@ -1,148 +1,48 @@
 import pandas as pd
 import numpy as np
+import sys
 
-def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
-    """
-    Clean a pandas DataFrame by handling duplicates and missing values.
-    
-    Args:
-        df: pandas DataFrame to clean
-        drop_duplicates: If True, remove duplicate rows
-        fill_missing: Strategy for filling missing values ('mean', 'median', 'mode', or 'drop')
-    
-    Returns:
-        Cleaned pandas DataFrame
-    """
-    cleaned_df = df.copy()
-    
-    if drop_duplicates:
-        initial_rows = len(cleaned_df)
-        cleaned_df = cleaned_df.drop_duplicates()
-        removed = initial_rows - len(cleaned_df)
-        print(f"Removed {removed} duplicate rows")
-    
-    if fill_missing == 'drop':
-        cleaned_df = cleaned_df.dropna()
-        print("Dropped rows with missing values")
-    elif fill_missing in ['mean', 'median']:
-        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+def clean_csv(input_file, output_file):
+    try:
+        df = pd.read_csv(input_file)
+        
+        print(f"Original shape: {df.shape}")
+        print(f"Missing values per column:")
+        print(df.isnull().sum())
+        
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        categorical_cols = df.select_dtypes(exclude=[np.number]).columns
+        
         for col in numeric_cols:
-            if fill_missing == 'mean':
-                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mean())
-            else:
-                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].median())
-        print(f"Filled missing numeric values with {fill_missing}")
-    elif fill_missing == 'mode':
-        for col in cleaned_df.columns:
-            if cleaned_df[col].dtype == 'object':
-                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mode()[0])
-        print("Filled missing categorical values with mode")
-    
-    return cleaned_df
+            if df[col].isnull().any():
+                df[col].fillna(df[col].median(), inplace=True)
+        
+        for col in categorical_cols:
+            if df[col].isnull().any():
+                df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else 'Unknown', inplace=True)
+        
+        df.drop_duplicates(inplace=True)
+        
+        df.to_csv(output_file, index=False)
+        
+        print(f"Cleaned shape: {df.shape}")
+        print(f"Cleaned data saved to: {output_file}")
+        return True
+        
+    except FileNotFoundError:
+        print(f"Error: Input file '{input_file}' not found.")
+        return False
+    except Exception as e:
+        print(f"Error during cleaning: {str(e)}")
+        return False
 
-def validate_data(df, required_columns=None, min_rows=1):
-    """
-    Validate dataset structure and content.
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("Usage: python data_cleaner.py <input_file> <output_file>")
+        sys.exit(1)
     
-    Args:
-        df: DataFrame to validate
-        required_columns: List of column names that must be present
-        min_rows: Minimum number of rows required
+    input_file = sys.argv[1]
+    output_file = sys.argv[2]
     
-    Returns:
-        Tuple of (is_valid, message)
-    """
-    if len(df) < min_rows:
-        return False, f"Dataset has fewer than {min_rows} rows"
-    
-    if required_columns:
-        missing_cols = [col for col in required_columns if col not in df.columns]
-        if missing_cols:
-            return False, f"Missing required columns: {missing_cols}"
-    
-    return True, "Dataset validation passed"
-
-def remove_outliers_iqr(df, columns=None, multiplier=1.5):
-    """
-    Remove outliers using the Interquartile Range method.
-    
-    Args:
-        df: Input DataFrame
-        columns: List of columns to process (None for all numeric columns)
-        multiplier: IQR multiplier for outlier detection
-    
-    Returns:
-        DataFrame with outliers removed
-    """
-    if columns is None:
-        columns = df.select_dtypes(include=[np.number]).columns
-    
-    df_clean = df.copy()
-    for col in columns:
-        if col in df.columns and df[col].dtype in [np.float64, np.int64]:
-            Q1 = df[col].quantile(0.25)
-            Q3 = df[col].quantile(0.75)
-            IQR = Q3 - Q1
-            lower_bound = Q1 - multiplier * IQR
-            upper_bound = Q3 + multiplier * IQR
-            
-            mask = (df[col] >= lower_bound) & (df[col] <= upper_bound)
-            df_clean = df_clean[mask]
-    
-    removed = len(df) - len(df_clean)
-    print(f"Removed {removed} outliers using IQR method")
-    return df_clean
-import pandas as pd
-import numpy as np
-
-def remove_outliers_iqr(df, column):
-    """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        column (str): Column name to process
-    
-    Returns:
-        pd.DataFrame: DataFrame with outliers removed
-    """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    
-    return filtered_df
-
-def clean_dataset(df, numeric_columns=None):
-    """
-    Clean dataset by removing outliers from all numeric columns.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        numeric_columns (list, optional): List of numeric columns to clean.
-                                         If None, uses all numeric columns.
-    
-    Returns:
-        pd.DataFrame: Cleaned DataFrame
-    """
-    if numeric_columns is None:
-        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
-    
-    cleaned_df = df.copy()
-    original_shape = cleaned_df.shape
-    
-    for column in numeric_columns:
-        if column in cleaned_df.columns:
-            cleaned_df = remove_outliers_iqr(cleaned_df, column)
-    
-    removed_count = original_shape[0] - cleaned_df.shape[0]
-    print(f"Removed {removed_count} outliers from dataset")
-    
-    return cleaned_df
+    success = clean_csv(input_file, output_file)
+    sys.exit(0 if success else 1)
