@@ -1,126 +1,66 @@
-
+import pandas as pd
 import numpy as np
-import pandas as pd
 
-def remove_outliers_iqr(df, column):
+def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
     """
-    Remove outliers from a DataFrame column using the IQR method.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to clean
-    
-    Returns:
-    pd.DataFrame: DataFrame with outliers removed
-    """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    
-    return filtered_df
-
-def clean_dataset(df, columns=None):
-    """
-    Clean multiple columns in a DataFrame using IQR method.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    columns (list): List of column names to clean. If None, clean all numeric columns.
-    
-    Returns:
-    pd.DataFrame: Cleaned DataFrame
-    """
-    if columns is None:
-        columns = df.select_dtypes(include=[np.number]).columns.tolist()
-    
-    cleaned_df = df.copy()
-    for column in columns:
-        if column in cleaned_df.columns and pd.api.types.is_numeric_dtype(cleaned_df[column]):
-            cleaned_df = remove_outliers_iqr(cleaned_df, column)
-    
-    return cleaned_df
-import pandas as pd
-import re
-
-def clean_dataframe(df, column_mapping=None, drop_duplicates=True, normalize_text=True):
-    """
-    Clean a pandas DataFrame by removing duplicates and normalizing text columns.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame to clean.
-        column_mapping (dict, optional): Dictionary mapping original column names to new names.
-        drop_duplicates (bool): Whether to remove duplicate rows.
-        normalize_text (bool): Whether to normalize text columns (strip, lower case).
-    
-    Returns:
-        pd.DataFrame: Cleaned DataFrame.
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
     """
     cleaned_df = df.copy()
-    
-    if column_mapping:
-        cleaned_df = cleaned_df.rename(columns=column_mapping)
     
     if drop_duplicates:
-        initial_rows = len(cleaned_df)
+        initial_rows = cleaned_df.shape[0]
         cleaned_df = cleaned_df.drop_duplicates()
-        removed = initial_rows - len(cleaned_df)
+        removed = initial_rows - cleaned_df.shape[0]
         print(f"Removed {removed} duplicate rows.")
     
-    if normalize_text:
-        text_columns = cleaned_df.select_dtypes(include=['object']).columns
-        for col in text_columns:
-            cleaned_df[col] = cleaned_df[col].astype(str).str.strip().str.lower()
-            cleaned_df[col] = cleaned_df[col].apply(lambda x: re.sub(r'\s+', ' ', x))
-        print(f"Normalized text in {len(text_columns)} columns.")
+    if fill_missing:
+        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            if cleaned_df[col].isnull().any():
+                if fill_missing == 'mean':
+                    fill_value = cleaned_df[col].mean()
+                elif fill_missing == 'median':
+                    fill_value = cleaned_df[col].median()
+                elif fill_missing == 'zero':
+                    fill_value = 0
+                else:
+                    fill_value = fill_missing
+                
+                cleaned_df[col] = cleaned_df[col].fillna(fill_value)
+                print(f"Filled missing values in column '{col}' with {fill_value}.")
     
     return cleaned_df
 
-def validate_email_column(df, email_column):
+def validate_dataset(df):
     """
-    Validate email addresses in a specified column.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame.
-        email_column (str): Name of the column containing email addresses.
-    
-    Returns:
-        pd.DataFrame: DataFrame with additional 'email_valid' boolean column.
+    Validate the cleaned dataset for remaining issues.
     """
-    if email_column not in df.columns:
-        raise ValueError(f"Column '{email_column}' not found in DataFrame.")
+    validation_results = {
+        'total_rows': df.shape[0],
+        'total_columns': df.shape[1],
+        'missing_values': df.isnull().sum().sum(),
+        'duplicate_rows': df.duplicated().sum()
+    }
     
-    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    df['email_valid'] = df[email_column].str.match(email_pattern)
-    
-    valid_count = df['email_valid'].sum()
-    print(f"Found {valid_count} valid email addresses out of {len(df)}.")
-    
-    return df
+    return validation_results
 
-def save_cleaned_data(df, output_path, format='csv'):
-    """
-    Save cleaned DataFrame to a file.
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, 2, 4, 5, None, 7],
+        'B': [10, 20, 20, None, 50, 60, 70],
+        'C': [100, 200, 300, 400, 500, 600, 700]
+    }
     
-    Args:
-        df (pd.DataFrame): DataFrame to save.
-        output_path (str): Path to save the file.
-        format (str): File format ('csv', 'excel', 'json').
-    """
-    if format == 'csv':
-        df.to_csv(output_path, index=False)
-    elif format == 'excel':
-        df.to_excel(output_path, index=False)
-    elif format == 'json':
-        df.to_json(output_path, orient='records')
-    else:
-        raise ValueError("Unsupported format. Use 'csv', 'excel', or 'json'.")
+    df = pd.DataFrame(sample_data)
+    print("Original dataset:")
+    print(df)
+    print("\n" + "="*50 + "\n")
     
-    print(f"Data saved to {output_path} in {format} format.")
+    cleaned_df = clean_dataset(df, drop_duplicates=True, fill_missing='mean')
+    print("\nCleaned dataset:")
+    print(cleaned_df)
+    
+    validation = validate_dataset(cleaned_df)
+    print("\nValidation results:")
+    for key, value in validation.items():
+        print(f"{key}: {value}")
