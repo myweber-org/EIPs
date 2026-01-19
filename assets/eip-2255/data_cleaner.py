@@ -76,4 +76,86 @@ if __name__ == "__main__":
     cleaned_df = clean_csv_data(input_csv, output_csv)
     
     if cleaned_df is not None:
-        validate_data_types(cleaned_df)
+        validate_data_types(cleaned_df)import csv
+import re
+
+def clean_csv(input_file, output_file, remove_duplicates=True, strip_whitespace=True):
+    """
+    Clean a CSV file by removing duplicates and stripping whitespace.
+    """
+    cleaned_rows = []
+    seen_rows = set()
+    
+    with open(input_file, 'r', newline='', encoding='utf-8') as infile:
+        reader = csv.reader(infile)
+        header = next(reader)
+        cleaned_rows.append(header)
+        
+        for row in reader:
+            if strip_whitespace:
+                row = [cell.strip() if isinstance(cell, str) else cell for cell in row]
+            
+            row_tuple = tuple(row)
+            
+            if remove_duplicates:
+                if row_tuple in seen_rows:
+                    continue
+                seen_rows.add(row_tuple)
+            
+            cleaned_rows.append(row)
+    
+    with open(output_file, 'w', newline='', encoding='utf-8') as outfile:
+        writer = csv.writer(outfile)
+        writer.writerows(cleaned_rows)
+    
+    return len(cleaned_rows) - 1
+
+def validate_email_column(input_file, email_column_index):
+    """
+    Validate email addresses in a specific column of a CSV file.
+    """
+    email_pattern = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
+    invalid_emails = []
+    
+    with open(input_file, 'r', newline='', encoding='utf-8') as infile:
+        reader = csv.reader(infile)
+        header = next(reader)
+        
+        for row_number, row in enumerate(reader, start=2):
+            if email_column_index < len(row):
+                email = row[email_column_index]
+                if not email_pattern.match(email):
+                    invalid_emails.append((row_number, email))
+    
+    return invalid_emails
+
+def split_csv_by_column(input_file, output_prefix, split_column_index):
+    """
+    Split a CSV file into multiple files based on unique values in a column.
+    """
+    file_handles = {}
+    writers = {}
+    
+    with open(input_file, 'r', newline='', encoding='utf-8') as infile:
+        reader = csv.reader(infile)
+        header = next(reader)
+        
+        for row in reader:
+            if split_column_index < len(row):
+                key = row[split_column_index]
+                
+                if key not in file_handles:
+                    filename = f"{output_prefix}_{key}.csv"
+                    file_handle = open(filename, 'w', newline='', encoding='utf-8')
+                    writer = csv.writer(file_handle)
+                    writer.writerow(header)
+                    
+                    file_handles[key] = file_handle
+                    writers[key] = writer
+                
+                writers[key].writerow(row)
+    
+    for handle in file_handles.values():
+        handle.close()
+    
+    return list(file_handles.keys())
