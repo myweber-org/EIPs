@@ -83,3 +83,63 @@ def clean_dataframe(df: pd.DataFrame,
             cleaned_df = remove_outliers_iqr(cleaned_df, col)
     
     return cleaned_df
+import re
+import pandas as pd
+from typing import Union, List, Optional
+
+def remove_duplicates(data: Union[List, pd.Series, pd.DataFrame]) -> Union[List, pd.Series, pd.DataFrame]:
+    """
+    Remove duplicate entries from a list, Series, or DataFrame.
+    For DataFrames, it removes duplicate rows.
+    """
+    if isinstance(data, list):
+        return list(dict.fromkeys(data))
+    elif isinstance(data, pd.Series):
+        return data.drop_duplicates()
+    elif isinstance(data, pd.DataFrame):
+        return data.drop_duplicates()
+    else:
+        raise TypeError("Input must be a list, pandas Series, or pandas DataFrame")
+
+def validate_email(email: str) -> bool:
+    """
+    Validate an email address using a regular expression.
+    Returns True if valid, False otherwise.
+    """
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, email))
+
+def normalize_string(text: str, case: str = 'lower') -> str:
+    """
+    Normalize a string by stripping whitespace and converting case.
+    Valid case options: 'lower', 'upper', 'title'.
+    """
+    text = text.strip()
+    if case == 'lower':
+        return text.lower()
+    elif case == 'upper':
+        return text.upper()
+    elif case == 'title':
+        return text.title()
+    else:
+        raise ValueError("Case must be 'lower', 'upper', or 'title'")
+
+def fill_missing_values(df: pd.DataFrame, column: str, value: Union[str, int, float]) -> pd.DataFrame:
+    """
+    Fill missing values in a specified column of a DataFrame with a provided value.
+    Returns a new DataFrame with missing values filled.
+    """
+    df_filled = df.copy()
+    df_filled[column] = df_filled[column].fillna(value)
+    return df_filled
+
+def filter_by_threshold(data: List[float], threshold: float, above: bool = True) -> List[float]:
+    """
+    Filter a list of numbers based on a threshold.
+    If above is True, keep values >= threshold.
+    If above is False, keep values < threshold.
+    """
+    if above:
+        return [x for x in data if x >= threshold]
+    else:
+        return [x for x in data if x < threshold]
