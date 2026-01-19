@@ -293,4 +293,78 @@ if __name__ == "__main__":
     for col, col_stats in stats.items():
         print(f"\n{col}:")
         for stat_name, stat_value in col_stats.items():
-            print(f"  {stat_name}: {stat_value}")
+            print(f"  {stat_name}: {stat_value}")import pandas as pd
+
+def clean_dataframe(df, drop_duplicates=True, fillna_method=None):
+    """
+    Clean a pandas DataFrame by handling null values and duplicates.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    drop_duplicates (bool): Whether to drop duplicate rows.
+    fillna_method (str): Method to fill null values ('mean', 'median', 'mode', or None).
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    # Handle null values
+    if fillna_method:
+        if fillna_method == 'mean':
+            cleaned_df = cleaned_df.fillna(cleaned_df.mean(numeric_only=True))
+        elif fillna_method == 'median':
+            cleaned_df = cleaned_df.fillna(cleaned_df.median(numeric_only=True))
+        elif fillna_method == 'mode':
+            cleaned_df = cleaned_df.fillna(cleaned_df.mode().iloc[0])
+    
+    # Drop duplicates
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+    required_columns (list): List of required column names.
+    
+    Returns:
+    dict: Validation results with keys 'is_valid' and 'message'.
+    """
+    validation_result = {'is_valid': True, 'message': 'DataFrame is valid'}
+    
+    if df.empty:
+        validation_result['is_valid'] = False
+        validation_result['message'] = 'DataFrame is empty'
+        return validation_result
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            validation_result['is_valid'] = False
+            validation_result['message'] = f'Missing required columns: {missing_columns}'
+    
+    return validation_result
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'A': [1, 2, None, 4, 1],
+        'B': [5, None, 7, 8, 5],
+        'C': ['x', 'y', 'z', 'x', 'y']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned = clean_dataframe(df, drop_duplicates=True, fillna_method='mean')
+    print("\nCleaned DataFrame:")
+    print(cleaned)
+    
+    validation = validate_dataframe(cleaned, required_columns=['A', 'B', 'C'])
+    print(f"\nValidation: {validation['message']}")
