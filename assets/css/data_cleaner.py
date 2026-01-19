@@ -1,68 +1,78 @@
-
 import pandas as pd
 import numpy as np
 
-def clean_dataframe(df, drop_duplicates=True, fill_missing=True, fill_strategy='mean'):
+def remove_outliers_iqr(df, column):
     """
-    Cleans a pandas DataFrame by removing duplicates and handling missing values.
+    Remove outliers from a DataFrame column using the Interquartile Range method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to process
+    
+    Returns:
+        pd.DataFrame: DataFrame with outliers removed
     """
-    df_clean = df.copy()
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df.reset_index(drop=True)
 
-    if drop_duplicates:
-        initial_rows = df_clean.shape[0]
-        df_clean = df_clean.drop_duplicates()
-        removed = initial_rows - df_clean.shape[0]
-        print(f"Removed {removed} duplicate rows.")
-
-    if fill_missing:
-        numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
-        if fill_strategy == 'mean':
-            df_clean[numeric_cols] = df_clean[numeric_cols].fillna(df_clean[numeric_cols].mean())
-        elif fill_strategy == 'median':
-            df_clean[numeric_cols] = df_clean[numeric_cols].fillna(df_clean[numeric_cols].median())
-        elif fill_strategy == 'zero':
-            df_clean[numeric_cols] = df_clean[numeric_cols].fillna(0)
-        else:
-            raise ValueError("fill_strategy must be 'mean', 'median', or 'zero'")
-
-        non_numeric_cols = df_clean.select_dtypes(exclude=[np.number]).columns
-        df_clean[non_numeric_cols] = df_clean[non_numeric_cols].fillna('Unknown')
-        print(f"Filled missing values using strategy: {fill_strategy} for numeric, 'Unknown' for non-numeric.")
-
-    return df_clean
-
-def validate_dataframe(df, required_columns=None):
+def calculate_basic_stats(df, column):
     """
-    Validates the DataFrame for required columns and basic integrity.
+    Calculate basic statistics for a DataFrame column.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to analyze
+    
+    Returns:
+        dict: Dictionary containing statistics
     """
-    if required_columns:
-        missing_cols = [col for col in required_columns if col not in df.columns]
-        if missing_cols:
-            raise KeyError(f"DataFrame missing required columns: {missing_cols}")
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    stats = {
+        'mean': df[column].mean(),
+        'median': df[column].median(),
+        'std': df[column].std(),
+        'min': df[column].min(),
+        'max': df[column].max(),
+        'count': df[column].count(),
+        'missing': df[column].isnull().sum()
+    }
+    
+    return stats
 
-    if df.empty:
-        raise ValueError("DataFrame is empty.")
-
-    print("DataFrame validation passed.")
-    return True
+def example_usage():
+    """
+    Example usage of the data cleaning functions.
+    """
+    np.random.seed(42)
+    data = {
+        'values': np.concatenate([
+            np.random.normal(100, 15, 95),
+            np.random.normal(300, 50, 5)
+        ])
+    }
+    
+    df = pd.DataFrame(data)
+    
+    print("Original DataFrame shape:", df.shape)
+    print("Original statistics:", calculate_basic_stats(df, 'values'))
+    
+    cleaned_df = remove_outliers_iqr(df, 'values')
+    
+    print("\nCleaned DataFrame shape:", cleaned_df.shape)
+    print("Cleaned statistics:", calculate_basic_stats(cleaned_df, 'values'))
 
 if __name__ == "__main__":
-    sample_data = {
-        'id': [1, 2, 2, 3, 4, 5],
-        'value': [10.5, np.nan, 15.0, np.nan, 20.0, 25.5],
-        'category': ['A', 'B', 'B', None, 'C', 'A']
-    }
-    df = pd.DataFrame(sample_data)
-    print("Original DataFrame:")
-    print(df)
-    print("\n")
-
-    cleaned_df = clean_dataframe(df, fill_strategy='median')
-    print("\nCleaned DataFrame:")
-    print(cleaned_df)
-    print("\n")
-
-    try:
-        validate_dataframe(cleaned_df, required_columns=['id', 'value'])
-    except Exception as e:
-        print(f"Validation error: {e}")
+    example_usage()
