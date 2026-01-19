@@ -118,3 +118,7 @@ if __name__ == "__main__":
     validation = validate_data(cleaned_df, required_columns=['id', 'name', 'age'])
     print("\nValidation results:")
     print(validation)
+def remove_duplicates(seq):
+    seen = set()
+    seen_add = seen.add
+    return [x for x in seq if not (x in seen or seen_add(x))]
