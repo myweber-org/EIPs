@@ -740,4 +740,44 @@ def validate_data(df, required_columns=None, allow_nan=False):
         if nan_count > 0:
             print(f"Warning: Dataset contains {nan_count} NaN values")
     
+    return Trueimport numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+def normalize_minmax(df, column):
+    min_val = df[column].min()
+    max_val = df[column].max()
+    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
+    return df
+
+def clean_dataset(df, numeric_columns):
+    cleaned_df = df.copy()
+    for col in numeric_columns:
+        cleaned_df = remove_outliers_iqr(cleaned_df, col)
+        cleaned_df = normalize_minmax(cleaned_df, col)
+    return cleaned_df
+
+def validate_dataframe(df):
+    required_columns = ['id', 'timestamp', 'value']
+    missing_cols = [col for col in required_columns if col not in df.columns]
+    if missing_cols:
+        raise ValueError(f"Missing required columns: {missing_cols}")
     return True
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'id': range(100),
+        'timestamp': pd.date_range('2024-01-01', periods=100, freq='H'),
+        'value': np.random.randn(100) * 100
+    })
+    cleaned = clean_dataset(sample_data, ['value'])
+    print(f"Original shape: {sample_data.shape}")
+    print(f"Cleaned shape: {cleaned.shape}")
+    print(cleaned.head())
