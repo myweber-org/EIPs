@@ -229,4 +229,89 @@ def main():
         print(f"Unexpected error: {e}")
 
 if __name__ == "__main__":
-    main()
+    main()import requests
+import json
+import os
+from datetime import datetime
+
+def get_weather(city_name, api_key=None):
+    """
+    Fetch current weather data for a given city.
+    """
+    if api_key is None:
+        api_key = os.getenv('OPENWEATHER_API_KEY')
+        if not api_key:
+            raise ValueError("API key not provided and OPENWEATHER_API_KEY environment variable not set.")
+
+    base_url = "http://api.openweathermap.org/data/2.5/weather"
+    params = {
+        'q': city_name,
+        'appid': api_key,
+        'units': 'metric'
+    }
+
+    try:
+        response = requests.get(base_url, params=params, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+
+        if data.get('cod') != 200:
+            error_message = data.get('message', 'Unknown error')
+            return {'error': f"API Error: {error_message}"}
+
+        main_info = data.get('main', {})
+        weather_info = data.get('weather', [{}])[0]
+        sys_info = data.get('sys', {})
+
+        processed_data = {
+            'city': data.get('name'),
+            'country': sys_info.get('country'),
+            'temperature': main_info.get('temp'),
+            'feels_like': main_info.get('feels_like'),
+            'humidity': main_info.get('humidity'),
+            'pressure': main_info.get('pressure'),
+            'weather': weather_info.get('main'),
+            'description': weather_info.get('description'),
+            'wind_speed': data.get('wind', {}).get('speed'),
+            'timestamp': datetime.fromtimestamp(data.get('dt')).isoformat(),
+            'sunrise': datetime.fromtimestamp(sys_info.get('sunrise')).isoformat(),
+            'sunset': datetime.fromtimestamp(sys_info.get('sunset')).isoformat()
+        }
+        return processed_data
+
+    except requests.exceptions.RequestException as e:
+        return {'error': f"Network error: {str(e)}"}
+    except json.JSONDecodeError:
+        return {'error': "Invalid JSON response from API"}
+    except Exception as e:
+        return {'error': f"Unexpected error: {str(e)}"}
+
+def display_weather(weather_data):
+    """
+    Display weather data in a readable format.
+    """
+    if 'error' in weather_data:
+        print(f"Error: {weather_data['error']}")
+        return
+
+    print("\n" + "="*40)
+    print(f"Weather in {weather_data['city']}, {weather_data['country']}")
+    print("="*40)
+    print(f"Temperature: {weather_data['temperature']}°C")
+    print(f"Feels like: {weather_data['feels_like']}°C")
+    print(f"Weather: {weather_data['weather']} ({weather_data['description']})")
+    print(f"Humidity: {weather_data['humidity']}%")
+    print(f"Pressure: {weather_data['pressure']} hPa")
+    print(f"Wind Speed: {weather_data['wind_speed']} m/s")
+    print(f"Sunrise: {weather_data['sunrise']}")
+    print(f"Sunset: {weather_data['sunset']}")
+    print(f"Last Updated: {weather_data['timestamp']}")
+    print("="*40)
+
+if __name__ == "__main__":
+    city = input("Enter city name: ").strip()
+    if not city:
+        city = "London"
+
+    result = get_weather(city)
+    display_weather(result)
