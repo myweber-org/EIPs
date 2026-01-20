@@ -227,3 +227,77 @@ def validate_data(df, required_columns):
     if missing_cols:
         raise ValueError(f"Missing required columns: {missing_cols}")
     return True
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    """
+    original_shape = df.shape
+    
+    if drop_duplicates:
+        df = df.drop_duplicates()
+        print(f"Removed {original_shape[0] - df.shape[0]} duplicate rows.")
+    
+    if fill_missing:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            if df[col].isnull().any():
+                if fill_missing == 'mean':
+                    fill_value = df[col].mean()
+                elif fill_missing == 'median':
+                    fill_value = df[col].median()
+                elif fill_missing == 'zero':
+                    fill_value = 0
+                else:
+                    fill_value = fill_missing
+                
+                df[col] = df[col].fillna(fill_value)
+                print(f"Filled missing values in column '{col}' with {fill_value}.")
+    
+    categorical_cols = df.select_dtypes(include=['object']).columns
+    for col in categorical_cols:
+        if df[col].isnull().any():
+            df[col] = df[col].fillna('Unknown')
+            print(f"Filled missing values in column '{col}' with 'Unknown'.")
+    
+    print(f"Dataset cleaned. Original shape: {original_shape}, New shape: {df.shape}")
+    return df
+
+def validate_data(df, required_columns=None):
+    """
+    Validate the dataset for required columns and basic integrity checks.
+    """
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    if df.empty:
+        raise ValueError("Dataset is empty after cleaning.")
+    
+    print("Data validation passed.")
+    return True
+
+if __name__ == "__main__":
+    sample_data = {
+        'id': [1, 2, 2, 3, 4, 5],
+        'value': [10.5, 20.3, 20.3, np.nan, 40.1, np.nan],
+        'category': ['A', 'B', 'B', 'C', None, 'A'],
+        'score': [85, 92, 92, 78, 88, None]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original dataset:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    cleaned_df = clean_dataset(df, drop_duplicates=True, fill_missing='mean')
+    print("\nCleaned dataset:")
+    print(cleaned_df)
+    
+    try:
+        validate_data(cleaned_df, required_columns=['id', 'value', 'category'])
+    except ValueError as e:
+        print(f"Validation error: {e}")
