@@ -218,4 +218,50 @@ if __name__ == "__main__":
     if cleaned_data is not None:
         is_valid = validate_dataframe(cleaned_data)
         if is_valid:
-            print("Data cleaning and validation completed successfully")
+            print("Data cleaning and validation completed successfully")import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(dataframe, column):
+    Q1 = dataframe[column].quantile(0.25)
+    Q3 = dataframe[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & (dataframe[column] <= upper_bound)]
+    return filtered_df
+
+def normalize_minmax(dataframe, column):
+    min_val = dataframe[column].min()
+    max_val = dataframe[column].max()
+    if max_val - min_val == 0:
+        return dataframe[column].apply(lambda x: 0.5)
+    normalized = (dataframe[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def standardize_zscore(dataframe, column):
+    mean_val = dataframe[column].mean()
+    std_val = dataframe[column].std()
+    if std_val == 0:
+        return dataframe[column].apply(lambda x: 0)
+    standardized = (dataframe[column] - mean_val) / std_val
+    return standardized
+
+def clean_dataset(dataframe, numeric_columns):
+    cleaned_df = dataframe.copy()
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+            cleaned_df[col + '_normalized'] = normalize_minmax(cleaned_df, col)
+            cleaned_df[col + '_standardized'] = standardize_zscore(cleaned_df, col)
+    return cleaned_df
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'feature_a': np.random.normal(100, 15, 200),
+        'feature_b': np.random.exponential(50, 200),
+        'category': np.random.choice(['X', 'Y', 'Z'], 200)
+    })
+    cleaned = clean_dataset(sample_data, ['feature_a', 'feature_b'])
+    print(f"Original shape: {sample_data.shape}")
+    print(f"Cleaned shape: {cleaned.shape}")
+    print(cleaned[['feature_a_normalized', 'feature_b_standardized']].head())
