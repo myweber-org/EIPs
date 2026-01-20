@@ -174,4 +174,48 @@ def get_data_summary(df):
         'data_types': df.dtypes.astype(str).to_dict(),
         'numeric_stats': df.describe().to_dict() if df.select_dtypes(include=[np.number]).shape[1] > 0 else {}
     }
+    return summaryimport numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(data, column):
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
+
+def normalize_minmax(data, column):
+    min_val = data[column].min()
+    max_val = data[column].max()
+    if max_val == min_val:
+        return data[column]
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def clean_dataset(df, numeric_columns):
+    cleaned_df = df.copy()
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+            cleaned_df[col] = normalize_minmax(cleaned_df, col)
+    cleaned_df = cleaned_df.dropna()
+    return cleaned_df
+
+def generate_summary(cleaned_df):
+    summary = cleaned_df.describe()
     return summary
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'A': np.random.normal(100, 15, 200),
+        'B': np.random.exponential(2, 200),
+        'C': np.random.randint(1, 50, 200)
+    })
+    numeric_cols = ['A', 'B', 'C']
+    cleaned = clean_dataset(sample_data, numeric_cols)
+    print("Original shape:", sample_data.shape)
+    print("Cleaned shape:", cleaned.shape)
+    print("\nSummary statistics:")
+    print(generate_summary(cleaned))
