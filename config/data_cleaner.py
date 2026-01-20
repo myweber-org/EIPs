@@ -432,3 +432,69 @@ def normalize_column(df, column, method='minmax'):
         raise ValueError("Method must be 'minmax' or 'zscore'")
     
     return df_copy
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_duplicates=True, fill_missing=True):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    """
+    df_clean = df.copy()
+    
+    if drop_duplicates:
+        df_clean = df_clean.drop_duplicates()
+    
+    if fill_missing:
+        numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
+        categorical_cols = df_clean.select_dtypes(include=['object']).columns
+        
+        for col in numeric_cols:
+            if df_clean[col].isnull().any():
+                df_clean[col] = df_clean[col].fillna(df_clean[col].median())
+        
+        for col in categorical_cols:
+            if df_clean[col].isnull().any():
+                df_clean[col] = df_clean[col].fillna(df_clean[col].mode()[0] if not df_clean[col].mode().empty else 'Unknown')
+    
+    return df_clean
+
+def validate_dataset(df, required_columns=None):
+    """
+    Validate dataset structure and content.
+    """
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    if df.empty:
+        raise ValueError("Dataset is empty")
+    
+    return True
+
+def main():
+    sample_data = {
+        'id': [1, 2, 2, 3, 4, 5],
+        'name': ['Alice', 'Bob', 'Bob', None, 'Eve', 'Frank'],
+        'age': [25, 30, 30, None, 35, 40],
+        'score': [85.5, 90.0, 90.0, 75.5, None, 95.0]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original dataset:")
+    print(df)
+    print("\nDataset info:")
+    print(df.info())
+    
+    cleaned_df = clean_dataset(df)
+    print("\nCleaned dataset:")
+    print(cleaned_df)
+    
+    try:
+        validate_dataset(cleaned_df, required_columns=['id', 'name', 'age'])
+        print("\nDataset validation passed")
+    except ValueError as e:
+        print(f"\nDataset validation failed: {e}")
+
+if __name__ == "__main__":
+    main()
