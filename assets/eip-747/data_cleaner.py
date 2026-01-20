@@ -285,4 +285,68 @@ def main():
     return cleaned_df
 
 if __name__ == "__main__":
-    cleaned_data = main()
+    cleaned_data = main()import pandas as pd
+import numpy as np
+
+def clean_dataframe(df):
+    """
+    Clean a pandas DataFrame by removing duplicate rows,
+    filling missing numeric values with the column median,
+    and dropping columns with excessive missing data.
+    """
+    # Remove duplicate rows
+    df_cleaned = df.drop_duplicates().reset_index(drop=True)
+
+    # Identify numeric columns
+    numeric_cols = df_cleaned.select_dtypes(include=[np.number]).columns
+
+    # Fill missing values in numeric columns with median
+    for col in numeric_cols:
+        if df_cleaned[col].isnull().any():
+            median_val = df_cleaned[col].median()
+            df_cleaned[col] = df_cleaned[col].fillna(median_val)
+
+    # Drop columns with more than 50% missing values
+    threshold = len(df_cleaned) * 0.5
+    df_cleaned = df_cleaned.dropna(axis=1, thresh=threshold)
+
+    # Reset index after cleaning
+    df_cleaned = df_cleaned.reset_index(drop=True)
+
+    return df_cleaned
+
+def validate_dataframe(df):
+    """
+    Perform basic validation on the DataFrame.
+    Returns a dictionary with validation results.
+    """
+    validation_report = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_values': df.isnull().sum().sum(),
+        'duplicate_rows': df.duplicated().sum(),
+        'numeric_columns': list(df.select_dtypes(include=[np.number]).columns),
+        'non_numeric_columns': list(df.select_dtypes(exclude=[np.number]).columns)
+    }
+    return validation_report
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'A': [1, 2, 2, 4, None, 6],
+        'B': [10, None, 30, 40, 50, 60],
+        'C': ['x', 'y', 'z', 'x', 'y', 'z'],
+        'D': [None, None, None, None, None, None]
+    }
+
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nValidation Report:")
+    print(validate_dataframe(df))
+
+    cleaned_df = clean_dataframe(df)
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    print("\nCleaned Validation Report:")
+    print(validate_dataframe(cleaned_df))
