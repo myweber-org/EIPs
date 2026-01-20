@@ -1,69 +1,34 @@
-
 import numpy as np
+import pandas as pd
 
-def remove_outliers_iqr(data, column):
-    """
-    Remove outliers from a pandas DataFrame column using the IQR method.
-    
-    Parameters:
-    data (pd.DataFrame): Input DataFrame
-    column (str): Column name to process
-    
-    Returns:
-    pd.DataFrame: DataFrame with outliers removed
-    """
-    Q1 = data[column].quantile(0.25)
-    Q3 = data[column].quantile(0.75)
+def remove_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
     IQR = Q3 - Q1
     lower_bound = Q1 - 1.5 * IQR
     upper_bound = Q3 + 1.5 * IQR
-    
-    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
-    return filtered_data
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
 
-def calculate_statistics(data, column):
-    """
-    Calculate basic statistics for a column after outlier removal.
-    
-    Parameters:
-    data (pd.DataFrame): Input DataFrame
-    column (str): Column name to analyze
-    
-    Returns:
-    dict: Dictionary containing statistical measures
-    """
-    stats = {
-        'mean': data[column].mean(),
-        'median': data[column].median(),
-        'std': data[column].std(),
-        'min': data[column].min(),
-        'max': data[column].max(),
-        'count': data[column].count()
-    }
-    return stats
+def normalize_minmax(df, column):
+    min_val = df[column].min()
+    max_val = df[column].max()
+    if max_val - min_val == 0:
+        return df[column]
+    return (df[column] - min_val) / (max_val - min_val)
 
-def process_dataset(df, numeric_columns):
-    """
-    Process dataset by removing outliers from multiple numeric columns.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    numeric_columns (list): List of column names to process
-    
-    Returns:
-    pd.DataFrame: Cleaned DataFrame
-    dict: Statistics for each processed column
-    """
+def clean_dataset(df, numeric_columns):
     cleaned_df = df.copy()
-    statistics = {}
-    
     for col in numeric_columns:
         if col in cleaned_df.columns:
-            original_count = len(cleaned_df)
             cleaned_df = remove_outliers_iqr(cleaned_df, col)
-            removed_count = original_count - len(cleaned_df)
-            stats = calculate_statistics(cleaned_df, col)
-            stats['outliers_removed'] = removed_count
-            statistics[col] = stats
-    
-    return cleaned_df, statistics
+            cleaned_df[col] = normalize_minmax(cleaned_df, col)
+    return cleaned_df
+
+def generate_summary(df):
+    summary = {
+        'original_rows': len(df),
+        'cleaned_rows': len(df.dropna()),
+        'numeric_columns': list(df.select_dtypes(include=[np.number]).columns),
+        'missing_values': df.isnull().sum().to_dict()
+    }
+    return summary
