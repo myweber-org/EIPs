@@ -1,70 +1,72 @@
 
-import numpy as np
 import pandas as pd
+import re
 
-def remove_outliers_iqr(df, column):
+def clean_dataframe(df, column_mapping=None, drop_duplicates=True, normalize_text=True):
     """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
+    Clean a pandas DataFrame by removing duplicates and normalizing text columns.
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to process
+    Args:
+        df: pandas DataFrame to clean
+        column_mapping: dict mapping old column names to new ones
+        drop_duplicates: bool, whether to remove duplicate rows
+        normalize_text: bool, whether to normalize text columns
     
     Returns:
-    pd.DataFrame: DataFrame with outliers removed
+        Cleaned pandas DataFrame
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    cleaned_df = df.copy()
     
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
+    if column_mapping:
+        cleaned_df = cleaned_df.rename(columns=column_mapping)
     
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
+    if drop_duplicates:
+        initial_rows = len(cleaned_df)
+        cleaned_df = cleaned_df.drop_duplicates()
+        removed = initial_rows - len(cleaned_df)
+        print(f"Removed {removed} duplicate rows")
     
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    if normalize_text:
+        text_columns = cleaned_df.select_dtypes(include=['object']).columns
+        for col in text_columns:
+            cleaned_df[col] = cleaned_df[col].apply(_normalize_string)
     
-    return filtered_df
+    return cleaned_df
 
-def calculate_summary_statistics(df, column):
+def _normalize_string(text):
     """
-    Calculate summary statistics for a column after outlier removal.
+    Normalize a string by converting to lowercase, removing extra whitespace,
+    and stripping special characters.
+    """
+    if pd.isna(text):
+        return text
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to analyze
+    normalized = str(text).lower().strip()
+    normalized = re.sub(r'\s+', ' ', normalized)
+    normalized = re.sub(r'[^\w\s-]', '', normalized)
+    
+    return normalized
+
+def validate_dataframe(df, required_columns=None, allow_nulls=True):
+    """
+    Validate a DataFrame for required columns and null values.
+    
+    Args:
+        df: pandas DataFrame to validate
+        required_columns: list of column names that must be present
+        allow_nulls: bool, whether null values are allowed
     
     Returns:
-    dict: Dictionary containing summary statistics
+        tuple: (is_valid, error_message)
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    if required_columns:
+        missing = [col for col in required_columns if col not in df.columns]
+        if missing:
+            return False, f"Missing required columns: {missing}"
     
-    stats = {
-        'mean': df[column].mean(),
-        'median': df[column].median(),
-        'std': df[column].std(),
-        'min': df[column].min(),
-        'max': df[column].max(),
-        'count': df[column].count()
-    }
+    if not allow_nulls and df.isnull().any().any():
+        null_counts = df.isnull().sum()
+        null_cols = null_counts[null_counts > 0].index.tolist()
+        return False, f"Null values found in columns: {null_cols}"
     
-    return stats
-
-def process_dataset(df, column):
-    """
-    Complete pipeline for processing a dataset column.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to process
-    
-    Returns:
-    tuple: (cleaned_df, original_stats, cleaned_stats)
-    """
-    original_stats = calculate_summary_statistics(df, column)
-    cleaned_df = remove_outliers_iqr(df, column)
-    cleaned_stats = calculate_summary_statistics(cleaned_df, column)
-    
-    return cleaned_df, original_stats, cleaned_stats
+    return True, "DataFrame validation passed"
