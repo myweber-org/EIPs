@@ -171,4 +171,101 @@ def clean_dataset(df, numeric_columns, outlier_method='iqr', normalize_method='m
         elif normalize_method == 'zscore':
             cleaned_df = normalize_zscore(cleaned_df, col)
     
-    return cleaned_df
+    return cleaned_dfimport pandas as pd
+import numpy as np
+import re
+
+def clean_csv_data(input_file, output_file):
+    """
+    Clean a CSV file by removing duplicates, handling missing values,
+    standardizing text columns, and converting date columns.
+    """
+    try:
+        df = pd.read_csv(input_file)
+        
+        # Remove duplicate rows
+        df.drop_duplicates(inplace=True)
+        
+        # Fill missing numeric values with column median
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            df[col].fillna(df[col].median(), inplace=True)
+        
+        # Fill missing categorical values with mode
+        categorical_cols = df.select_dtypes(include=['object']).columns
+        for col in categorical_cols:
+            df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else 'Unknown', inplace=True)
+        
+        # Standardize text columns: trim whitespace and convert to lowercase
+        for col in categorical_cols:
+            df[col] = df[col].astype(str).str.strip().str.lower()
+        
+        # Convert date columns if they exist
+        date_pattern = re.compile(r'.*date.*', re.IGNORECASE)
+        date_columns = [col for col in df.columns if date_pattern.match(col)]
+        
+        for col in date_columns:
+            try:
+                df[col] = pd.to_datetime(df[col], errors='coerce')
+            except:
+                pass
+        
+        # Remove rows where all values are null
+        df.dropna(how='all', inplace=True)
+        
+        # Reset index after cleaning
+        df.reset_index(drop=True, inplace=True)
+        
+        # Save cleaned data
+        df.to_csv(output_file, index=False)
+        print(f"Data cleaning completed. Cleaned data saved to {output_file}")
+        print(f"Original rows: {len(pd.read_csv(input_file))}, Cleaned rows: {len(df)}")
+        
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: Input file '{input_file}' not found.")
+        return None
+    except pd.errors.EmptyDataError:
+        print(f"Error: Input file '{input_file}' is empty.")
+        return None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None
+
+def validate_dataframe(df):
+    """
+    Validate the cleaned dataframe for common data quality issues.
+    """
+    if df is None or df.empty:
+        print("DataFrame is empty or None.")
+        return False
+    
+    validation_results = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_values': df.isnull().sum().sum(),
+        'duplicate_rows': df.duplicated().sum(),
+        'numeric_columns': len(df.select_dtypes(include=[np.number]).columns),
+        'categorical_columns': len(df.select_dtypes(include=['object']).columns)
+    }
+    
+    print("Data Validation Results:")
+    for key, value in validation_results.items():
+        print(f"  {key.replace('_', ' ').title()}: {value}")
+    
+    return validation_results['missing_values'] == 0 and validation_results['duplicate_rows'] == 0
+
+if __name__ == "__main__":
+    # Example usage
+    input_csv = "raw_data.csv"
+    output_csv = "cleaned_data.csv"
+    
+    cleaned_df = clean_csv_data(input_csv, output_csv)
+    
+    if cleaned_df is not None:
+        is_valid = validate_dataframe(cleaned_df)
+        if is_valid:
+            print("Data validation passed successfully.")
+        else:
+            print("Data validation found issues that need attention.")
