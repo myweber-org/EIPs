@@ -1,83 +1,56 @@
+import numpy as np
 import pandas as pd
 
-def remove_duplicates(df, subset=None, keep='first'):
-    """
-    Remove duplicate rows from a DataFrame.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame.
-    subset (list, optional): Column labels to consider for duplicates.
-    keep (str, optional): Which duplicates to keep.
-    
-    Returns:
-    pd.DataFrame: DataFrame with duplicates removed.
-    """
-    if df.empty:
-        return df
-    
-    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+def remove_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+def normalize_minmax(df, column):
+    min_val = df[column].min()
+    max_val = df[column].max()
+    if max_val - min_val == 0:
+        return df[column]
+    return (df[column] - min_val) / (max_val - min_val)
+
+def standardize_zscore(df, column):
+    mean_val = df[column].mean()
+    std_val = df[column].std()
+    if std_val == 0:
+        return df[column]
+    return (df[column] - mean_val) / std_val
+
+def clean_dataset(df, numeric_columns):
+    cleaned_df = df.copy()
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
     return cleaned_df
 
-def clean_numeric_columns(df, columns):
-    """
-    Clean numeric columns by converting to appropriate types.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame.
-    columns (list): List of column names to clean.
-    
-    Returns:
-    pd.DataFrame: DataFrame with cleaned numeric columns.
-    """
-    for col in columns:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce')
-    return df
+def process_features(df, numeric_columns, method='normalize'):
+    processed_df = df.copy()
+    for col in numeric_columns:
+        if col in processed_df.columns:
+            if method == 'normalize':
+                processed_df[col] = normalize_minmax(processed_df, col)
+            elif method == 'standardize':
+                processed_df[col] = standardize_zscore(processed_df, col)
+    return processed_df
 
-def validate_dataframe(df, required_columns):
-    """
-    Validate DataFrame contains required columns.
+if __name__ == "__main__":
+    sample_data = {'feature1': [1, 2, 3, 100, 5, 6, 7, 8, 9, 10],
+                   'feature2': [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]}
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame.
-    required_columns (list): List of required column names.
+    cleaned = clean_dataset(df, ['feature1', 'feature2'])
+    print("\nCleaned DataFrame (outliers removed):")
+    print(cleaned)
     
-    Returns:
-    bool: True if all required columns are present.
-    """
-    missing_columns = [col for col in required_columns if col not in df.columns]
-    
-    if missing_columns:
-        print(f"Missing columns: {missing_columns}")
-        return False
-    
-    return True
-
-def process_dataframe(df, cleaning_config):
-    """
-    Main function to process DataFrame with cleaning operations.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame.
-    cleaning_config (dict): Configuration for cleaning operations.
-    
-    Returns:
-    pd.DataFrame: Cleaned DataFrame.
-    """
-    if not validate_dataframe(df, cleaning_config.get('required_columns', [])):
-        raise ValueError("DataFrame missing required columns")
-    
-    if cleaning_config.get('remove_duplicates', False):
-        df = remove_duplicates(
-            df, 
-            subset=cleaning_config.get('duplicate_subset'),
-            keep=cleaning_config.get('duplicate_keep', 'first')
-        )
-    
-    if cleaning_config.get('clean_numeric', False):
-        df = clean_numeric_columns(
-            df, 
-            cleaning_config.get('numeric_columns', [])
-        )
-    
-    return df
+    normalized = process_features(cleaned, ['feature1', 'feature2'], 'normalize')
+    print("\nNormalized DataFrame:")
+    print(normalized)
