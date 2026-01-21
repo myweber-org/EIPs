@@ -1,68 +1,45 @@
 
 import pandas as pd
-import numpy as np
+import re
 
-def remove_outliers_iqr(df, column):
+def clean_dataframe(df, columns_to_clean=None):
     """
-    Remove outliers from a DataFrame column using the IQR method.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to process
-    
-    Returns:
-    pd.DataFrame: DataFrame with outliers removed
+    Clean a pandas DataFrame by removing duplicate rows and normalizing string columns.
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    # Remove duplicate rows
+    df_cleaned = df.drop_duplicates().reset_index(drop=True)
     
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
+    if columns_to_clean is None:
+        # Identify string columns automatically
+        columns_to_clean = df_cleaned.select_dtypes(include=['object']).columns.tolist()
     
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
+    for col in columns_to_clean:
+        if col in df_cleaned.columns and df_cleaned[col].dtype == 'object':
+            df_cleaned[col] = df_cleaned[col].apply(normalize_string)
     
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    
-    return filtered_df
+    return df_cleaned
 
-def clean_dataset(df, numeric_columns=None):
+def normalize_string(text):
     """
-    Clean dataset by removing outliers from all numeric columns.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    numeric_columns (list): List of numeric column names. If None, uses all numeric columns.
-    
-    Returns:
-    pd.DataFrame: Cleaned DataFrame
+    Normalize a string by converting to lowercase, removing extra whitespace,
+    and stripping special characters.
     """
-    if numeric_columns is None:
-        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    if pd.isna(text):
+        return text
     
-    cleaned_df = df.copy()
+    text = str(text)
+    text = text.lower().strip()
+    text = re.sub(r'\s+', ' ', text)
+    text = re.sub(r'[^\w\s-]', '', text)
     
-    for column in numeric_columns:
-        if column in df.columns:
-            original_count = len(cleaned_df)
-            cleaned_df = remove_outliers_iqr(cleaned_df, column)
-            removed_count = original_count - len(cleaned_df)
-            print(f"Removed {removed_count} outliers from column '{column}'")
-    
-    return cleaned_df
+    return text
 
-if __name__ == "__main__":
-    sample_data = {
-        'A': np.random.normal(100, 15, 1000),
-        'B': np.random.exponential(50, 1000),
-        'C': np.random.uniform(0, 200, 1000)
-    }
+def validate_email(email):
+    """
+    Validate an email address format.
+    """
+    if pd.isna(email):
+        return False
     
-    sample_df = pd.DataFrame(sample_data)
-    sample_df.loc[::100, 'A'] = 500
-    
-    print(f"Original shape: {sample_df.shape}")
-    cleaned_df = clean_dataset(sample_df)
-    print(f"Cleaned shape: {cleaned_df.shape}")
-    print(f"Outliers removed: {len(sample_df) - len(cleaned_df)}")
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, str(email)))
