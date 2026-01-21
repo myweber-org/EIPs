@@ -148,3 +148,90 @@ if __name__ == "__main__":
     
     cleaned_df = load_and_clean_data(input_file)
     save_cleaned_data(cleaned_df, output_file)
+import pandas as pd
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Args:
+        df: pandas DataFrame
+        subset: column label or sequence of labels to consider for duplicates
+        keep: 'first', 'last', or False to drop all duplicates
+    
+    Returns:
+        DataFrame with duplicates removed
+    """
+    if df.empty:
+        return df
+    
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+    removed_count = len(df) - len(cleaned_df)
+    
+    if removed_count > 0:
+        print(f"Removed {removed_count} duplicate row(s)")
+    
+    return cleaned_df
+
+def clean_numeric_column(df, column_name, fill_method='mean'):
+    """
+    Clean numeric column by handling missing values.
+    
+    Args:
+        df: pandas DataFrame
+        column_name: name of the column to clean
+        fill_method: 'mean', 'median', or 'zero' to fill missing values
+    
+    Returns:
+        DataFrame with cleaned column
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    
+    if not pd.api.types.is_numeric_dtype(df[column_name]):
+        raise ValueError(f"Column '{column_name}' is not numeric")
+    
+    missing_count = df[column_name].isna().sum()
+    
+    if missing_count > 0:
+        if fill_method == 'mean':
+            fill_value = df[column_name].mean()
+        elif fill_method == 'median':
+            fill_value = df[column_name].median()
+        elif fill_method == 'zero':
+            fill_value = 0
+        else:
+            raise ValueError("fill_method must be 'mean', 'median', or 'zero'")
+        
+        df[column_name] = df[column_name].fillna(fill_value)
+        print(f"Filled {missing_count} missing value(s) in '{column_name}' with {fill_method}: {fill_value}")
+    
+    return df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df: pandas DataFrame to validate
+        required_columns: list of column names that must be present
+    
+    Returns:
+        Boolean indicating if validation passed
+    """
+    if not isinstance(df, pd.DataFrame):
+        print("Error: Input is not a pandas DataFrame")
+        return False
+    
+    if df.empty:
+        print("Warning: DataFrame is empty")
+        return True
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            print(f"Error: Missing required columns: {missing_columns}")
+            return False
+    
+    print(f"DataFrame validation passed: {len(df)} rows, {len(df.columns)} columns")
+    return True
