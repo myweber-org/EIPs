@@ -89,4 +89,66 @@ if __name__ == "__main__":
     
     print("\nCleaning with fill_missing='mean'...")
     cleaned_filled = clean_dataset(df, fill_missing='mean')
-    print(cleaned_filled)
+    print(cleaned_filled)import csv
+import re
+
+def clean_csv(input_file, output_file, remove_duplicates=True, strip_whitespace=True):
+    """
+    Clean a CSV file by removing duplicates and stripping whitespace.
+    """
+    cleaned_rows = []
+    seen_rows = set()
+    
+    with open(input_file, 'r', newline='', encoding='utf-8') as infile:
+        reader = csv.reader(infile)
+        header = next(reader)
+        cleaned_rows.append(header)
+        
+        for row in reader:
+            if strip_whitespace:
+                row = [cell.strip() if isinstance(cell, str) else cell for cell in row]
+            
+            row_tuple = tuple(row)
+            
+            if remove_duplicates:
+                if row_tuple in seen_rows:
+                    continue
+                seen_rows.add(row_tuple)
+            
+            cleaned_rows.append(row)
+    
+    with open(output_file, 'w', newline='', encoding='utf-8') as outfile:
+        writer = csv.writer(outfile)
+        writer.writerows(cleaned_rows)
+    
+    return len(cleaned_rows) - 1
+
+def validate_email(email):
+    """
+    Validate email format using regex.
+    """
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(pattern, email) is not None
+
+def filter_valid_emails(input_file, output_file, email_column_index):
+    """
+    Filter rows with valid email addresses from a CSV file.
+    """
+    valid_rows = []
+    
+    with open(input_file, 'r', newline='', encoding='utf-8') as infile:
+        reader = csv.reader(infile)
+        header = next(reader)
+        valid_rows.append(header)
+        
+        for row in reader:
+            if len(row) > email_column_index:
+                email = row[email_column_index]
+                if validate_email(email):
+                    valid_rows.append(row)
+    
+    with open(output_file, 'w', newline='', encoding='utf-8') as outfile:
+        writer = csv.writer(outfile)
+        writer.writerows(valid_rows)
+    
+    return len(valid_rows) - 1
