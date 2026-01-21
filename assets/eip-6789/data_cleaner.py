@@ -500,3 +500,126 @@ if __name__ == "__main__":
     # Validate the cleaned data
     is_valid, message = validate_dataframe(cleaned, required_columns=['id', 'name', 'age', 'score'])
     print(f"\nValidation: {message}")
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, strategy='mean', threshold=3):
+    """
+    Clean a pandas DataFrame by handling missing values and outliers.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    strategy (str): Strategy for filling missing values ('mean', 'median', 'mode')
+    threshold (float): Z-score threshold for outlier detection
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    # Handle missing values
+    for column in cleaned_df.columns:
+        if cleaned_df[column].dtype in ['int64', 'float64']:
+            if strategy == 'mean':
+                fill_value = cleaned_df[column].mean()
+            elif strategy == 'median':
+                fill_value = cleaned_df[column].median()
+            elif strategy == 'mode':
+                fill_value = cleaned_df[column].mode()[0]
+            else:
+                fill_value = 0
+            
+            cleaned_df[column].fillna(fill_value, inplace=True)
+        else:
+            cleaned_df[column].fillna('Unknown', inplace=True)
+    
+    # Remove outliers using Z-score method for numeric columns
+    numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+    for column in numeric_cols:
+        z_scores = np.abs((cleaned_df[column] - cleaned_df[column].mean()) / cleaned_df[column].std())
+        cleaned_df = cleaned_df[z_scores < threshold]
+    
+    # Reset index after removing outliers
+    cleaned_df.reset_index(drop=True, inplace=True)
+    
+    return cleaned_df
+
+def validate_data(df, required_columns=None, min_rows=1):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of required column names
+    min_rows (int): Minimum number of rows required
+    
+    Returns:
+    tuple: (is_valid, error_message)
+    """
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if len(df) < min_rows:
+        return False, f"DataFrame has less than {min_rows} rows"
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
+    
+    return True, "Data validation passed"
+
+def normalize_data(df, columns=None, method='minmax'):
+    """
+    Normalize specified columns in DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    columns (list): Columns to normalize (None for all numeric columns)
+    method (str): Normalization method ('minmax' or 'zscore')
+    
+    Returns:
+    pd.DataFrame: DataFrame with normalized columns
+    """
+    normalized_df = df.copy()
+    
+    if columns is None:
+        columns = normalized_df.select_dtypes(include=[np.number]).columns
+    
+    for column in columns:
+        if column in normalized_df.columns and normalized_df[column].dtype in ['int64', 'float64']:
+            if method == 'minmax':
+                col_min = normalized_df[column].min()
+                col_max = normalized_df[column].max()
+                if col_max != col_min:
+                    normalized_df[column] = (normalized_df[column] - col_min) / (col_max - col_min)
+            elif method == 'zscore':
+                col_mean = normalized_df[column].mean()
+                col_std = normalized_df[column].std()
+                if col_std != 0:
+                    normalized_df[column] = (normalized_df[column] - col_mean) / col_std
+    
+    return normalized_df
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'A': [1, 2, np.nan, 4, 100],
+        'B': [5, 6, 7, np.nan, 9],
+        'C': ['a', 'b', 'c', 'd', 'e']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned = clean_dataset(df, strategy='mean', threshold=2)
+    print("\nCleaned DataFrame:")
+    print(cleaned)
+    
+    is_valid, message = validate_data(cleaned, required_columns=['A', 'B', 'C'])
+    print(f"\nValidation: {is_valid} - {message}")
+    
+    normalized = normalize_data(cleaned, method='minmax')
+    print("\nNormalized DataFrame:")
+    print(normalized)
