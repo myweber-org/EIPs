@@ -1,157 +1,116 @@
 
-def remove_duplicates(sequence):
-    seen = set()
-    result = []
-    for item in sequence:
-        if item not in seen:
-            seen.add(item)
-            result.append(item)
-    return result
 import pandas as pd
 
-def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
+def remove_duplicates(df, subset=None, keep='first'):
     """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    Remove duplicate rows from a DataFrame.
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame to clean.
-    drop_duplicates (bool): Whether to drop duplicate rows. Default is True.
-    fill_missing (str): Method to fill missing values. Options: 'mean', 'median', 'mode', or 'drop'. Default is 'mean'.
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        subset (list, optional): Columns to consider for duplicates
+        keep (str, optional): Which duplicates to keep ('first', 'last', False)
     
     Returns:
-    pd.DataFrame: Cleaned DataFrame.
+        pd.DataFrame: DataFrame with duplicates removed
     """
-    cleaned_df = df.copy()
+    if df.empty:
+        return df
     
-    if drop_duplicates:
-        cleaned_df = cleaned_df.drop_duplicates()
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+    removed_count = len(df) - len(cleaned_df)
     
-    if fill_missing == 'drop':
-        cleaned_df = cleaned_df.dropna()
-    elif fill_missing in ['mean', 'median']:
-        numeric_cols = cleaned_df.select_dtypes(include=['number']).columns
-        for col in numeric_cols:
-            if fill_missing == 'mean':
-                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mean())
-            elif fill_missing == 'median':
-                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].median())
-    elif fill_missing == 'mode':
-        for col in cleaned_df.columns:
-            mode_val = cleaned_df[col].mode()
-            if not mode_val.empty:
-                cleaned_df[col] = cleaned_df[col].fillna(mode_val[0])
+    if removed_count > 0:
+        print(f"Removed {removed_count} duplicate rows")
     
     return cleaned_df
 
 def validate_dataframe(df, required_columns=None):
     """
-    Validate a DataFrame for basic integrity checks.
+    Validate DataFrame structure and content.
     
-    Parameters:
-    df (pd.DataFrame): DataFrame to validate.
-    required_columns (list): List of column names that must be present.
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+        required_columns (list, optional): List of required column names
     
     Returns:
-    tuple: (is_valid, error_message)
+        bool: True if validation passes, False otherwise
     """
     if not isinstance(df, pd.DataFrame):
-        return False, "Input is not a pandas DataFrame"
+        print("Error: Input is not a pandas DataFrame")
+        return False
     
     if df.empty:
-        return False, "DataFrame is empty"
+        print("Warning: DataFrame is empty")
+        return True
     
     if required_columns:
-        missing_cols = [col for col in required_columns if col not in df.columns]
-        if missing_cols:
-            return False, f"Missing required columns: {missing_cols}"
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            print(f"Error: Missing required columns: {missing_columns}")
+            return False
     
-    return True, "DataFrame is valid"
-import numpy as np
-import pandas as pd
+    return True
 
-def remove_outliers_iqr(df, column):
+def clean_numeric_column(df, column_name, fill_method='mean'):
     """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
+    Clean numeric column by handling missing values.
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to process
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column_name (str): Name of column to clean
+        fill_method (str): Method to fill missing values ('mean', 'median', 'zero')
     
     Returns:
-    pd.DataFrame: DataFrame with outliers removed
+        pd.DataFrame: DataFrame with cleaned column
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    if column_name not in df.columns:
+        print(f"Error: Column '{column_name}' not found in DataFrame")
+        return df
     
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
+    if not pd.api.types.is_numeric_dtype(df[column_name]):
+        print(f"Error: Column '{column_name}' is not numeric")
+        return df
     
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
+    missing_count = df[column_name].isna().sum()
     
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    if missing_count > 0:
+        if fill_method == 'mean':
+            fill_value = df[column_name].mean()
+        elif fill_method == 'median':
+            fill_value = df[column_name].median()
+        elif fill_method == 'zero':
+            fill_value = 0
+        else:
+            print(f"Warning: Unknown fill method '{fill_method}', using mean")
+            fill_value = df[column_name].mean()
+        
+        df[column_name] = df[column_name].fillna(fill_value)
+        print(f"Filled {missing_count} missing values in '{column_name}' with {fill_method}")
     
-    return filtered_df.reset_index(drop=True)
+    return df
 
-def calculate_summary_statistics(df, column):
+def process_dataframe(df, cleaning_steps=None):
     """
-    Calculate summary statistics for a column after outlier removal.
+    Apply multiple cleaning steps to a DataFrame.
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to analyze
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        cleaning_steps (list, optional): List of cleaning functions to apply
     
     Returns:
-    dict: Dictionary containing summary statistics
+        pd.DataFrame: Cleaned DataFrame
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    if not validate_dataframe(df):
+        return df
     
-    stats = {
-        'mean': df[column].mean(),
-        'median': df[column].median(),
-        'std': df[column].std(),
-        'min': df[column].min(),
-        'max': df[column].max(),
-        'count': len(df[column])
-    }
+    if cleaning_steps is None:
+        cleaning_steps = [
+            lambda x: remove_duplicates(x),
+            lambda x: clean_numeric_column(x, 'value', 'mean')
+        ]
     
-    return stats
-
-def process_dataset(file_path, column_name):
-    """
-    Complete pipeline to load data, remove outliers, and return cleaned data.
+    result = df.copy()
+    for step in cleaning_steps:
+        result = step(result)
     
-    Parameters:
-    file_path (str): Path to CSV file
-    column_name (str): Column to clean
-    
-    Returns:
-    tuple: (cleaned DataFrame, original stats, cleaned stats)
-    """
-    try:
-        data = pd.read_csv(file_path)
-    except FileNotFoundError:
-        raise FileNotFoundError(f"File not found: {file_path}")
-    
-    original_stats = calculate_summary_statistics(data, column_name)
-    cleaned_data = remove_outliers_iqr(data, column_name)
-    cleaned_stats = calculate_summary_statistics(cleaned_data, column_name)
-    
-    return cleaned_data, original_stats, cleaned_stats
-
-if __name__ == "__main__":
-    sample_data = pd.DataFrame({
-        'values': np.concatenate([
-            np.random.normal(100, 10, 90),
-            np.random.normal(300, 10, 10)
-        ])
-    })
-    
-    print("Original data shape:", sample_data.shape)
-    print("Original statistics:", calculate_summary_statistics(sample_data, 'values'))
-    
-    cleaned = remove_outliers_iqr(sample_data, 'values')
-    print("\nCleaned data shape:", cleaned.shape)
-    print("Cleaned statistics:", calculate_summary_statistics(cleaned, 'values'))
+    return result
