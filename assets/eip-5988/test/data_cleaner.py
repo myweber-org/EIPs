@@ -428,4 +428,115 @@ def validate_cleaning(dataframe, original_dataframe):
                 'std_change_percent': abs((clean_std - orig_std) / orig_std * 100) if orig_std != 0 else 0
             }
     
-    return validation
+    return validationimport pandas as pd
+import numpy as np
+from pathlib import Path
+
+class DataCleaner:
+    def __init__(self, file_path):
+        self.file_path = Path(file_path)
+        self.df = None
+        self.load_data()
+    
+    def load_data(self):
+        if self.file_path.exists():
+            self.df = pd.read_csv(self.file_path)
+            print(f"Loaded data with shape: {self.df.shape}")
+        else:
+            raise FileNotFoundError(f"File not found: {self.file_path}")
+    
+    def handle_missing_values(self, strategy='mean', columns=None):
+        if self.df is None:
+            raise ValueError("No data loaded")
+        
+        if columns is None:
+            columns = self.df.columns
+        
+        for col in columns:
+            if col in self.df.columns and self.df[col].isnull().any():
+                if strategy == 'mean' and pd.api.types.is_numeric_dtype(self.df[col]):
+                    fill_value = self.df[col].mean()
+                elif strategy == 'median' and pd.api.types.is_numeric_dtype(self.df[col]):
+                    fill_value = self.df[col].median()
+                elif strategy == 'mode':
+                    fill_value = self.df[col].mode()[0]
+                elif strategy == 'drop':
+                    self.df = self.df.dropna(subset=[col])
+                    continue
+                else:
+                    fill_value = 0
+                
+                self.df[col] = self.df[col].fillna(fill_value)
+                print(f"Filled missing values in column '{col}' using {strategy} strategy")
+    
+    def remove_duplicates(self, subset=None, keep='first'):
+        initial_count = len(self.df)
+        self.df = self.df.drop_duplicates(subset=subset, keep=keep)
+        removed = initial_count - len(self.df)
+        print(f"Removed {removed} duplicate rows")
+    
+    def normalize_numeric(self, columns=None):
+        if columns is None:
+            numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+            columns = list(numeric_cols)
+        
+        for col in columns:
+            if col in self.df.columns and pd.api.types.is_numeric_dtype(self.df[col]):
+                min_val = self.df[col].min()
+                max_val = self.df[col].max()
+                if max_val > min_val:
+                    self.df[col] = (self.df[col] - min_val) / (max_val - min_val)
+                    print(f"Normalized column '{col}' to range [0, 1]")
+    
+    def save_cleaned_data(self, output_path=None):
+        if output_path is None:
+            output_path = self.file_path.parent / f"cleaned_{self.file_path.name}"
+        
+        self.df.to_csv(output_path, index=False)
+        print(f"Saved cleaned data to: {output_path}")
+        return output_path
+    
+    def get_summary(self):
+        summary = {
+            'original_file': str(self.file_path),
+            'rows': len(self.df),
+            'columns': len(self.df.columns),
+            'missing_values': self.df.isnull().sum().sum(),
+            'duplicates': len(self.df) - len(self.df.drop_duplicates()),
+            'data_types': self.df.dtypes.to_dict()
+        }
+        return summary
+
+def clean_csv_file(input_file, output_file=None, missing_strategy='mean'):
+    cleaner = DataCleaner(input_file)
+    summary_before = cleaner.get_summary()
+    
+    cleaner.handle_missing_values(strategy=missing_strategy)
+    cleaner.remove_duplicates()
+    cleaner.normalize_numeric()
+    
+    output_path = cleaner.save_cleaned_data(output_file)
+    summary_after = cleaner.get_summary()
+    
+    print("\nCleaning Summary:")
+    print(f"Missing values fixed: {summary_before['missing_values']} -> {summary_after['missing_values']}")
+    print(f"Data shape: {summary_before['rows']}x{summary_before['columns']} -> {summary_after['rows']}x{summary_after['columns']}")
+    
+    return output_path
+
+if __name__ == "__main__":
+    sample_data = {
+        'id': [1, 2, 3, 4, 5, 5],
+        'value': [10.5, None, 15.2, 20.1, None, 10.5],
+        'category': ['A', 'B', None, 'A', 'C', 'A']
+    }
+    
+    test_file = Path("test_data.csv")
+    pd.DataFrame(sample_data).to_csv(test_file, index=False)
+    
+    try:
+        result = clean_csv_file(test_file, missing_strategy='mean')
+        print(f"\nCleaned file saved to: {result}")
+    finally:
+        if test_file.exists():
+            test_file.unlink()
