@@ -1,147 +1,84 @@
-import numpy as np
+
 import pandas as pd
-from scipy import stats
+import re
 
-def remove_outliers_iqr(data, column):
-    Q1 = data[column].quantile(0.25)
-    Q3 = data[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    return data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
-
-def remove_outliers_zscore(data, column, threshold=3):
-    z_scores = np.abs(stats.zscore(data[column]))
-    return data[z_scores < threshold]
-
-def normalize_minmax(data, column):
-    min_val = data[column].min()
-    max_val = data[column].max()
-    data[column + '_normalized'] = (data[column] - min_val) / (max_val - min_val)
-    return data
-
-def normalize_zscore(data, column):
-    mean_val = data[column].mean()
-    std_val = data[column].std()
-    data[column + '_standardized'] = (data[column] - mean_val) / std_val
-    return data
-
-def clean_dataset(df, numeric_columns, outlier_method='iqr', normalize_method='minmax'):
-    cleaned_df = df.copy()
-    
-    for col in numeric_columns:
-        if outlier_method == 'iqr':
-            cleaned_df = remove_outliers_iqr(cleaned_df, col)
-        elif outlier_method == 'zscore':
-            cleaned_df = remove_outliers_zscore(cleaned_df, col)
-        
-        if normalize_method == 'minmax':
-            cleaned_df = normalize_minmax(cleaned_df, col)
-        elif normalize_method == 'zscore':
-            cleaned_df = normalize_zscore(cleaned_df, col)
-    
-    return cleaned_df
-
-def main():
-    sample_data = pd.DataFrame({
-        'feature1': np.random.normal(100, 15, 1000),
-        'feature2': np.random.exponential(50, 1000),
-        'feature3': np.random.uniform(0, 200, 1000)
-    })
-    
-    numeric_cols = ['feature1', 'feature2', 'feature3']
-    cleaned_data = clean_dataset(sample_data, numeric_cols, outlier_method='zscore', normalize_method='zscore')
-    
-    print(f"Original shape: {sample_data.shape}")
-    print(f"Cleaned shape: {cleaned_data.shape}")
-    print(f"Removed {len(sample_data) - len(cleaned_data)} outliers")
-    
-    return cleaned_data
-
-if __name__ == "__main__":
-    result = main()import pandas as pd
-
-def clean_dataset(df, columns_to_check=None, fill_missing='mean'):
+def clean_dataframe(df, column_mapping=None, drop_duplicates=True, normalize_text=True):
     """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    Clean a pandas DataFrame by removing duplicates and normalizing text columns.
     
     Args:
-        df (pd.DataFrame): Input DataFrame to clean.
-        columns_to_check (list, optional): Specific columns to check for duplicates.
-            If None, checks all columns. Defaults to None.
-        fill_missing (str or value): Method to fill missing values.
-            Can be 'mean', 'median', 'mode', or a specific value. Defaults to 'mean'.
+        df: pandas DataFrame to clean
+        column_mapping: Optional dictionary to rename columns
+        drop_duplicates: Whether to remove duplicate rows
+        normalize_text: Whether to normalize text columns (strip, lower case)
     
     Returns:
-        pd.DataFrame: Cleaned DataFrame.
+        Cleaned pandas DataFrame
     """
-    # Create a copy to avoid modifying the original
     cleaned_df = df.copy()
     
-    # Remove duplicates
-    if columns_to_check:
-        cleaned_df = cleaned_df.drop_duplicates(subset=columns_to_check)
-    else:
+    if column_mapping:
+        cleaned_df = cleaned_df.rename(columns=column_mapping)
+    
+    if drop_duplicates:
+        initial_rows = len(cleaned_df)
         cleaned_df = cleaned_df.drop_duplicates()
+        removed = initial_rows - len(cleaned_df)
+        print(f"Removed {removed} duplicate rows")
     
-    # Handle missing values
-    for column in cleaned_df.columns:
-        if cleaned_df[column].isnull().any():
-            if fill_missing == 'mean':
-                if pd.api.types.is_numeric_dtype(cleaned_df[column]):
-                    cleaned_df[column].fillna(cleaned_df[column].mean(), inplace=True)
-            elif fill_missing == 'median':
-                if pd.api.types.is_numeric_dtype(cleaned_df[column]):
-                    cleaned_df[column].fillna(cleaned_df[column].median(), inplace=True)
-            elif fill_missing == 'mode':
-                cleaned_df[column].fillna(cleaned_df[column].mode()[0], inplace=True)
-            else:
-                cleaned_df[column].fillna(fill_missing, inplace=True)
+    if normalize_text:
+        text_columns = cleaned_df.select_dtypes(include=['object']).columns
+        for col in text_columns:
+            cleaned_df[col] = cleaned_df[col].astype(str).str.strip().str.lower()
+            cleaned_df[col] = cleaned_df[col].apply(lambda x: re.sub(r'\s+', ' ', x))
+        print(f"Normalized {len(text_columns)} text columns")
     
+    cleaned_df = cleaned_df.reset_index(drop=True)
     return cleaned_df
 
-def validate_dataframe(df, required_columns=None):
+def validate_email_column(df, email_column):
     """
-    Validate that a DataFrame meets basic requirements.
+    Validate email addresses in a specified column.
     
     Args:
-        df (pd.DataFrame): DataFrame to validate.
-        required_columns (list, optional): List of columns that must be present.
+        df: pandas DataFrame
+        email_column: Name of the column containing email addresses
     
     Returns:
-        tuple: (is_valid, error_message)
+        DataFrame with valid emails and validation status
     """
-    if not isinstance(df, pd.DataFrame):
-        return False, "Input is not a pandas DataFrame"
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     
-    if df.empty:
-        return False, "DataFrame is empty"
+    df['email_valid'] = df[email_column].str.match(email_pattern, na=False)
+    valid_emails = df[df['email_valid']]
+    invalid_emails = df[~df['email_valid']]
     
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            return False, f"Missing required columns: {missing_columns}"
+    print(f"Valid emails: {len(valid_emails)}")
+    print(f"Invalid emails: {len(invalid_emails)}")
     
-    return True, "DataFrame is valid"
+    return df
 
-# Example usage (commented out for production)
-# if __name__ == "__main__":
-#     # Create sample data
-#     data = {
-#         'id': [1, 2, 2, 3, 4, None],
-#         'value': [10, 20, 20, None, 40, 50],
-#         'category': ['A', 'B', 'B', 'A', None, 'C']
-#     }
-#     
-#     df = pd.DataFrame(data)
-#     print("Original DataFrame:")
-#     print(df)
-#     
-#     # Clean the data
-#     cleaned = clean_dataset(df, columns_to_check=['id'], fill_missing='mode')
-#     print("\nCleaned DataFrame:")
-#     print(cleaned)
-#     
-#     # Validate
-#     is_valid, message = validate_dataframe(cleaned, required_columns=['id', 'value'])
-#     print(f"\nValidation: {is_valid}, Message: {message}")
+def remove_outliers_iqr(df, column, multiplier=1.5):
+    """
+    Remove outliers from a numeric column using the IQR method.
+    
+    Args:
+        df: pandas DataFrame
+        column: Name of the numeric column
+        multiplier: IQR multiplier (default 1.5)
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - multiplier * IQR
+    upper_bound = Q3 + multiplier * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    removed = len(df) - len(filtered_df)
+    
+    print(f"Removed {removed} outliers from column '{column}'")
+    return filtered_df
