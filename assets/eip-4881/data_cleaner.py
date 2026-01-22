@@ -95,4 +95,130 @@ if __name__ == "__main__":
     
     validation = validate_dataframe(cleaned, required_columns=['A', 'B', 'C'])
     print("\nValidation Results:")
-    print(validation)
+    print(validation)import numpy as np
+import pandas as pd
+
+def normalize_data(data, method='minmax'):
+    """
+    Normalize data using specified method.
+    
+    Args:
+        data: Input data array
+        method: Normalization method ('minmax' or 'zscore')
+    
+    Returns:
+        Normalized data array
+    """
+    if method == 'minmax':
+        data_min = np.min(data)
+        data_max = np.max(data)
+        if data_max - data_min == 0:
+            return np.zeros_like(data)
+        return (data - data_min) / (data_max - data_min)
+    
+    elif method == 'zscore':
+        data_mean = np.mean(data)
+        data_std = np.std(data)
+        if data_std == 0:
+            return np.zeros_like(data)
+        return (data - data_mean) / data_std
+    
+    else:
+        raise ValueError("Method must be 'minmax' or 'zscore'")
+
+def remove_outliers_iqr(data, multiplier=1.5):
+    """
+    Remove outliers using IQR method.
+    
+    Args:
+        data: Input data array
+        multiplier: IQR multiplier for outlier detection
+    
+    Returns:
+        Data with outliers removed
+    """
+    q1 = np.percentile(data, 25)
+    q3 = np.percentile(data, 75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - multiplier * iqr
+    upper_bound = q3 + multiplier * iqr
+    
+    return data[(data >= lower_bound) & (data <= upper_bound)]
+
+def clean_dataset(df, columns=None, normalize=True, remove_outliers=True):
+    """
+    Clean dataset by normalizing and removing outliers.
+    
+    Args:
+        df: Input DataFrame
+        columns: Columns to process (None for all numeric columns)
+        normalize: Whether to normalize data
+        remove_outliers: Whether to remove outliers
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    result_df = df.copy()
+    
+    for column in columns:
+        if column not in df.columns:
+            continue
+            
+        column_data = df[column].values
+        
+        if remove_outliers:
+            column_data = remove_outliers_iqr(column_data)
+        
+        if normalize and len(column_data) > 0:
+            column_data = normalize_data(column_data)
+        
+        result_df[column] = pd.Series(column_data, index=result_df.index[:len(column_data)])
+    
+    return result_df
+
+def calculate_statistics(data):
+    """
+    Calculate basic statistics for data.
+    
+    Args:
+        data: Input data array
+    
+    Returns:
+        Dictionary of statistics
+    """
+    return {
+        'mean': np.mean(data),
+        'median': np.median(data),
+        'std': np.std(data),
+        'min': np.min(data),
+        'max': np.max(data),
+        'count': len(data)
+    }
+
+def validate_data(data, allow_nan=False):
+    """
+    Validate data for common issues.
+    
+    Args:
+        data: Input data array
+        allow_nan: Whether to allow NaN values
+    
+    Returns:
+        Boolean indicating if data is valid
+    """
+    if not isinstance(data, (np.ndarray, list, pd.Series)):
+        return False
+    
+    data_array = np.array(data)
+    
+    if not allow_nan and np.any(np.isnan(data_array)):
+        return False
+    
+    if len(data_array) == 0:
+        return False
+    
+    return True
