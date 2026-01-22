@@ -96,4 +96,147 @@ if __name__ == "__main__":
     })
     sample_data.to_csv('sample_dataset.csv', index=False)
     
-    cleaned_df = clean_dataset('sample_dataset.csv', ['feature1', 'feature2', 'feature3'])
+    cleaned_df = clean_dataset('sample_dataset.csv', ['feature1', 'feature2', 'feature3'])import pandas as pd
+import numpy as np
+
+def clean_csv_data(filepath, missing_strategy='mean', columns_to_drop=None):
+    """
+    Load and clean CSV data by handling missing values and optionally dropping columns.
+    
+    Parameters:
+    filepath (str): Path to the CSV file.
+    missing_strategy (str): Strategy for handling missing values. 
+                            Options: 'mean', 'median', 'mode', 'drop', 'zero'.
+    columns_to_drop (list): List of column names to drop from the dataset.
+    
+    Returns:
+    pandas.DataFrame: Cleaned dataframe.
+    """
+    
+    try:
+        df = pd.read_csv(filepath)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found at path: {filepath}")
+    except Exception as e:
+        raise Exception(f"Error reading CSV file: {e}")
+    
+    original_shape = df.shape
+    
+    if columns_to_drop:
+        df = df.drop(columns=columns_to_drop, errors='ignore')
+    
+    if missing_strategy == 'drop':
+        df = df.dropna()
+    elif missing_strategy in ['mean', 'median', 'mode']:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        
+        for col in numeric_cols:
+            if df[col].isnull().any():
+                if missing_strategy == 'mean':
+                    fill_value = df[col].mean()
+                elif missing_strategy == 'median':
+                    fill_value = df[col].median()
+                elif missing_strategy == 'mode':
+                    fill_value = df[col].mode()[0] if not df[col].mode().empty else 0
+                
+                df[col] = df[col].fillna(fill_value)
+    elif missing_strategy == 'zero':
+        df = df.fillna(0)
+    
+    print(f"Data cleaning completed:")
+    print(f"  Original shape: {original_shape}")
+    print(f"  Final shape: {df.shape}")
+    print(f"  Missing values handled using: {missing_strategy} strategy")
+    
+    return df
+
+def detect_outliers_iqr(df, column, threshold=1.5):
+    """
+    Detect outliers in a column using the Interquartile Range (IQR) method.
+    
+    Parameters:
+    df (pandas.DataFrame): Input dataframe.
+    column (str): Column name to check for outliers.
+    threshold (float): IQR multiplier threshold.
+    
+    Returns:
+    pandas.Series: Boolean series indicating outliers.
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    if not pd.api.types.is_numeric_dtype(df[column]):
+        raise ValueError(f"Column '{column}' must be numeric")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - threshold * IQR
+    upper_bound = Q3 + threshold * IQR
+    
+    outliers = (df[column] < lower_bound) | (df[column] > upper_bound)
+    
+    return outliers
+
+def normalize_column(df, column, method='minmax'):
+    """
+    Normalize a column using specified method.
+    
+    Parameters:
+    df (pandas.DataFrame): Input dataframe.
+    column (str): Column name to normalize.
+    method (str): Normalization method ('minmax' or 'zscore').
+    
+    Returns:
+    pandas.DataFrame: Dataframe with normalized column.
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    if not pd.api.types.is_numeric_dtype(df[column]):
+        raise ValueError(f"Column '{column}' must be numeric")
+    
+    df_copy = df.copy()
+    
+    if method == 'minmax':
+        min_val = df_copy[column].min()
+        max_val = df_copy[column].max()
+        
+        if max_val != min_val:
+            df_copy[column] = (df_copy[column] - min_val) / (max_val - min_val)
+        else:
+            df_copy[column] = 0
+    
+    elif method == 'zscore':
+        mean_val = df_copy[column].mean()
+        std_val = df_copy[column].std()
+        
+        if std_val != 0:
+            df_copy[column] = (df_copy[column] - mean_val) / std_val
+        else:
+            df_copy[column] = 0
+    
+    return df_copy
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, np.nan, 4, 5],
+        'B': [10, np.nan, 30, 40, 50],
+        'C': [100, 200, 300, 400, 500],
+        'D': ['a', 'b', 'c', 'd', 'e']
+    }
+    
+    df_sample = pd.DataFrame(sample_data)
+    df_sample.to_csv('sample_data.csv', index=False)
+    
+    cleaned_df = clean_csv_data('sample_data.csv', missing_strategy='mean', columns_to_drop=['D'])
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    
+    outliers = detect_outliers_iqr(cleaned_df, 'C')
+    print(f"\nOutliers in column C: {outliers.sum()}")
+    
+    normalized_df = normalize_column(cleaned_df, 'C', method='minmax')
+    print("\nNormalized column C:")
+    print(normalized_df[['C']].head())
