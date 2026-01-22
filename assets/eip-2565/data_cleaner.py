@@ -544,4 +544,59 @@ def process_numerical_data(df, columns):
         if column in processed_df.columns and pd.api.types.is_numeric_dtype(processed_df[column]):
             processed_df = remove_outliers_iqr(processed_df, column)
     
-    return processed_df
+    return processed_dfimport numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+def normalize_minmax(df, column):
+    min_val = df[column].min()
+    max_val = df[column].max()
+    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
+    return df
+
+def standardize_zscore(df, column):
+    mean_val = df[column].mean()
+    std_val = df[column].std()
+    df[column + '_standardized'] = (df[column] - mean_val) / std_val
+    return df
+
+def handle_missing_values(df, strategy='mean'):
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        if df[col].isnull().any():
+            if strategy == 'mean':
+                fill_value = df[col].mean()
+            elif strategy == 'median':
+                fill_value = df[col].median()
+            elif strategy == 'mode':
+                fill_value = df[col].mode()[0]
+            else:
+                fill_value = 0
+            df[col].fillna(fill_value, inplace=True)
+    return df
+
+def clean_dataset(df, numeric_columns, outlier_removal=True, normalization='minmax', missing_strategy='mean'):
+    df_clean = df.copy()
+    
+    if outlier_removal:
+        for col in numeric_columns:
+            if col in df_clean.columns:
+                df_clean = remove_outliers_iqr(df_clean, col)
+    
+    df_clean = handle_missing_values(df_clean, strategy=missing_strategy)
+    
+    for col in numeric_columns:
+        if col in df_clean.columns:
+            if normalization == 'minmax':
+                df_clean = normalize_minmax(df_clean, col)
+            elif normalization == 'zscore':
+                df_clean = standardize_zscore(df_clean, col)
+    
+    return df_clean
