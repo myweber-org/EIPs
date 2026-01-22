@@ -298,4 +298,117 @@ if __name__ == "__main__":
     print("\nCleaned DataFrame:")
     print(cleaned_df)
     print("\nCleaned Statistics:")
-    print(calculate_basic_stats(cleaned_df, 'values'))
+    print(calculate_basic_stats(cleaned_df, 'values'))import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column, multiplier=1.5):
+    """
+    Remove outliers using IQR method.
+    """
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - multiplier * iqr
+    upper_bound = q3 + multiplier * iqr
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
+
+def zscore_normalize(data, column):
+    """
+    Normalize data using z-score method.
+    """
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    normalized_col = (data[column] - mean_val) / std_val
+    data[column + '_normalized'] = normalized_col
+    return data
+
+def minmax_normalize(data, column):
+    """
+    Normalize data using min-max scaling.
+    """
+    min_val = data[column].min()
+    max_val = data[column].max()
+    normalized_col = (data[column] - min_val) / (max_val - min_val)
+    data[column + '_minmax'] = normalized_col
+    return data
+
+def handle_missing_values(data, strategy='mean'):
+    """
+    Handle missing values with specified strategy.
+    """
+    numeric_cols = data.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        if data[col].isnull().any():
+            if strategy == 'mean':
+                fill_value = data[col].mean()
+            elif strategy == 'median':
+                fill_value = data[col].median()
+            elif strategy == 'mode':
+                fill_value = data[col].mode()[0]
+            else:
+                fill_value = 0
+            data[col].fillna(fill_value, inplace=True)
+    return data
+
+def clean_dataset(data, numeric_columns, outlier_multiplier=1.5, normalize_method='zscore', missing_strategy='mean'):
+    """
+    Main function to clean dataset with multiple steps.
+    """
+    cleaned_data = data.copy()
+    
+    cleaned_data = handle_missing_values(cleaned_data, strategy=missing_strategy)
+    
+    for col in numeric_columns:
+        if col in cleaned_data.columns:
+            cleaned_data = remove_outliers_iqr(cleaned_data, col, multiplier=outlier_multiplier)
+            
+            if normalize_method == 'zscore':
+                cleaned_data = zscore_normalize(cleaned_data, col)
+            elif normalize_method == 'minmax':
+                cleaned_data = minmax_normalize(cleaned_data, col)
+    
+    return cleaned_data
+
+def validate_data(data, check_duplicates=True, check_infinite=True):
+    """
+    Validate data quality after cleaning.
+    """
+    validation_report = {}
+    
+    if check_duplicates:
+        validation_report['duplicate_rows'] = data.duplicated().sum()
+    
+    if check_infinite:
+        numeric_cols = data.select_dtypes(include=[np.number]).columns
+        infinite_counts = {}
+        for col in numeric_cols:
+            infinite_count = np.isinf(data[col]).sum()
+            if infinite_count > 0:
+                infinite_counts[col] = infinite_count
+        validation_report['infinite_values'] = infinite_counts
+    
+    validation_report['null_values'] = data.isnull().sum().to_dict()
+    validation_report['data_shape'] = data.shape
+    
+    return validation_report
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'feature1': np.random.randn(100),
+        'feature2': np.random.randn(100) * 2 + 5,
+        'feature3': np.random.randn(100) * 0.5 + 10
+    })
+    
+    cleaned = clean_dataset(
+        sample_data, 
+        numeric_columns=['feature1', 'feature2', 'feature3'],
+        outlier_multiplier=1.5,
+        normalize_method='zscore',
+        missing_strategy='mean'
+    )
+    
+    report = validate_data(cleaned)
+    print(f"Cleaned data shape: {cleaned.shape}")
+    print(f"Validation report: {report}")
