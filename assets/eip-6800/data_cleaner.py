@@ -82,3 +82,66 @@ if __name__ == "__main__":
     if cleaned_df is not None:
         is_valid = validate_dataframe(cleaned_df)
         print(f"Data validation passed: {is_valid}")
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(dataframe, column):
+    Q1 = dataframe[column].quantile(0.25)
+    Q3 = dataframe[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return dataframe[(dataframe[column] >= lower_bound) & (dataframe[column] <= upper_bound)]
+
+def remove_outliers_zscore(dataframe, column, threshold=3):
+    z_scores = np.abs(stats.zscore(dataframe[column]))
+    return dataframe[z_scores < threshold]
+
+def normalize_minmax(dataframe, column):
+    min_val = dataframe[column].min()
+    max_val = dataframe[column].max()
+    dataframe[column] = (dataframe[column] - min_val) / (max_val - min_val)
+    return dataframe
+
+def normalize_zscore(dataframe, column):
+    mean_val = dataframe[column].mean()
+    std_val = dataframe[column].std()
+    dataframe[column] = (dataframe[column] - mean_val) / std_val
+    return dataframe
+
+def clean_dataset(dataframe, numeric_columns, method='iqr', normalize=True):
+    cleaned_df = dataframe.copy()
+    
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            if method == 'iqr':
+                cleaned_df = remove_outliers_iqr(cleaned_df, col)
+            elif method == 'zscore':
+                cleaned_df = remove_outliers_zscore(cleaned_df, col)
+            
+            if normalize:
+                cleaned_df = normalize_minmax(cleaned_df, col)
+    
+    return cleaned_df
+
+def validate_cleaning(original_df, cleaned_df, column):
+    original_stats = {
+        'mean': original_df[column].mean(),
+        'std': original_df[column].std(),
+        'min': original_df[column].min(),
+        'max': original_df[column].max()
+    }
+    
+    cleaned_stats = {
+        'mean': cleaned_df[column].mean(),
+        'std': cleaned_df[column].std(),
+        'min': cleaned_df[column].min(),
+        'max': cleaned_df[column].max()
+    }
+    
+    return {
+        'original': original_stats,
+        'cleaned': cleaned_stats,
+        'rows_removed': len(original_df) - len(cleaned_df)
+    }
