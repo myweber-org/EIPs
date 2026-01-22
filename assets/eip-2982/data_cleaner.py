@@ -1,64 +1,94 @@
-import pandas as pd
+import re
+from typing import List, Optional
 
-def remove_duplicates(df, subset=None, keep='first'):
+def remove_special_characters(text: str, keep_spaces: bool = True) -> str:
     """
-    Remove duplicate rows from a DataFrame.
+    Remove all non-alphanumeric characters from the input string.
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame.
-    subset (list, optional): Column labels to consider for duplicates.
-    keep (str, optional): Which duplicates to keep.
+    Args:
+        text: The input string to clean.
+        keep_spaces: If True, spaces are preserved. If False, spaces are removed.
     
     Returns:
-    pd.DataFrame: DataFrame with duplicates removed.
+        The cleaned string containing only alphanumeric characters and optionally spaces.
     """
-    if df.empty:
-        return df
-        
-    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
-    removed_count = len(df) - len(cleaned_df)
+    if keep_spaces:
+        pattern = r'[^A-Za-z0-9\s]+'
+    else:
+        pattern = r'[^A-Za-z0-9]+'
     
-    if removed_count > 0:
-        print(f"Removed {removed_count} duplicate rows")
-    
-    return cleaned_df
+    return re.sub(pattern, '', text)
 
-def clean_numeric_columns(df, columns):
+def normalize_whitespace(text: str) -> str:
     """
-    Clean numeric columns by converting to appropriate types.
+    Replace multiple consecutive whitespace characters with a single space.
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame.
-    columns (list): List of column names to clean.
+    Args:
+        text: The input string to normalize.
     
     Returns:
-    pd.DataFrame: DataFrame with cleaned numeric columns.
+        The string with normalized whitespace.
     """
-    for col in columns:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce')
-    
-    return df
+    return re.sub(r'\s+', ' ', text).strip()
 
-def validate_dataframe(df, required_columns=None):
+def clean_text_pipeline(text: str, 
+                       remove_special: bool = True,
+                       normalize_ws: bool = True,
+                       to_lower: bool = False) -> str:
     """
-    Validate DataFrame structure and content.
+    Apply a series of cleaning operations to the input text.
     
-    Parameters:
-    df (pd.DataFrame): DataFrame to validate.
-    required_columns (list, optional): List of required columns.
+    Args:
+        text: The input string to clean.
+        remove_special: If True, remove special characters.
+        normalize_ws: If True, normalize whitespace.
+        to_lower: If True, convert text to lowercase.
     
     Returns:
-    bool: True if validation passes, False otherwise.
+        The cleaned text after applying all specified operations.
     """
-    if df is None or df.empty:
-        print("DataFrame is empty or None")
-        return False
+    if not isinstance(text, str):
+        return ''
     
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            print(f"Missing required columns: {missing_columns}")
-            return False
+    cleaned = text
     
-    return True
+    if remove_special:
+        cleaned = remove_special_characters(cleaned)
+    
+    if normalize_ws:
+        cleaned = normalize_whitespace(cleaned)
+    
+    if to_lower:
+        cleaned = cleaned.lower()
+    
+    return cleaned
+
+def batch_clean_texts(texts: List[str], **kwargs) -> List[str]:
+    """
+    Apply cleaning pipeline to a list of text strings.
+    
+    Args:
+        texts: List of text strings to clean.
+        **kwargs: Additional arguments to pass to clean_text_pipeline.
+    
+    Returns:
+        List of cleaned text strings.
+    """
+    return [clean_text_pipeline(text, **kwargs) for text in texts]
+
+def validate_and_clean(text: Optional[str], default: str = "") -> str:
+    """
+    Validate input and return cleaned text or default value.
+    
+    Args:
+        text: The input text to validate and clean.
+        default: The default value to return if text is invalid.
+    
+    Returns:
+        Cleaned text or default value.
+    """
+    if text is None or not isinstance(text, str):
+        return default
+    
+    cleaned = clean_text_pipeline(text)
+    return cleaned if cleaned else default
