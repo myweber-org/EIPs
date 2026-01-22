@@ -223,3 +223,209 @@ class DataCleaner:
             self.df.to_parquet(filepath, index=False)
         else:
             raise ValueError(f"Unsupported format: {format}")
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(dataframe, column, factor=1.5):
+    """
+    Remove outliers from a DataFrame column using IQR method.
+    
+    Args:
+        dataframe: pandas DataFrame
+        column: column name to process
+        factor: IQR multiplier (default 1.5)
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = dataframe[column].quantile(0.25)
+    q3 = dataframe[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - factor * iqr
+    upper_bound = q3 + factor * iqr
+    
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
+                           (dataframe[column] <= upper_bound)]
+    
+    return filtered_df.copy()
+
+def z_score_normalize(dataframe, columns=None):
+    """
+    Apply z-score normalization to specified columns.
+    
+    Args:
+        dataframe: pandas DataFrame
+        columns: list of column names to normalize (default: all numeric columns)
+    
+    Returns:
+        DataFrame with normalized columns
+    """
+    if columns is None:
+        columns = dataframe.select_dtypes(include=[np.number]).columns.tolist()
+    
+    result_df = dataframe.copy()
+    
+    for col in columns:
+        if col in result_df.columns and np.issubdtype(result_df[col].dtype, np.number):
+            mean_val = result_df[col].mean()
+            std_val = result_df[col].std()
+            
+            if std_val > 0:
+                result_df[col] = (result_df[col] - mean_val) / std_val
+            else:
+                result_df[col] = 0
+    
+    return result_df
+
+def min_max_normalize(dataframe, columns=None, feature_range=(0, 1)):
+    """
+    Apply min-max normalization to specified columns.
+    
+    Args:
+        dataframe: pandas DataFrame
+        columns: list of column names to normalize
+        feature_range: tuple of (min, max) for output range
+    
+    Returns:
+        DataFrame with normalized columns
+    """
+    if columns is None:
+        columns = dataframe.select_dtypes(include=[np.number]).columns.tolist()
+    
+    result_df = dataframe.copy()
+    min_range, max_range = feature_range
+    
+    for col in columns:
+        if col in result_df.columns and np.issubdtype(result_df[col].dtype, np.number):
+            min_val = result_df[col].min()
+            max_val = result_df[col].max()
+            
+            if max_val > min_val:
+                result_df[col] = ((result_df[col] - min_val) / (max_val - min_val)) * \
+                                (max_range - min_range) + min_range
+            else:
+                result_df[col] = min_range
+    
+    return result_df
+
+def detect_skewed_columns(dataframe, threshold=0.5):
+    """
+    Detect columns with skewed distributions.
+    
+    Args:
+        dataframe: pandas DataFrame
+        threshold: absolute skewness threshold (default 0.5)
+    
+    Returns:
+        Dictionary with skewness values for columns exceeding threshold
+    """
+    skewed_cols = {}
+    
+    numeric_cols = dataframe.select_dtypes(include=[np.number]).columns
+    
+    for col in numeric_cols:
+        skewness = stats.skew(dataframe[col].dropna())
+        if abs(skewness) > threshold:
+            skewed_cols[col] = skewness
+    
+    return skewed_cols
+
+def log_transform_skewed(dataframe, skewed_columns):
+    """
+    Apply log transformation to reduce skewness.
+    
+    Args:
+        dataframe: pandas DataFrame
+        skewed_columns: list of column names to transform
+    
+    Returns:
+        DataFrame with transformed columns
+    """
+    result_df = dataframe.copy()
+    
+    for col in skewed_columns:
+        if col in result_df.columns:
+            # Add small constant to handle zero or negative values
+            min_val = result_df[col].min()
+            if min_val <= 0:
+                constant = abs(min_val) + 1
+                result_df[col] = np.log(result_df[col] + constant)
+            else:
+                result_df[col] = np.log(result_df[col])
+    
+    return result_df
+
+def clean_dataset(dataframe, outlier_columns=None, normalize_method='zscore', 
+                  handle_skewness=True, skew_threshold=0.5):
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Args:
+        dataframe: pandas DataFrame to clean
+        outlier_columns: columns for outlier removal (default: all numeric)
+        normalize_method: 'zscore', 'minmax', or None
+        handle_skewness: whether to transform skewed columns
+        skew_threshold: threshold for detecting skewness
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    df_clean = dataframe.copy()
+    
+    # Remove outliers
+    if outlier_columns is not None:
+        for col in outlier_columns:
+            if col in df_clean.columns:
+                df_clean = remove_outliers_iqr(df_clean, col)
+    
+    # Handle skewness
+    if handle_skewness:
+        skewed = detect_skewed_columns(df_clean, skew_threshold)
+        if skewed:
+            df_clean = log_transform_skewed(df_clean, list(skewed.keys()))
+    
+    # Normalize
+    if normalize_method == 'zscore':
+        df_clean = z_score_normalize(df_clean)
+    elif normalize_method == 'minmax':
+        df_clean = min_max_normalize(df_clean)
+    
+    return df_clean
+
+def validate_cleaning(dataframe, original_dataframe):
+    """
+    Validate cleaning process by comparing statistics.
+    
+    Args:
+        dataframe: cleaned DataFrame
+        original_dataframe: original DataFrame
+    
+    Returns:
+        Dictionary with validation metrics
+    """
+    validation = {}
+    
+    numeric_cols = dataframe.select_dtypes(include=[np.number]).columns
+    
+    for col in numeric_cols:
+        if col in original_dataframe.columns:
+            orig_mean = original_dataframe[col].mean()
+            orig_std = original_dataframe[col].std()
+            clean_mean = dataframe[col].mean()
+            clean_std = dataframe[col].std()
+            
+            validation[col] = {
+                'original_mean': orig_mean,
+                'original_std': orig_std,
+                'cleaned_mean': clean_mean,
+                'cleaned_std': clean_std,
+                'mean_change_percent': abs((clean_mean - orig_mean) / orig_mean * 100) if orig_mean != 0 else 0,
+                'std_change_percent': abs((clean_std - orig_std) / orig_std * 100) if orig_std != 0 else 0
+            }
+    
+    return validation
