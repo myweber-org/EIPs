@@ -152,3 +152,11 @@ def filter_valid_emails(input_file, output_file, email_column_index):
         writer.writerows(valid_rows)
     
     return len(valid_rows) - 1
+def remove_duplicates(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
