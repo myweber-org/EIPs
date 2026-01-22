@@ -498,3 +498,106 @@ def main():
 
 if __name__ == "__main__":
     main()
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(dataframe, columns=None, threshold=1.5):
+    """
+    Remove outliers using IQR method
+    """
+    if columns is None:
+        columns = dataframe.select_dtypes(include=[np.number]).columns
+    
+    df_clean = dataframe.copy()
+    
+    for col in columns:
+        if col in df_clean.columns and pd.api.types.is_numeric_dtype(df_clean[col]):
+            Q1 = df_clean[col].quantile(0.25)
+            Q3 = df_clean[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - threshold * IQR
+            upper_bound = Q3 + threshold * IQR
+            
+            mask = (df_clean[col] >= lower_bound) & (df_clean[col] <= upper_bound)
+            df_clean = df_clean[mask]
+    
+    return df_clean.reset_index(drop=True)
+
+def normalize_minmax(dataframe, columns=None):
+    """
+    Normalize data using min-max scaling
+    """
+    if columns is None:
+        columns = dataframe.select_dtypes(include=[np.number]).columns
+    
+    df_normalized = dataframe.copy()
+    
+    for col in columns:
+        if col in df_normalized.columns and pd.api.types.is_numeric_dtype(df_normalized[col]):
+            min_val = df_normalized[col].min()
+            max_val = df_normalized[col].max()
+            
+            if max_val != min_val:
+                df_normalized[col] = (df_normalized[col] - min_val) / (max_val - min_val)
+    
+    return df_normalized
+
+def handle_missing_values(dataframe, strategy='mean', columns=None):
+    """
+    Handle missing values with specified strategy
+    """
+    if columns is None:
+        columns = dataframe.select_dtypes(include=[np.number]).columns
+    
+    df_filled = dataframe.copy()
+    
+    for col in columns:
+        if col in df_filled.columns and pd.api.types.is_numeric_dtype(df_filled[col]):
+            if strategy == 'mean':
+                fill_value = df_filled[col].mean()
+            elif strategy == 'median':
+                fill_value = df_filled[col].median()
+            elif strategy == 'mode':
+                fill_value = df_filled[col].mode()[0]
+            elif strategy == 'zero':
+                fill_value = 0
+            else:
+                fill_value = df_filled[col].mean()
+            
+            df_filled[col] = df_filled[col].fillna(fill_value)
+    
+    return df_filled
+
+def clean_dataset(dataframe, outlier_threshold=1.5, normalize=True, missing_strategy='mean'):
+    """
+    Complete data cleaning pipeline
+    """
+    df_processed = dataframe.copy()
+    
+    numeric_cols = df_processed.select_dtypes(include=[np.number]).columns.tolist()
+    
+    df_processed = handle_missing_values(df_processed, strategy=missing_strategy, columns=numeric_cols)
+    df_processed = remove_outliers_iqr(df_processed, columns=numeric_cols, threshold=outlier_threshold)
+    
+    if normalize:
+        df_processed = normalize_minmax(df_processed, columns=numeric_cols)
+    
+    return df_processed
+
+def validate_dataframe(dataframe, required_columns=None):
+    """
+    Validate dataframe structure and content
+    """
+    if not isinstance(dataframe, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    if dataframe.empty:
+        raise ValueError("DataFrame is empty")
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in dataframe.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    return True
