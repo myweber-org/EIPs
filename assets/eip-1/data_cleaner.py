@@ -104,4 +104,54 @@ def get_summary_statistics(data):
         'missing': numeric_data.isnull().sum()
     }
     
-    return pd.DataFrame(summary)
+    return pd.DataFrame(summary)import csv
+import re
+
+def clean_csv(input_file, output_file):
+    with open(input_file, 'r', newline='', encoding='utf-8') as infile:
+        reader = csv.reader(infile)
+        rows = list(reader)
+
+    cleaned_rows = []
+    for row in rows:
+        cleaned_row = []
+        for cell in row:
+            cleaned_cell = re.sub(r'\s+', ' ', cell.strip())
+            cleaned_cell = cleaned_cell.replace('"', "'")
+            cleaned_row.append(cleaned_cell)
+        cleaned_rows.append(cleaned_row)
+
+    with open(output_file, 'w', newline='', encoding='utf-8') as outfile:
+        writer = csv.writer(outfile)
+        writer.writerows(cleaned_rows)
+
+def remove_duplicates(input_file, output_file):
+    with open(input_file, 'r', newline='', encoding='utf-8') as infile:
+        reader = csv.reader(infile)
+        rows = list(reader)
+
+    seen = set()
+    unique_rows = []
+    for row in rows:
+        row_tuple = tuple(row)
+        if row_tuple not in seen:
+            seen.add(row_tuple)
+            unique_rows.append(row)
+
+    with open(output_file, 'w', newline='', encoding='utf-8') as outfile:
+        writer = csv.writer(outfile)
+        writer.writerows(unique_rows)
+
+def validate_email_in_column(input_file, column_index):
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    invalid_emails = []
+
+    with open(input_file, 'r', newline='', encoding='utf-8') as infile:
+        reader = csv.reader(infile)
+        for i, row in enumerate(reader):
+            if column_index < len(row):
+                email = row[column_index]
+                if not re.match(email_pattern, email):
+                    invalid_emails.append((i, email))
+
+    return invalid_emails
