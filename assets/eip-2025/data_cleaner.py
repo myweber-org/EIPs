@@ -105,4 +105,58 @@ if __name__ == "__main__":
     for column, column_stats in stats.items():
         print(f"\n{column}:")
         for stat_name, stat_value in column_stats.items():
-            print(f"  {stat_name}: {stat_value}")
+            print(f"  {stat_name}: {stat_value}")import pandas as pd
+
+def clean_data(df):
+    """
+    Clean the input DataFrame by removing duplicates and filling missing values.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to be cleaned.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    # Remove duplicate rows
+    df_cleaned = df.drop_duplicates()
+    
+    # Fill missing values with column mean for numeric columns
+    numeric_cols = df_cleaned.select_dtypes(include=['number']).columns
+    df_cleaned[numeric_cols] = df_cleaned[numeric_cols].fillna(df_cleaned[numeric_cols].mean())
+    
+    # Fill missing values with mode for categorical columns
+    categorical_cols = df_cleaned.select_dtypes(include=['object']).columns
+    for col in categorical_cols:
+        mode_value = df_cleaned[col].mode()[0] if not df_cleaned[col].mode().empty else ''
+        df_cleaned[col] = df_cleaned[col].fillna(mode_value)
+    
+    return df_cleaned
+
+def validate_data(df):
+    """
+    Validate the cleaned DataFrame by checking for remaining missing values.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+    
+    Returns:
+        bool: True if no missing values, False otherwise.
+    """
+    return df.isnull().sum().sum() == 0
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'id': [1, 2, 2, 3, 4],
+        'name': ['Alice', 'Bob', 'Bob', None, 'Eve'],
+        'age': [25, 30, 30, None, 35],
+        'score': [85.5, 92.0, 92.0, 78.5, None]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nCleaned DataFrame:")
+    cleaned_df = clean_data(df)
+    print(cleaned_df)
+    print(f"\nData validation passed: {validate_data(cleaned_df)}")
