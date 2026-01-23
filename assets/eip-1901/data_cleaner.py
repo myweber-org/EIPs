@@ -1,173 +1,90 @@
 
-import pandas as pd
 import numpy as np
-from scipy import stats
+import pandas as pd
 
 def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a DataFrame column using the Interquartile Range method.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to clean
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
     Q1 = df[column].quantile(0.25)
     Q3 = df[column].quantile(0.75)
     IQR = Q3 - Q1
+    
     lower_bound = Q1 - 1.5 * IQR
     upper_bound = Q3 + 1.5 * IQR
-    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-
-def normalize_minmax(df, column):
-    min_val = df[column].min()
-    max_val = df[column].max()
-    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
-    return df
-
-def clean_dataset(file_path, numeric_columns):
-    df = pd.read_csv(file_path)
     
-    for col in numeric_columns:
-        if col in df.columns:
-            df = remove_outliers_iqr(df, col)
-            df = normalize_minmax(df, col)
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
     
-    df = df.dropna()
-    return df
+    return filtered_df.reset_index(drop=True)
 
-if __name__ == "__main__":
-    cleaned_data = clean_dataset('raw_data.csv', ['age', 'income', 'score'])
-    cleaned_data.to_csv('cleaned_data.csv', index=False)
-    print(f"Data cleaned. Original shape: {pd.read_csv('raw_data.csv').shape}, Cleaned shape: {cleaned_data.shape}")import pandas as pd
-import numpy as np
-
-def clean_csv_data(file_path, output_path=None, missing_strategy='mean'):
+def calculate_summary_statistics(df, column):
     """
-    Clean CSV data by handling missing values and removing duplicates.
+    Calculate summary statistics for a column after outlier removal.
     
     Parameters:
-    file_path (str): Path to input CSV file
-    output_path (str): Path for cleaned output CSV (optional)
-    missing_strategy (str): Strategy for handling missing values ('mean', 'median', 'drop', 'zero')
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to analyze
     
     Returns:
-    pandas.DataFrame: Cleaned DataFrame
+    dict: Dictionary containing summary statistics
     """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    try:
-        df = pd.read_csv(file_path)
-        original_rows = len(df)
-        
-        print(f"Original data shape: {df.shape}")
-        print(f"Missing values per column:")
-        print(df.isnull().sum())
-        
-        if missing_strategy == 'drop':
-            df = df.dropna()
-        elif missing_strategy in ['mean', 'median']:
-            numeric_cols = df.select_dtypes(include=[np.number]).columns
-            for col in numeric_cols:
-                if missing_strategy == 'mean':
-                    df[col] = df[col].fillna(df[col].mean())
-                else:
-                    df[col] = df[col].fillna(df[col].median())
-        elif missing_strategy == 'zero':
-            df = df.fillna(0)
-        
-        df = df.drop_duplicates()
-        
-        print(f"Rows removed: {original_rows - len(df)}")
-        print(f"Cleaned data shape: {df.shape}")
-        
-        if output_path:
-            df.to_csv(output_path, index=False)
-            print(f"Cleaned data saved to: {output_path}")
-        
-        return df
-        
-    except FileNotFoundError:
-        print(f"Error: File not found at {file_path}")
-        return None
-    except Exception as e:
-        print(f"Error during data cleaning: {str(e)}")
-        return None
+    stats = {
+        'mean': df[column].mean(),
+        'median': df[column].median(),
+        'std': df[column].std(),
+        'min': df[column].min(),
+        'max': df[column].max(),
+        'count': df[column].count()
+    }
+    
+    return stats
 
-def validate_dataframe(df, required_columns=None):
+def clean_dataset(df, numeric_columns):
     """
-    Validate DataFrame structure and content.
+    Clean a dataset by removing outliers from multiple numeric columns.
     
     Parameters:
-    df (pandas.DataFrame): DataFrame to validate
-    required_columns (list): List of required column names
+    df (pd.DataFrame): Input DataFrame
+    numeric_columns (list): List of column names to clean
     
     Returns:
-    bool: True if validation passes, False otherwise
+    pd.DataFrame: Cleaned DataFrame
     """
+    cleaned_df = df.copy()
     
-    if df is None or df.empty:
-        print("Validation failed: DataFrame is empty or None")
-        return False
+    for column in numeric_columns:
+        if column in cleaned_df.columns and pd.api.types.is_numeric_dtype(cleaned_df[column]):
+            cleaned_df = remove_outliers_iqr(cleaned_df, column)
     
-    if required_columns:
-        missing_cols = [col for col in required_columns if col not in df.columns]
-        if missing_cols:
-            print(f"Validation failed: Missing required columns: {missing_cols}")
-            return False
-    
-    numeric_cols = df.select_dtypes(include=[np.number]).columns
-    for col in numeric_cols:
-        if df[col].isnull().any():
-            print(f"Warning: Column '{col}' still contains missing values")
-    
-    return True
+    return cleaned_df
 
 if __name__ == "__main__":
     sample_data = {
-        'id': [1, 2, 3, 4, 5, 6],
-        'value': [10.5, np.nan, 15.2, 15.2, np.nan, 20.1],
-        'category': ['A', 'B', 'A', 'A', 'C', 'B']
+        'id': range(1, 101),
+        'value': np.random.normal(100, 15, 100)
     }
     
-    test_df = pd.DataFrame(sample_data)
-    test_df.to_csv('test_data.csv', index=False)
+    sample_df = pd.DataFrame(sample_data)
+    sample_df.loc[0, 'value'] = 500
+    sample_df.loc[99, 'value'] = -200
     
-    cleaned_df = clean_csv_data('test_data.csv', 'cleaned_test_data.csv', 'mean')
+    print("Original dataset shape:", sample_df.shape)
+    print("Original statistics:", calculate_summary_statistics(sample_df, 'value'))
     
-    if cleaned_df is not None:
-        is_valid = validate_dataframe(cleaned_df, ['id', 'value', 'category'])
-        print(f"Data validation result: {is_valid}")
-import csv
-import sys
-
-def remove_duplicates(input_file, output_file, key_column):
-    seen = set()
-    unique_rows = []
+    cleaned_df = remove_outliers_iqr(sample_df, 'value')
     
-    with open(input_file, 'r', newline='', encoding='utf-8') as infile:
-        reader = csv.DictReader(infile)
-        fieldnames = reader.fieldnames
-        
-        for row in reader:
-            row_key = row[key_column]
-            if row_key not in seen:
-                seen.add(row_key)
-                unique_rows.append(row)
-    
-    with open(output_file, 'w', newline='', encoding='utf-8') as outfile:
-        writer = csv.DictWriter(outfile, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(unique_rows)
-    
-    return len(unique_rows)
-
-if __name__ == "__main__":
-    if len(sys.argv) != 4:
-        print("Usage: python data_cleaner.py <input_file> <output_file> <key_column>")
-        sys.exit(1)
-    
-    input_file = sys.argv[1]
-    output_file = sys.argv[2]
-    key_column = sys.argv[3]
-    
-    try:
-        count = remove_duplicates(input_file, output_file, key_column)
-        print(f"Processed {count} unique records")
-    except FileNotFoundError:
-        print(f"Error: Input file '{input_file}' not found")
-    except KeyError:
-        print(f"Error: Column '{key_column}' not found in CSV header")
-    except Exception as e:
-        print(f"Error: {e}")
+    print("\nCleaned dataset shape:", cleaned_df.shape)
+    print("Cleaned statistics:", calculate_summary_statistics(cleaned_df, 'value'))
