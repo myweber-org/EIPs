@@ -208,4 +208,159 @@ class DataCleaner:
         print("\nData types:")
         print(self.df.dtypes.value_counts())
         print("\nMissing values:")
-        print(self.df.isnull().sum())
+        print(self.df.isnull().sum())import pandas as pd
+import numpy as np
+
+def remove_missing_rows(df, threshold=0.5):
+    """
+    Remove rows with missing values exceeding the threshold percentage.
+    
+    Args:
+        df: pandas DataFrame
+        threshold: float between 0 and 1, default 0.5
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    missing_per_row = df.isnull().mean(axis=1)
+    return df[missing_per_row <= threshold].reset_index(drop=True)
+
+def fill_missing_with_median(df, columns=None):
+    """
+    Fill missing values with column median for specified columns.
+    
+    Args:
+        df: pandas DataFrame
+        columns: list of column names, if None uses all numeric columns
+    
+    Returns:
+        DataFrame with filled values
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_filled = df.copy()
+    for col in columns:
+        if col in df.columns:
+            median_val = df[col].median()
+            df_filled[col] = df[col].fillna(median_val)
+    
+    return df_filled
+
+def detect_outliers_iqr(df, column, multiplier=1.5):
+    """
+    Detect outliers using the Interquartile Range method.
+    
+    Args:
+        df: pandas DataFrame
+        column: column name to check for outliers
+        multiplier: IQR multiplier, default 1.5
+    
+    Returns:
+        Boolean Series indicating outlier rows
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - multiplier * IQR
+    upper_bound = Q3 + multiplier * IQR
+    
+    return (df[column] < lower_bound) | (df[column] > upper_bound)
+
+def cap_outliers(df, column, method='iqr', percentile_low=1, percentile_high=99):
+    """
+    Cap outliers to specified percentiles or IQR bounds.
+    
+    Args:
+        df: pandas DataFrame
+        column: column name to process
+        method: 'iqr' or 'percentile'
+        percentile_low: lower percentile for capping (when method='percentile')
+        percentile_high: upper percentile for capping (when method='percentile')
+    
+    Returns:
+        DataFrame with capped values
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    df_capped = df.copy()
+    
+    if method == 'iqr':
+        Q1 = df[column].quantile(0.25)
+        Q3 = df[column].quantile(0.75)
+        IQR = Q3 - Q1
+        
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+        
+        df_capped[column] = df[column].clip(lower=lower_bound, upper=upper_bound)
+    
+    elif method == 'percentile':
+        lower_val = df[column].quantile(percentile_low / 100)
+        upper_val = df[column].quantile(percentile_high / 100)
+        
+        df_capped[column] = df[column].clip(lower=lower_val, upper=upper_val)
+    
+    else:
+        raise ValueError("Method must be 'iqr' or 'percentile'")
+    
+    return df_capped
+
+def standardize_columns(df, columns=None):
+    """
+    Standardize specified columns to have zero mean and unit variance.
+    
+    Args:
+        df: pandas DataFrame
+        columns: list of column names, if None uses all numeric columns
+    
+    Returns:
+        DataFrame with standardized columns
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_standardized = df.copy()
+    
+    for col in columns:
+        if col in df.columns:
+            mean_val = df[col].mean()
+            std_val = df[col].std()
+            
+            if std_val > 0:
+                df_standardized[col] = (df[col] - mean_val) / std_val
+    
+    return df_standardized
+
+def clean_dataset(df, missing_threshold=0.3, outlier_columns=None, standardize=True):
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Args:
+        df: pandas DataFrame
+        missing_threshold: threshold for removing rows with missing values
+        outlier_columns: list of columns to cap outliers, if None skips outlier treatment
+        standardize: whether to standardize numeric columns
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    cleaned_df = remove_missing_rows(cleaned_df, threshold=missing_threshold)
+    cleaned_df = fill_missing_with_median(cleaned_df)
+    
+    if outlier_columns:
+        for col in outlier_columns:
+            if col in cleaned_df.columns:
+                cleaned_df = cap_outliers(cleaned_df, col, method='iqr')
+    
+    if standardize:
+        cleaned_df = standardize_columns(cleaned_df)
+    
+    return cleaned_df
