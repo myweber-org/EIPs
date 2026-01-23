@@ -1,63 +1,64 @@
 
+import numpy as np
 import pandas as pd
 
-def remove_duplicates(dataframe, subset=None, keep='first'):
+def remove_outliers_iqr(df, column):
     """
-    Remove duplicate rows from a pandas DataFrame.
+    Remove outliers from a DataFrame column using the Interquartile Range method.
     
-    Args:
-        dataframe: Input DataFrame
-        subset: Column label or sequence of labels to consider for duplicates
-        keep: Determines which duplicates to keep ('first', 'last', False)
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to clean
     
     Returns:
-        DataFrame with duplicates removed
+    pd.DataFrame: DataFrame with outliers removed
     """
-    if dataframe.empty:
-        return dataframe
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
     
-    cleaned_df = dataframe.drop_duplicates(subset=subset, keep=keep)
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
     
-    removed_count = len(dataframe) - len(cleaned_df)
-    if removed_count > 0:
-        print(f"Removed {removed_count} duplicate row(s)")
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
     
-    return cleaned_df
+    return filtered_df
 
-def clean_numeric_columns(dataframe, columns):
+def calculate_summary_statistics(df, column):
     """
-    Clean numeric columns by removing non-numeric characters and converting to float.
+    Calculate summary statistics for a column after outlier removal.
     
-    Args:
-        dataframe: Input DataFrame
-        columns: List of column names to clean
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to analyze
     
     Returns:
-        DataFrame with cleaned numeric columns
+    dict: Dictionary containing summary statistics
     """
-    df = dataframe.copy()
+    stats = {
+        'mean': df[column].mean(),
+        'median': df[column].median(),
+        'std': df[column].std(),
+        'min': df[column].min(),
+        'max': df[column].max(),
+        'count': df[column].count()
+    }
     
-    for col in columns:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col].astype(str).str.replace(r'[^\d.-]', '', regex=True), errors='coerce')
-    
-    return df
+    return stats
 
-def validate_dataframe(dataframe, required_columns):
+def process_dataframe(df, column):
     """
-    Validate that DataFrame contains all required columns.
+    Main function to process DataFrame by removing outliers and calculating statistics.
     
-    Args:
-        dataframe: Input DataFrame to validate
-        required_columns: List of required column names
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to process
     
     Returns:
-        Tuple of (is_valid, missing_columns)
+    tuple: (cleaned_df, original_stats, cleaned_stats)
     """
-    missing_columns = [col for col in required_columns if col not in dataframe.columns]
+    original_stats = calculate_summary_statistics(df, column)
+    cleaned_df = remove_outliers_iqr(df, column)
+    cleaned_stats = calculate_summary_statistics(cleaned_df, column)
     
-    if missing_columns:
-        print(f"Missing required columns: {missing_columns}")
-        return False, missing_columns
-    
-    return True, []
+    return cleaned_df, original_stats, cleaned_stats
