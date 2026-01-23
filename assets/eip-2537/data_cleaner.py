@@ -159,3 +159,110 @@ def validate_dataframe(df, required_columns=None):
             return False, f"Missing required columns: {missing_columns}"
     
     return True, "DataFrame is valid"
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def detect_outliers_iqr(data, column, threshold=1.5):
+    """
+    Detect outliers using Interquartile Range method.
+    Returns boolean mask where True indicates outliers.
+    """
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - threshold * IQR
+    upper_bound = Q3 + threshold * IQR
+    
+    return (data[column] < lower_bound) | (data[column] > upper_bound)
+
+def remove_outliers(df, columns, threshold=1.5):
+    """
+    Remove outliers from specified columns using IQR method.
+    Returns cleaned DataFrame.
+    """
+    df_clean = df.copy()
+    outlier_mask = pd.Series([False] * len(df))
+    
+    for col in columns:
+        if col in df.columns:
+            outlier_mask |= detect_outliers_iqr(df, col, threshold)
+    
+    return df_clean[~outlier_mask]
+
+def normalize_minmax(data, columns):
+    """
+    Apply Min-Max normalization to specified columns.
+    Returns DataFrame with normalized columns.
+    """
+    df_normalized = data.copy()
+    
+    for col in columns:
+        if col in df_normalized.columns:
+            min_val = df_normalized[col].min()
+            max_val = df_normalized[col].max()
+            if max_val != min_val:
+                df_normalized[col] = (df_normalized[col] - min_val) / (max_val - min_val)
+    
+    return df_normalized
+
+def standardize_zscore(data, columns):
+    """
+    Apply Z-score standardization to specified columns.
+    Returns DataFrame with standardized columns.
+    """
+    df_standardized = data.copy()
+    
+    for col in columns:
+        if col in df_standardized.columns:
+            mean_val = df_standardized[col].mean()
+            std_val = df_standardized[col].std()
+            if std_val > 0:
+                df_standardized[col] = (df_standardized[col] - mean_val) / std_val
+    
+    return df_standardized
+
+def handle_missing_values(df, strategy='mean', columns=None):
+    """
+    Handle missing values using specified strategy.
+    Supported strategies: 'mean', 'median', 'mode', 'drop'
+    """
+    df_processed = df.copy()
+    
+    if columns is None:
+        columns = df_processed.columns
+    
+    for col in columns:
+        if col not in df_processed.columns:
+            continue
+            
+        if strategy == 'drop':
+            df_processed = df_processed.dropna(subset=[col])
+        elif strategy == 'mean':
+            df_processed[col].fillna(df_processed[col].mean(), inplace=True)
+        elif strategy == 'median':
+            df_processed[col].fillna(df_processed[col].median(), inplace=True)
+        elif strategy == 'mode':
+            df_processed[col].fillna(df_processed[col].mode()[0], inplace=True)
+    
+    return df_processed
+
+def clean_dataset(df, numeric_columns, outlier_threshold=1.5, 
+                  normalization='standardize', missing_strategy='mean'):
+    """
+    Comprehensive data cleaning pipeline.
+    """
+    # Handle missing values
+    df_clean = handle_missing_values(df, strategy=missing_strategy, 
+                                     columns=numeric_columns)
+    
+    # Remove outliers
+    df_clean = remove_outliers(df_clean, numeric_columns, outlier_threshold)
+    
+    # Apply normalization
+    if normalization == 'minmax':
+        df_clean = normalize_minmax(df_clean, numeric_columns)
+    elif normalization == 'standardize':
+        df_clean = standardize_zscore(df_clean, numeric_columns)
+    
+    return df_clean
