@@ -134,4 +134,68 @@ def process_dataset(filepath):
         return None
     except Exception as e:
         print(f"Error processing data: {str(e)}")
-        return None
+        return Noneimport pandas as pd
+
+def clean_dataset(df, column_mapping=None, drop_duplicates=True, fill_missing=None):
+    """
+    Clean a pandas DataFrame by standardizing columns, removing duplicates,
+    and handling missing values.
+    """
+    cleaned_df = df.copy()
+    
+    if column_mapping:
+        cleaned_df = cleaned_df.rename(columns=column_mapping)
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    if fill_missing is not None:
+        cleaned_df = cleaned_df.fillna(fill_missing)
+    
+    for col in cleaned_df.select_dtypes(include=['object']).columns:
+        cleaned_df[col] = cleaned_df[col].str.strip().str.lower()
+    
+    return cleaned_df
+
+def validate_data(df, required_columns=None, unique_columns=None):
+    """
+    Validate dataset structure and content.
+    """
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    if unique_columns:
+        duplicates = df[df.duplicated(subset=unique_columns, keep=False)]
+        if not duplicates.empty:
+            print(f"Found {len(duplicates)} duplicate entries based on {unique_columns}")
+    
+    return True
+
+if __name__ == "__main__":
+    sample_data = {
+        'Name': ['John Doe', 'Jane Smith', 'John Doe', 'Bob Johnson', ''],
+        'Email': ['john@example.com', 'jane@example.com', 'john@example.com', 'bob@example.com', None],
+        'Age': [25, 30, 25, 35, 40]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original dataset:")
+    print(df)
+    print("\nCleaned dataset:")
+    
+    cleaned = clean_dataset(
+        df,
+        column_mapping={'Name': 'full_name', 'Email': 'email_address'},
+        drop_duplicates=True,
+        fill_missing={'full_name': 'unknown', 'email_address': 'no_email'}
+    )
+    
+    print(cleaned)
+    
+    try:
+        validate_data(cleaned, required_columns=['full_name', 'email_address'])
+        print("\nData validation passed")
+    except ValueError as e:
+        print(f"\nData validation failed: {e}")
