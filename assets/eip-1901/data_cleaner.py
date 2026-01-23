@@ -129,3 +129,45 @@ if __name__ == "__main__":
     if cleaned_df is not None:
         is_valid = validate_dataframe(cleaned_df, ['id', 'value', 'category'])
         print(f"Data validation result: {is_valid}")
+import csv
+import sys
+
+def remove_duplicates(input_file, output_file, key_column):
+    seen = set()
+    unique_rows = []
+    
+    with open(input_file, 'r', newline='', encoding='utf-8') as infile:
+        reader = csv.DictReader(infile)
+        fieldnames = reader.fieldnames
+        
+        for row in reader:
+            row_key = row[key_column]
+            if row_key not in seen:
+                seen.add(row_key)
+                unique_rows.append(row)
+    
+    with open(output_file, 'w', newline='', encoding='utf-8') as outfile:
+        writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(unique_rows)
+    
+    return len(unique_rows)
+
+if __name__ == "__main__":
+    if len(sys.argv) != 4:
+        print("Usage: python data_cleaner.py <input_file> <output_file> <key_column>")
+        sys.exit(1)
+    
+    input_file = sys.argv[1]
+    output_file = sys.argv[2]
+    key_column = sys.argv[3]
+    
+    try:
+        count = remove_duplicates(input_file, output_file, key_column)
+        print(f"Processed {count} unique records")
+    except FileNotFoundError:
+        print(f"Error: Input file '{input_file}' not found")
+    except KeyError:
+        print(f"Error: Column '{key_column}' not found in CSV header")
+    except Exception as e:
+        print(f"Error: {e}")
