@@ -1,80 +1,74 @@
 
-import numpy as np
-import pandas as pd
-
-def remove_outliers_iqr(df, column):
+def remove_duplicates(input_list):
     """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
+    Remove duplicate elements from a list while preserving order.
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to clean
+    Args:
+        input_list (list): The list from which duplicates should be removed.
     
     Returns:
-    pd.DataFrame: DataFrame with outliers removed
+        list: A new list with duplicates removed.
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    seen = set()
+    result = []
     
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
     
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    
-    return filtered_df.reset_index(drop=True)
+    return result
 
-def calculate_basic_stats(df, column):
+def clean_data_with_threshold(data_list, threshold=None):
     """
-    Calculate basic statistics for a column after outlier removal.
+    Clean data by removing duplicates, optionally filtering by frequency threshold.
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to analyze
+    Args:
+        data_list (list): List of data items to clean.
+        threshold (int, optional): Minimum frequency for items to keep.
     
     Returns:
-    dict: Dictionary containing statistical measures
+        list: Cleaned list of unique items.
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    from collections import Counter
     
-    stats = {
-        'mean': df[column].mean(),
-        'median': df[column].median(),
-        'std': df[column].std(),
-        'min': df[column].min(),
-        'max': df[column].max(),
-        'count': df[column].count()
-    }
+    if not data_list:
+        return []
     
-    return stats
+    # Count frequencies
+    counter = Counter(data_list)
+    
+    if threshold is not None:
+        # Filter items by frequency threshold
+        filtered_items = [item for item, count in counter.items() if count >= threshold]
+        return remove_duplicates(filtered_items)
+    else:
+        # Just remove duplicates
+        return remove_duplicates(data_list)
 
-def example_usage():
+def validate_input(data):
     """
-    Example demonstrating the usage of data cleaning functions.
+    Validate that input is a list or convertible to list.
+    
+    Args:
+        data: Input data to validate.
+    
+    Returns:
+        list: Validated list.
+    
+    Raises:
+        TypeError: If input cannot be converted to list.
     """
-    np.random.seed(42)
-    
-    data = {
-        'id': range(1, 101),
-        'value': np.random.normal(100, 15, 100)
-    }
-    
-    df = pd.DataFrame(data)
-    
-    print("Original DataFrame shape:", df.shape)
-    print("Original statistics:", calculate_basic_stats(df, 'value'))
-    
-    cleaned_df = remove_outliers_iqr(df, 'value')
-    
-    print("\nCleaned DataFrame shape:", cleaned_df.shape)
-    print("Cleaned statistics:", calculate_basic_stats(cleaned_df, 'value'))
-    
-    return cleaned_df
+    if isinstance(data, list):
+        return data
+    elif hasattr(data, '__iter__'):
+        return list(data)
+    else:
+        raise TypeError("Input must be iterable")
 
+# Example usage
 if __name__ == "__main__":
-    result_df = example_usage()
-    print(f"\nRemoved {100 - len(result_df)} outliers")
+    sample_data = [1, 2, 2, 3, 4, 4, 4, 5]
+    print(f"Original data: {sample_data}")
+    print(f"Cleaned data: {remove_duplicates(sample_data)}")
+    print(f"Cleaned with threshold 2: {clean_data_with_threshold(sample_data, threshold=2)}")
