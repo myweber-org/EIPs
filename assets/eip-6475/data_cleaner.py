@@ -1,163 +1,81 @@
-
 import pandas as pd
+import numpy as np
 
-def clean_dataset(df, drop_duplicates=True, fill_missing=True, fill_value=0):
+def clean_csv_data(filepath, fill_strategy='mean', drop_threshold=0.5):
     """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    Load and clean CSV data by handling missing values.
     
     Parameters:
-    df (pd.DataFrame): Input DataFrame to clean.
-    drop_duplicates (bool): Whether to drop duplicate rows.
-    fill_missing (bool): Whether to fill missing values.
-    fill_value: Value to use for filling missing data.
+    filepath (str): Path to the CSV file
+    fill_strategy (str): Strategy for filling missing values ('mean', 'median', 'mode', 'zero')
+    drop_threshold (float): Drop columns with missing ratio above this threshold
     
     Returns:
-    pd.DataFrame: Cleaned DataFrame.
+    pd.DataFrame: Cleaned DataFrame
     """
-    cleaned_df = df.copy()
+    try:
+        df = pd.read_csv(filepath)
+    except FileNotFoundError:
+        print(f"Error: File not found at {filepath}")
+        return None
     
-    if drop_duplicates:
-        cleaned_df = cleaned_df.drop_duplicates()
+    original_shape = df.shape
+    print(f"Original data shape: {original_shape}")
     
-    if fill_missing:
-        cleaned_df = cleaned_df.fillna(fill_value)
+    missing_percentage = (df.isnull().sum() / len(df)) * 100
+    columns_to_drop = missing_percentage[missing_percentage > drop_threshold * 100].index
+    df = df.drop(columns=columns_to_drop)
     
-    return cleaned_df
+    if len(columns_to_drop) > 0:
+        print(f"Dropped columns with >{drop_threshold*100}% missing values: {list(columns_to_drop)}")
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    categorical_cols = df.select_dtypes(exclude=[np.number]).columns
+    
+    if fill_strategy == 'mean':
+        for col in numeric_cols:
+            df[col] = df[col].fillna(df[col].mean())
+    elif fill_strategy == 'median':
+        for col in numeric_cols:
+            df[col] = df[col].fillna(df[col].median())
+    elif fill_strategy == 'zero':
+        for col in numeric_cols:
+            df[col] = df[col].fillna(0)
+    elif fill_strategy == 'mode':
+        for col in numeric_cols:
+            df[col] = df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else 0)
+    
+    for col in categorical_cols:
+        df[col] = df[col].fillna('Unknown')
+    
+    remaining_missing = df.isnull().sum().sum()
+    if remaining_missing > 0:
+        print(f"Warning: {remaining_missing} missing values remain after cleaning")
+    
+    print(f"Cleaned data shape: {df.shape}")
+    print(f"Total missing values removed: {original_shape[0]*original_shape[1] - df.shape[0]*df.shape[1]}")
+    
+    return df
 
-def validate_dataframe(df, required_columns=None):
+def save_cleaned_data(df, output_path):
     """
-    Validate DataFrame structure and content.
+    Save cleaned DataFrame to CSV.
     
     Parameters:
-    df (pd.DataFrame): DataFrame to validate.
-    required_columns (list): List of required column names.
-    
-    Returns:
-    bool: True if DataFrame is valid, False otherwise.
+    df (pd.DataFrame): Cleaned DataFrame
+    output_path (str): Path to save the cleaned CSV
     """
-    if not isinstance(df, pd.DataFrame):
-        return False
-    
-    if df.empty:
-        return False
-    
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            return False
-    
-    return True
+    if df is not None:
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to: {output_path}")
+        return True
+    return False
 
 if __name__ == "__main__":
-    sample_data = {
-        'A': [1, 2, 2, None, 5],
-        'B': [10, 20, 20, 40, None],
-        'C': ['x', 'y', 'y', 'z', 'z']
-    }
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
     
-    df = pd.DataFrame(sample_data)
-    print("Original DataFrame:")
-    print(df)
-    print("\nCleaned DataFrame:")
-    cleaned = clean_dataset(df)
-    print(cleaned)
-    print(f"\nDataFrame valid: {validate_dataframe(cleaned)}")import pandas as pd
-import numpy as np
-from typing import List, Union
-
-def remove_duplicates(df: pd.DataFrame, subset: List[str] = None) -> pd.DataFrame:
-    """
-    Remove duplicate rows from DataFrame.
+    cleaned_df = clean_csv_data(input_file, fill_strategy='median', drop_threshold=0.3)
     
-    Args:
-        df: Input DataFrame
-        subset: Columns to consider for identifying duplicates
-    
-    Returns:
-        DataFrame with duplicates removed
-    """
-    return df.drop_duplicates(subset=subset, keep='first')
-
-def convert_column_types(df: pd.DataFrame, 
-                         column_type_map: dict) -> pd.DataFrame:
-    """
-    Convert columns to specified data types.
-    
-    Args:
-        df: Input DataFrame
-        column_type_map: Dictionary mapping column names to target types
-    
-    Returns:
-        DataFrame with converted column types
-    """
-    df_copy = df.copy()
-    for column, dtype in column_type_map.items():
-        if column in df_copy.columns:
-            try:
-                df_copy[column] = df_copy[column].astype(dtype)
-            except (ValueError, TypeError):
-                df_copy[column] = pd.to_numeric(df_copy[column], errors='coerce')
-    return df_copy
-
-def handle_missing_values(df: pd.DataFrame, 
-                         strategy: str = 'mean',
-                         columns: List[str] = None) -> pd.DataFrame:
-    """
-    Handle missing values in DataFrame columns.
-    
-    Args:
-        df: Input DataFrame
-        strategy: Imputation strategy ('mean', 'median', 'mode', 'drop')
-        columns: Specific columns to process
-    
-    Returns:
-        DataFrame with handled missing values
-    """
-    df_copy = df.copy()
-    
-    if columns is None:
-        columns = df_copy.columns
-    
-    for column in columns:
-        if column not in df_copy.columns:
-            continue
-            
-        if strategy == 'drop':
-            df_copy = df_copy.dropna(subset=[column])
-        elif strategy == 'mean':
-            df_copy[column].fillna(df_copy[column].mean(), inplace=True)
-        elif strategy == 'median':
-            df_copy[column].fillna(df_copy[column].median(), inplace=True)
-        elif strategy == 'mode':
-            df_copy[column].fillna(df_copy[column].mode()[0], inplace=True)
-    
-    return df_copy
-
-def clean_dataframe(df: pd.DataFrame,
-                   deduplicate: bool = True,
-                   type_conversions: dict = None,
-                   missing_value_strategy: str = 'mean') -> pd.DataFrame:
-    """
-    Comprehensive data cleaning pipeline.
-    
-    Args:
-        df: Input DataFrame
-        deduplicate: Whether to remove duplicates
-        type_conversions: Column type conversion mapping
-        missing_value_strategy: Strategy for handling missing values
-    
-    Returns:
-        Cleaned DataFrame
-    """
-    cleaned_df = df.copy()
-    
-    if deduplicate:
-        cleaned_df = remove_duplicates(cleaned_df)
-    
-    if type_conversions:
-        cleaned_df = convert_column_types(cleaned_df, type_conversions)
-    
-    if missing_value_strategy:
-        cleaned_df = handle_missing_values(cleaned_df, missing_value_strategy)
-    
-    return cleaned_df
+    if cleaned_df is not None:
+        save_cleaned_data(cleaned_df, output_file)
