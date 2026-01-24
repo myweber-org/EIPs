@@ -81,3 +81,105 @@ def validate_dataframe(df, required_columns=None):
             validation_results['null_values'][col] = null_count
     
     return validation_results
+import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(dataframe, column):
+    """
+    Remove outliers from specified column using IQR method.
+    
+    Args:
+        dataframe: pandas DataFrame containing the data
+        column: column name to process
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = dataframe[column].quantile(0.25)
+    Q3 = dataframe[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
+                           (dataframe[column] <= upper_bound)]
+    
+    return filtered_df
+
+def calculate_basic_stats(dataframe, column):
+    """
+    Calculate basic statistics for a column.
+    
+    Args:
+        dataframe: pandas DataFrame
+        column: column name
+    
+    Returns:
+        Dictionary containing statistics
+    """
+    stats = {
+        'mean': dataframe[column].mean(),
+        'median': dataframe[column].median(),
+        'std': dataframe[column].std(),
+        'min': dataframe[column].min(),
+        'max': dataframe[column].max(),
+        'count': len(dataframe)
+    }
+    return stats
+
+def normalize_column(dataframe, column, method='minmax'):
+    """
+    Normalize a column using specified method.
+    
+    Args:
+        dataframe: pandas DataFrame
+        column: column name to normalize
+        method: normalization method ('minmax' or 'zscore')
+    
+    Returns:
+        DataFrame with normalized column added as '{column}_normalized'
+    """
+    if method == 'minmax':
+        min_val = dataframe[column].min()
+        max_val = dataframe[column].max()
+        normalized = (dataframe[column] - min_val) / (max_val - min_val)
+    elif method == 'zscore':
+        mean_val = dataframe[column].mean()
+        std_val = dataframe[column].std()
+        normalized = (dataframe[column] - mean_val) / std_val
+    else:
+        raise ValueError("Method must be 'minmax' or 'zscore'")
+    
+    new_column_name = f"{column}_normalized"
+    dataframe[new_column_name] = normalized
+    return dataframe
+
+def example_usage():
+    """Example usage of the data cleaning functions."""
+    np.random.seed(42)
+    data = {
+        'id': range(100),
+        'value': np.random.normal(100, 50, 100)
+    }
+    
+    df = pd.DataFrame(data)
+    print(f"Original data shape: {df.shape}")
+    
+    cleaned_df = remove_outliers_iqr(df, 'value')
+    print(f"Cleaned data shape: {cleaned_df.shape}")
+    
+    stats = calculate_basic_stats(cleaned_df, 'value')
+    print(f"Statistics: {stats}")
+    
+    normalized_df = normalize_column(cleaned_df, 'value', method='zscore')
+    print(f"Normalized column added: 'value_normalized'")
+    
+    return normalized_df
+
+if __name__ == "__main__":
+    result_df = example_usage()
+    print(f"Final DataFrame columns: {result_df.columns.tolist()}")
