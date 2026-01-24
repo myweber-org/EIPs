@@ -405,4 +405,52 @@ if __name__ == "__main__":
     stats = calculate_summary_statistics(cleaned_df, 'values')
     print("\nSummary statistics:")
     for key, value in stats.items():
-        print(f"{key}: {value:.2f}")
+        print(f"{key}: {value:.2f}")import re
+import pandas as pd
+
+def normalize_string(text):
+    """Convert string to lowercase and remove extra whitespace."""
+    if not isinstance(text, str):
+        return text
+    text = text.lower()
+    text = re.sub(r'\s+', ' ', text)
+    return text.strip()
+
+def clean_column_names(df):
+    """Standardize DataFrame column names."""
+    df.columns = [normalize_string(col) for col in df.columns]
+    return df
+
+def remove_duplicates(df, subset=None):
+    """Remove duplicate rows from DataFrame."""
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def fill_missing_values(df, column, fill_value):
+    """Fill missing values in a specified column."""
+    df[column] = df[column].fillna(fill_value)
+    return df
+
+def filter_by_threshold(df, column, threshold):
+    """Filter rows where column value exceeds threshold."""
+    return df[df[column] > threshold]
+
+def main():
+    sample_data = {
+        'Name': ['Alice', 'Bob', 'Alice', 'Charlie', None],
+        'Age': [25, 30, 25, 35, 40],
+        'Score': [85.5, 92.0, 85.5, 78.0, 88.0]
+    }
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    
+    df = clean_column_names(df)
+    df = remove_duplicates(df, subset=['name', 'age'])
+    df = fill_missing_values(df, 'name', 'Unknown')
+    df = filter_by_threshold(df, 'score', 80.0)
+    
+    print("\nCleaned DataFrame:")
+    print(df)
+
+if __name__ == "__main__":
+    main()
