@@ -183,3 +183,161 @@ def example_usage():
 
 if __name__ == "__main__":
     cleaned_data = example_usage()
+import pandas as pd
+import numpy as np
+from typing import List, Optional
+
+class DataCleaner:
+    def __init__(self, df: pd.DataFrame):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_duplicates(self, subset: Optional[List[str]] = None, keep: str = 'first') -> pd.DataFrame:
+        """
+        Remove duplicate rows from the DataFrame.
+        
+        Args:
+            subset: List of column names to consider for identifying duplicates.
+                    If None, all columns are used.
+            keep: Which duplicates to keep. Options: 'first', 'last', False.
+        
+        Returns:
+            Cleaned DataFrame with duplicates removed.
+        """
+        cleaned_df = self.df.drop_duplicates(subset=subset, keep=keep)
+        removed_count = len(self.df) - len(cleaned_df)
+        
+        if removed_count > 0:
+            print(f"Removed {removed_count} duplicate rows.")
+            print(f"Original shape: {self.original_shape}")
+            print(f"New shape: {cleaned_df.shape}")
+        
+        self.df = cleaned_df
+        return self.df
+    
+    def remove_nulls(self, threshold: float = 0.5, axis: int = 0) -> pd.DataFrame:
+        """
+        Remove rows or columns with null values above a threshold.
+        
+        Args:
+            threshold: Proportion of nulls allowed (0 to 1).
+            axis: 0 for rows, 1 for columns.
+        
+        Returns:
+            DataFrame with null-heavy rows/columns removed.
+        """
+        if axis == 0:
+            # Remove rows
+            null_proportion = self.df.isnull().mean(axis=1)
+            mask = null_proportion <= threshold
+            cleaned_df = self.df[mask]
+        else:
+            # Remove columns
+            null_proportion = self.df.isnull().mean()
+            columns_to_keep = null_proportion[null_proportion <= threshold].index
+            cleaned_df = self.df[columns_to_keep]
+        
+        removed_count = self.df.shape[axis] - cleaned_df.shape[axis]
+        print(f"Removed {removed_count} {'rows' if axis == 0 else 'columns'} with >{threshold*100}% nulls.")
+        
+        self.df = cleaned_df
+        return self.df
+    
+    def normalize_text(self, column: str) -> pd.DataFrame:
+        """
+        Normalize text in a specified column.
+        
+        Args:
+            column: Name of the column to normalize.
+        
+        Returns:
+            DataFrame with normalized text column.
+        """
+        if column not in self.df.columns:
+            raise ValueError(f"Column '{column}' not found in DataFrame.")
+        
+        self.df[column] = (
+            self.df[column]
+            .astype(str)
+            .str.lower()
+            .str.strip()
+            .str.replace(r'\s+', ' ', regex=True)
+        )
+        
+        print(f"Normalized text in column '{column}'.")
+        return self.df
+    
+    def get_summary(self) -> dict:
+        """
+        Get a summary of the cleaning operations.
+        
+        Returns:
+            Dictionary with cleaning statistics.
+        """
+        return {
+            'original_rows': self.original_shape[0],
+            'original_columns': self.original_shape[1],
+            'current_rows': self.df.shape[0],
+            'current_columns': self.df.shape[1],
+            'rows_removed': self.original_shape[0] - self.df.shape[0],
+            'columns_removed': self.original_shape[1] - self.df.shape[1],
+            'null_percentage': (self.df.isnull().sum().sum() / (self.df.shape[0] * self.df.shape[1])) * 100
+        }
+
+def clean_dataset(file_path: str, output_path: Optional[str] = None) -> pd.DataFrame:
+    """
+    Convenience function to clean a dataset from a file.
+    
+    Args:
+        file_path: Path to the input data file.
+        output_path: Optional path to save cleaned data.
+    
+    Returns:
+        Cleaned DataFrame.
+    """
+    # Read data
+    if file_path.endswith('.csv'):
+        df = pd.read_csv(file_path)
+    elif file_path.endswith(('.xlsx', '.xls')):
+        df = pd.read_excel(file_path)
+    else:
+        raise ValueError("Unsupported file format. Use CSV or Excel files.")
+    
+    # Initialize cleaner
+    cleaner = DataCleaner(df)
+    
+    # Perform cleaning operations
+    cleaner.remove_duplicates()
+    cleaner.remove_nulls(threshold=0.3, axis=0)
+    cleaner.remove_nulls(threshold=0.5, axis=1)
+    
+    # Get summary
+    summary = cleaner.get_summary()
+    print("\nCleaning Summary:")
+    for key, value in summary.items():
+        print(f"{key}: {value}")
+    
+    # Save if output path provided
+    if output_path:
+        if output_path.endswith('.csv'):
+            cleaner.df.to_csv(output_path, index=False)
+        elif output_path.endswith(('.xlsx', '.xls')):
+            cleaner.df.to_excel(output_path, index=False)
+        print(f"\nCleaned data saved to: {output_path}")
+    
+    return cleaner.df
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = pd.DataFrame({
+        'id': [1, 2, 2, 3, 4, 4],
+        'name': ['John', 'Jane', 'Jane', 'Bob', 'Alice', 'Alice'],
+        'age': [25, 30, 30, 35, None, None],
+        'email': ['john@example.com', 'jane@example.com', 'jane@example.com', 
+                  'bob@example.com', 'alice@example.com', 'alice@example.com']
+    })
+    
+    cleaner = DataCleaner(sample_data)
+    cleaned = cleaner.remove_duplicates(subset=['id', 'name'])
+    print("\nSample cleaned data:")
+    print(cleaned)
