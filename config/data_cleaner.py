@@ -60,4 +60,111 @@ if __name__ == "__main__":
     cleaned_data = clean_dataset(sample_data, ['A', 'B', 'C'])
     print("\nCleaned dataset shape:", cleaned_data.shape)
     print("\nCleaned summary statistics:")
-    print(get_summary_statistics(cleaned_data.select_dtypes(include=[np.number])))
+    print(get_summary_statistics(cleaned_data.select_dtypes(include=[np.number])))import pandas as pd
+import numpy as np
+
+def clean_csv_data(filepath, drop_na=True, fill_strategy='mean'):
+    """
+    Clean a CSV file by handling missing values and removing duplicates.
+    
+    Args:
+        filepath (str): Path to the CSV file.
+        drop_na (bool): If True, drop rows with any NaN values.
+        fill_strategy (str): Strategy to fill NaN values if drop_na is False.
+                             Options: 'mean', 'median', 'mode', or 'zero'.
+    
+    Returns:
+        pandas.DataFrame: Cleaned DataFrame.
+    """
+    try:
+        df = pd.read_csv(filepath)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found: {filepath}")
+    
+    # Remove duplicate rows
+    initial_rows = df.shape[0]
+    df = df.drop_duplicates()
+    duplicates_removed = initial_rows - df.shape[0]
+    
+    # Handle missing values
+    if drop_na:
+        df = df.dropna()
+    else:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        if fill_strategy == 'mean':
+            df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
+        elif fill_strategy == 'median':
+            df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].median())
+        elif fill_strategy == 'mode':
+            df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mode().iloc[0])
+        elif fill_strategy == 'zero':
+            df[numeric_cols] = df[numeric_cols].fillna(0)
+        else:
+            raise ValueError("Invalid fill_strategy. Choose from 'mean', 'median', 'mode', or 'zero'.")
+    
+    # Reset index after cleaning
+    df = df.reset_index(drop=True)
+    
+    print(f"Data cleaning completed:")
+    print(f"  - Removed {duplicates_removed} duplicate rows")
+    print(f"  - Final dataset shape: {df.shape}")
+    
+    return df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate a DataFrame for basic integrity checks.
+    
+    Args:
+        df (pandas.DataFrame): DataFrame to validate.
+        required_columns (list): List of column names that must be present.
+    
+    Returns:
+        dict: Dictionary with validation results.
+    """
+    validation_results = {
+        'is_valid': True,
+        'errors': [],
+        'warnings': []
+    }
+    
+    # Check if DataFrame is empty
+    if df.empty:
+        validation_results['is_valid'] = False
+        validation_results['errors'].append("DataFrame is empty")
+    
+    # Check required columns
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            validation_results['is_valid'] = False
+            validation_results['errors'].append(f"Missing required columns: {missing_columns}")
+    
+    # Check for infinite values
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    if not numeric_cols.empty:
+        inf_count = np.isinf(df[numeric_cols]).sum().sum()
+        if inf_count > 0:
+            validation_results['warnings'].append(f"Found {inf_count} infinite values in numeric columns")
+    
+    # Check data types consistency
+    for col in df.columns:
+        if df[col].dtype == 'object':
+            # Check for mixed types in object columns
+            unique_types = df[col].apply(type).nunique()
+            if unique_types > 1:
+                validation_results['warnings'].append(f"Column '{col}' has mixed data types")
+    
+    return validation_results
+
+def save_cleaned_data(df, output_path, index=False):
+    """
+    Save cleaned DataFrame to a CSV file.
+    
+    Args:
+        df (pandas.DataFrame): DataFrame to save.
+        output_path (str): Path where to save the cleaned CSV.
+        index (bool): Whether to include index in output.
+    """
+    df.to_csv(output_path, index=index)
+    print(f"Cleaned data saved to: {output_path}")
