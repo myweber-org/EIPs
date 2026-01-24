@@ -173,3 +173,40 @@ if __name__ == "__main__":
     cleaned = clean_dataset(sample_data, ['A', 'B', 'C'])
     print(f"Original shape: {sample_data.shape}")
     print(f"Cleaned shape: {cleaned.shape}")
+import pandas as pd
+import re
+
+def clean_dataframe(df, text_column='text'):
+    """
+    Clean a DataFrame by removing duplicates and normalizing text.
+    """
+    # Remove duplicate rows
+    df_clean = df.drop_duplicates().reset_index(drop=True)
+    
+    # Normalize text: lowercase, remove extra whitespace
+    if text_column in df_clean.columns:
+        df_clean[text_column] = df_clean[text_column].apply(
+            lambda x: re.sub(r'\s+', ' ', str(x).strip().lower())
+        )
+    
+    return df_clean
+
+def save_cleaned_data(df, output_path='cleaned_data.csv'):
+    """
+    Save cleaned DataFrame to a CSV file.
+    """
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to {output_path}")
+
+if __name__ == "__main__":
+    # Example usage
+    data = pd.DataFrame({
+        'id': [1, 2, 2, 3],
+        'text': ['  Hello  World  ', 'Python Code', '  python code  ', 'Data Cleaning']
+    })
+    
+    cleaned = clean_dataframe(data, text_column='text')
+    print("Cleaned DataFrame:")
+    print(cleaned)
+    
+    save_cleaned_data(cleaned)
