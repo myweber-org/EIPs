@@ -71,3 +71,11 @@ def validate_email_column(df, email_column):
     print(f"Valid emails: {valid_count}/{total_count} ({valid_count/total_count*100:.1f}%)")
     
     return df_validated
+def remove_duplicates_preserve_order(seq):
+    seen = set()
+    result = []
+    for item in seq:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
