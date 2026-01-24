@@ -294,3 +294,120 @@ if __name__ == "__main__":
     print(cleaned)
     print("\nCleaned Validation Results:")
     print(validate_dataset(cleaned))
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_duplicates=True, fill_missing=True, strategy='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    drop_duplicates (bool): Whether to drop duplicate rows
+    fill_missing (bool): Whether to fill missing values
+    strategy (str): Strategy for filling missing values ('mean', 'median', 'mode', 'zero')
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    
+    df_clean = df.copy()
+    
+    if drop_duplicates:
+        initial_rows = len(df_clean)
+        df_clean = df_clean.drop_duplicates()
+        removed = initial_rows - len(df_clean)
+        print(f"Removed {removed} duplicate rows")
+    
+    if fill_missing and df_clean.isnull().sum().any():
+        for column in df_clean.columns:
+            if df_clean[column].dtype in ['int64', 'float64']:
+                if strategy == 'mean':
+                    fill_value = df_clean[column].mean()
+                elif strategy == 'median':
+                    fill_value = df_clean[column].median()
+                elif strategy == 'mode':
+                    fill_value = df_clean[column].mode()[0] if not df_clean[column].mode().empty else 0
+                elif strategy == 'zero':
+                    fill_value = 0
+                else:
+                    fill_value = df_clean[column].mean()
+                
+                missing_count = df_clean[column].isnull().sum()
+                if missing_count > 0:
+                    df_clean[column] = df_clean[column].fillna(fill_value)
+                    print(f"Filled {missing_count} missing values in column '{column}' with {strategy} value: {fill_value:.2f}")
+    
+    print(f"Cleaning complete. Final dataset shape: {df_clean.shape}")
+    return df_clean
+
+def validate_dataset(df, check_duplicates=True, check_missing=True):
+    """
+    Validate a DataFrame for common data quality issues.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    check_duplicates (bool): Check for duplicate rows
+    check_missing (bool): Check for missing values
+    
+    Returns:
+    dict: Dictionary containing validation results
+    """
+    
+    validation_results = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'duplicate_rows': 0,
+        'missing_values': {}
+    }
+    
+    if check_duplicates:
+        validation_results['duplicate_rows'] = df.duplicated().sum()
+    
+    if check_missing:
+        missing_counts = df.isnull().sum()
+        missing_columns = missing_counts[missing_counts > 0]
+        validation_results['missing_values'] = missing_columns.to_dict()
+        validation_results['total_missing'] = missing_counts.sum()
+    
+    return validation_results
+
+def generate_sample_data():
+    """
+    Generate sample data for testing the cleaning functions.
+    
+    Returns:
+    pd.DataFrame: Sample DataFrame with intentional duplicates and missing values
+    """
+    
+    np.random.seed(42)
+    
+    data = {
+        'id': list(range(1, 11)) + [5, 6, 7],
+        'value_a': np.random.randn(13),
+        'value_b': np.random.randn(13),
+        'category': ['A', 'B', 'C', 'A', 'B', 'C', 'A', 'B', 'C', 'A', 'B', 'C', 'A']
+    }
+    
+    df = pd.DataFrame(data)
+    
+    df.loc[[2, 5, 8], 'value_a'] = np.nan
+    df.loc[[3, 7], 'value_b'] = np.nan
+    
+    return df
+
+if __name__ == "__main__":
+    sample_df = generate_sample_data()
+    print("Sample Data Shape:", sample_df.shape)
+    print("\nValidation Results:")
+    validation = validate_dataset(sample_df)
+    for key, value in validation.items():
+        print(f"{key}: {value}")
+    
+    print("\n--- Cleaning Dataset ---")
+    cleaned_df = clean_dataset(sample_df, strategy='median')
+    
+    print("\nCleaned Data Validation:")
+    cleaned_validation = validate_dataset(cleaned_df)
+    for key, value in cleaned_validation.items():
+        print(f"{key}: {value}")
