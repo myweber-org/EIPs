@@ -1,103 +1,108 @@
 
 import pandas as pd
-import numpy as np
 
-def remove_outliers_iqr(df, columns=None):
+def remove_duplicates(df, subset=None, keep='first'):
     """
-    Remove outliers from DataFrame using Interquartile Range method.
+    Remove duplicate rows from a DataFrame.
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    columns (list): List of column names to process. If None, process all numeric columns.
+    Args:
+        df: pandas DataFrame
+        subset: column label or sequence of labels to consider for duplicates
+        keep: 'first', 'last', or False to drop all duplicates
     
     Returns:
-    pd.DataFrame: DataFrame with outliers removed
+        Cleaned DataFrame with duplicates removed
     """
-    if columns is None:
-        columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    if df.empty:
+        return df
     
-    df_clean = df.copy()
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
     
-    for col in columns:
-        if col in df.columns:
-            Q1 = df[col].quantile(0.25)
-            Q3 = df[col].quantile(0.75)
-            IQR = Q3 - Q1
-            
-            lower_bound = Q1 - 1.5 * IQR
-            upper_bound = Q3 + 1.5 * IQR
-            
-            mask = (df[col] >= lower_bound) & (df[col] <= upper_bound)
-            df_clean = df_clean[mask]
+    removed_count = len(df) - len(cleaned_df)
+    if removed_count > 0:
+        print(f"Removed {removed_count} duplicate rows")
     
-    return df_clean.reset_index(drop=True)
+    return cleaned_df
 
-def calculate_summary_statistics(df):
+def clean_numeric_column(df, column_name, fill_method='mean'):
     """
-    Calculate summary statistics for numeric columns.
+    Clean numeric column by handling missing values.
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
+    Args:
+        df: pandas DataFrame
+        column_name: name of column to clean
+        fill_method: 'mean', 'median', or 'zero' to fill missing values
     
     Returns:
-    pd.DataFrame: Summary statistics
+        DataFrame with cleaned column
     """
-    numeric_cols = df.select_dtypes(include=[np.number]).columns
-    summary = df[numeric_cols].describe()
-    return summary
-
-def normalize_data(df, columns=None, method='minmax'):
-    """
-    Normalize data using specified method.
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    columns (list): List of column names to normalize
-    method (str): Normalization method ('minmax' or 'zscore')
+    if not pd.api.types.is_numeric_dtype(df[column_name]):
+        raise TypeError(f"Column '{column_name}' is not numeric")
+    
+    missing_count = df[column_name].isna().sum()
+    
+    if missing_count > 0:
+        if fill_method == 'mean':
+            fill_value = df[column_name].mean()
+        elif fill_method == 'median':
+            fill_value = df[column_name].median()
+        elif fill_method == 'zero':
+            fill_value = 0
+        else:
+            raise ValueError("fill_method must be 'mean', 'median', or 'zero'")
+        
+        df[column_name] = df[column_name].fillna(fill_value)
+        print(f"Filled {missing_count} missing values in '{column_name}' with {fill_method}: {fill_value}")
+    
+    return df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df: pandas DataFrame to validate
+        required_columns: list of column names that must be present
     
     Returns:
-    pd.DataFrame: Normalized DataFrame
+        Boolean indicating if DataFrame is valid
     """
-    if columns is None:
-        columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    if not isinstance(df, pd.DataFrame):
+        print("Error: Input is not a pandas DataFrame")
+        return False
     
-    df_norm = df.copy()
+    if df.empty:
+        print("Warning: DataFrame is empty")
+        return True
     
-    for col in columns:
-        if col in df.columns:
-            if method == 'minmax':
-                min_val = df[col].min()
-                max_val = df[col].max()
-                if max_val != min_val:
-                    df_norm[col] = (df[col] - min_val) / (max_val - min_val)
-            
-            elif method == 'zscore':
-                mean_val = df[col].mean()
-                std_val = df[col].std()
-                if std_val != 0:
-                    df_norm[col] = (df[col] - mean_val) / std_val
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            print(f"Error: Missing required columns: {missing_columns}")
+            return False
     
-    return df_norm
+    return True
 
-if __name__ == "__main__":
-    sample_data = {
-        'A': [1, 2, 3, 4, 100],
-        'B': [10, 20, 30, 40, 200],
-        'C': [100, 200, 300, 400, 1000]
+def get_data_summary(df):
+    """
+    Generate summary statistics for DataFrame.
+    
+    Args:
+        df: pandas DataFrame
+    
+    Returns:
+        Dictionary with summary statistics
+    """
+    summary = {
+        'rows': len(df),
+        'columns': len(df.columns),
+        'missing_values': df.isna().sum().sum(),
+        'duplicate_rows': df.duplicated().sum(),
+        'numeric_columns': len(df.select_dtypes(include=['number']).columns),
+        'categorical_columns': len(df.select_dtypes(include=['object', 'category']).columns)
     }
     
-    df = pd.DataFrame(sample_data)
-    print("Original DataFrame:")
-    print(df)
-    
-    cleaned_df = remove_outliers_iqr(df)
-    print("\nCleaned DataFrame:")
-    print(cleaned_df)
-    
-    stats = calculate_summary_statistics(df)
-    print("\nSummary Statistics:")
-    print(stats)
-    
-    normalized_df = normalize_data(df, method='minmax')
-    print("\nNormalized DataFrame (Min-Max):")
-    print(normalized_df)
+    return summary
