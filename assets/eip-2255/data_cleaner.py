@@ -1,6 +1,6 @@
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 def remove_outliers_iqr(df, column):
     """
@@ -8,7 +8,7 @@ def remove_outliers_iqr(df, column):
     
     Parameters:
     df (pd.DataFrame): Input DataFrame
-    column (str): Column name to clean
+    column (str): Column name to process
     
     Returns:
     pd.DataFrame: DataFrame with outliers removed
@@ -25,18 +25,18 @@ def remove_outliers_iqr(df, column):
     
     filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
     
-    return filtered_df
+    return filtered_df.reset_index(drop=True)
 
-def calculate_summary_stats(df, column):
+def calculate_statistics(df, column):
     """
-    Calculate summary statistics for a column after outlier removal.
+    Calculate basic statistics for a DataFrame column.
     
     Parameters:
     df (pd.DataFrame): Input DataFrame
     column (str): Column name to analyze
     
     Returns:
-    dict: Dictionary containing summary statistics
+    dict: Dictionary containing statistics
     """
     if column not in df.columns:
         raise ValueError(f"Column '{column}' not found in DataFrame")
@@ -47,53 +47,57 @@ def calculate_summary_stats(df, column):
         'std': df[column].std(),
         'min': df[column].min(),
         'max': df[column].max(),
-        'count': df[column].count()
+        'count': len(df[column])
     }
     
     return stats
 
-def clean_dataset(df, columns_to_clean=None):
+def normalize_column(df, column):
     """
-    Clean multiple columns in a DataFrame by removing outliers.
+    Normalize a column using min-max scaling.
     
     Parameters:
     df (pd.DataFrame): Input DataFrame
-    columns_to_clean (list): List of column names to clean. If None, clean all numeric columns.
+    column (str): Column name to normalize
     
     Returns:
-    pd.DataFrame: Cleaned DataFrame
+    pd.DataFrame: DataFrame with normalized column
     """
-    if columns_to_clean is None:
-        numeric_cols = df.select_dtypes(include=[np.number]).columns
-        columns_to_clean = list(numeric_cols)
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    cleaned_df = df.copy()
+    df_copy = df.copy()
+    min_val = df_copy[column].min()
+    max_val = df_copy[column].max()
     
-    for column in columns_to_clean:
-        if column in df.columns and pd.api.types.is_numeric_dtype(df[column]):
-            original_count = len(cleaned_df)
-            cleaned_df = remove_outliers_iqr(cleaned_df, column)
-            removed_count = original_count - len(cleaned_df)
-            print(f"Removed {removed_count} outliers from column '{column}'")
+    if max_val == min_val:
+        df_copy[f'{column}_normalized'] = 0.5
+    else:
+        df_copy[f'{column}_normalized'] = (df_copy[column] - min_val) / (max_val - min_val)
     
-    return cleaned_df
+    return df_copy
 
 if __name__ == "__main__":
     sample_data = {
-        'A': np.random.normal(100, 15, 1000),
-        'B': np.random.exponential(50, 1000),
-        'C': np.random.uniform(0, 200, 1000)
+        'values': [10, 12, 12, 13, 12, 11, 14, 13, 15, 100, 12, 14, 13, 12, 11]
     }
     
     df = pd.DataFrame(sample_data)
-    df.loc[::100, 'A'] = 500
+    print("Original DataFrame:")
+    print(df)
+    print()
     
-    print("Original dataset shape:", df.shape)
-    print("Original summary for column A:")
-    print(calculate_summary_stats(df, 'A'))
+    cleaned_df = remove_outliers_iqr(df, 'values')
+    print("DataFrame after removing outliers:")
+    print(cleaned_df)
+    print()
     
-    cleaned_df = clean_dataset(df, ['A'])
+    stats = calculate_statistics(cleaned_df, 'values')
+    print("Statistics for cleaned data:")
+    for key, value in stats.items():
+        print(f"{key}: {value:.2f}")
+    print()
     
-    print("\nCleaned dataset shape:", cleaned_df.shape)
-    print("Cleaned summary for column A:")
-    print(calculate_summary_stats(cleaned_df, 'A'))
+    normalized_df = normalize_column(cleaned_df, 'values')
+    print("DataFrame with normalized column:")
+    print(normalized_df)
