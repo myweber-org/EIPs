@@ -287,4 +287,121 @@ def example_usage():
     return cleaned_df
 
 if __name__ == "__main__":
-    example_usage()
+    example_usage()import pandas as pd
+import numpy as np
+
+def clean_dataset(df, column_mapping=None, drop_duplicates=True, normalize_text=True):
+    """
+    Clean a pandas DataFrame by removing duplicates and normalizing text columns.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean
+    column_mapping (dict): Optional dictionary to rename columns
+    drop_duplicates (bool): Whether to remove duplicate rows
+    normalize_text (bool): Whether to normalize text columns (strip, lower case)
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    
+    # Create a copy to avoid modifying the original
+    cleaned_df = df.copy()
+    
+    # Rename columns if mapping provided
+    if column_mapping:
+        cleaned_df = cleaned_df.rename(columns=column_mapping)
+    
+    # Remove duplicate rows
+    if drop_duplicates:
+        initial_rows = len(cleaned_df)
+        cleaned_df = cleaned_df.drop_duplicates()
+        removed_rows = initial_rows - len(cleaned_df)
+        print(f"Removed {removed_rows} duplicate rows")
+    
+    # Normalize text columns
+    if normalize_text:
+        text_columns = cleaned_df.select_dtypes(include=['object']).columns
+        for col in text_columns:
+            cleaned_df[col] = cleaned_df[col].astype(str).str.strip().str.lower()
+        print(f"Normalized {len(text_columns)} text columns")
+    
+    # Reset index after cleaning
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    return cleaned_df
+
+def validate_data(df, required_columns=None, check_missing=True):
+    """
+    Validate the DataFrame for required columns and missing values.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of required column names
+    check_missing (bool): Whether to check for missing values
+    
+    Returns:
+    dict: Dictionary with validation results
+    """
+    validation_results = {
+        'is_valid': True,
+        'missing_columns': [],
+        'missing_values': {},
+        'total_rows': len(df)
+    }
+    
+    # Check required columns
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            validation_results['missing_columns'] = missing_cols
+            validation_results['is_valid'] = False
+    
+    # Check for missing values
+    if check_missing:
+        missing_counts = df.isnull().sum()
+        columns_with_missing = missing_counts[missing_counts > 0]
+        if not columns_with_missing.empty:
+            validation_results['missing_values'] = columns_with_missing.to_dict()
+            validation_results['is_valid'] = False
+    
+    return validation_results
+
+def sample_data(df, n_samples=5, random_state=42):
+    """
+    Return a random sample from the DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    n_samples (int): Number of samples to return
+    random_state (int): Random seed for reproducibility
+    
+    Returns:
+    pd.DataFrame: Sampled DataFrame
+    """
+    if len(df) <= n_samples:
+        return df
+    
+    return df.sample(n=n_samples, random_state=random_state)
+
+# Example usage (commented out for production)
+if __name__ == "__main__":
+    # Create sample data
+    sample_df = pd.DataFrame({
+        'Name': ['John Doe', 'Jane Smith', 'John Doe', 'Bob Johnson', 'Alice Brown'],
+        'Email': ['john@example.com', 'jane@example.com', 'john@example.com', 'bob@example.com', 'alice@example.com'],
+        'Age': [25, 30, 25, 35, 28],
+        'City': ['New York', 'Los Angeles', 'New York', 'Chicago', 'Boston']
+    })
+    
+    # Clean the data
+    cleaned = clean_dataset(sample_df, drop_duplicates=True, normalize_text=True)
+    
+    # Validate the cleaned data
+    validation = validate_data(cleaned, required_columns=['Name', 'Email', 'Age'])
+    
+    # Print results
+    print("Original shape:", sample_df.shape)
+    print("Cleaned shape:", cleaned.shape)
+    print("Validation results:", validation)
+    print("\nSample of cleaned data:")
+    print(sample_data(cleaned, n_samples=3))
