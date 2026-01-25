@@ -134,3 +134,43 @@ def clean_dataset(input_file, output_file):
 
 if __name__ == "__main__":
     clean_dataset('raw_data.csv', 'cleaned_data.csv')
+def remove_duplicates(input_list):
+    """
+    Remove duplicate items from a list while preserving order.
+    Returns a new list with unique elements.
+    """
+    seen = set()
+    result = []
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+def clean_data_with_threshold(data, threshold=0.8):
+    """
+    Clean data by removing duplicates and filtering based on a threshold.
+    For demonstration purposes, this function simulates a more complex cleaning process.
+    """
+    unique_data = remove_duplicates(data)
+    
+    # Simulate threshold-based filtering (e.g., for numerical data)
+    filtered_data = []
+    for value in unique_data:
+        if isinstance(value, (int, float)):
+            if value >= threshold:
+                filtered_data.append(value)
+        else:
+            filtered_data.append(value)
+    
+    return filtered_data
+
+if __name__ == "__main__":
+    sample_data = [1, 2, 2, 3, 4, 4, 5, 1, 6, 7, 7]
+    cleaned = remove_duplicates(sample_data)
+    print(f"Original: {sample_data}")
+    print(f"Cleaned: {cleaned}")
+    
+    numeric_data = [0.5, 0.9, 1.2, 0.7, 0.9, 1.2]
+    filtered = clean_data_with_threshold(numeric_data, threshold=0.8)
+    print(f"Filtered (threshold 0.8): {filtered}")
