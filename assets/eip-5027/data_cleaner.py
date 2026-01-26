@@ -145,3 +145,74 @@ if __name__ == "__main__":
     print("\nSummary Statistics:")
     for key, value in stats.items():
         print(f"{key}: {value}")
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_duplicates=True, fill_missing=True, missing_strategy='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    """
+    df_clean = df.copy()
+    
+    if drop_duplicates:
+        initial_rows = df_clean.shape[0]
+        df_clean = df_clean.drop_duplicates()
+        removed = initial_rows - df_clean.shape[0]
+        print(f"Removed {removed} duplicate rows.")
+    
+    if fill_missing:
+        numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
+        categorical_cols = df_clean.select_dtypes(exclude=[np.number]).columns
+        
+        for col in df_clean.columns:
+            if df_clean[col].isnull().any():
+                if col in numeric_cols:
+                    if missing_strategy == 'mean':
+                        fill_value = df_clean[col].mean()
+                    elif missing_strategy == 'median':
+                        fill_value = df_clean[col].median()
+                    else:
+                        fill_value = 0
+                    df_clean[col].fillna(fill_value, inplace=True)
+                    print(f"Filled missing values in numeric column '{col}' with {fill_value:.2f}")
+                elif col in categorical_cols:
+                    df_clean[col].fillna('Unknown', inplace=True)
+                    print(f"Filled missing values in categorical column '{col}' with 'Unknown'")
+    
+    return df_clean
+
+def validate_dataset(df, required_columns=None):
+    """
+    Validate dataset structure and content.
+    """
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_columns}")
+    
+    if df.empty:
+        print("Warning: Dataset is empty.")
+    
+    return True
+
+if __name__ == "__main__":
+    sample_data = {
+        'id': [1, 2, 2, 3, 4, 5],
+        'value': [10.5, 20.3, 20.3, np.nan, 40.1, 50.0],
+        'category': ['A', 'B', 'B', 'C', None, 'A']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original dataset:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    cleaned_df = clean_dataset(df)
+    print("\nCleaned dataset:")
+    print(cleaned_df)
+    
+    try:
+        validate_dataset(cleaned_df, required_columns=['id', 'value'])
+        print("\nDataset validation passed.")
+    except ValueError as e:
+        print(f"\nDataset validation failed: {e}")
