@@ -55,3 +55,33 @@ def main():
 
 if __name__ == "__main__":
     main()
+import os
+import datetime
+
+def rename_files_with_timestamp(directory_path, extension_filter=None):
+    if not os.path.isdir(directory_path):
+        print(f"Error: {directory_path} is not a valid directory.")
+        return
+    
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    for filename in os.listdir(directory_path):
+        file_path = os.path.join(directory_path, filename)
+        
+        if os.path.isfile(file_path):
+            if extension_filter and not filename.endswith(extension_filter):
+                continue
+            
+            name_part, ext_part = os.path.splitext(filename)
+            new_filename = f"{timestamp}_{name_part}{ext_part}"
+            new_file_path = os.path.join(directory_path, new_filename)
+            
+            try:
+                os.rename(file_path, new_file_path)
+                print(f"Renamed: {filename} -> {new_filename}")
+            except OSError as e:
+                print(f"Failed to rename {filename}: {e}")
+
+if __name__ == "__main__":
+    target_directory = "/path/to/your/files"
+    rename_files_with_timestamp(target_directory, ".txt")
