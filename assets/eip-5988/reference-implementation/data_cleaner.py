@@ -774,4 +774,64 @@ def normalize_column(df, column, method='minmax'):
     else:
         raise ValueError("Method must be 'minmax' or 'zscore'")
     
-    return df_copy
+    return df_copyimport pandas as pd
+import numpy as np
+
+def clean_dataframe(df, column_mapping=None, drop_duplicates=True, normalize_text=True):
+    """
+    Clean a pandas DataFrame by removing duplicates, normalizing text columns,
+    and optionally renaming columns.
+    """
+    df_clean = df.copy()
+    
+    if drop_duplicates:
+        df_clean = df_clean.drop_duplicates().reset_index(drop=True)
+    
+    if normalize_text:
+        text_columns = df_clean.select_dtypes(include=['object']).columns
+        for col in text_columns:
+            df_clean[col] = df_clean[col].astype(str).str.strip().str.lower()
+    
+    if column_mapping:
+        df_clean = df_clean.rename(columns=column_mapping)
+    
+    return df_clean
+
+def validate_numeric_range(df, column, min_val=None, max_val=None):
+    """
+    Validate numeric column values against specified range.
+    Returns indices of rows with invalid values.
+    """
+    invalid_mask = pd.Series(False, index=df.index)
+    
+    if min_val is not None:
+        invalid_mask = invalid_mask | (df[column] < min_val)
+    
+    if max_val is not None:
+        invalid_mask = invalid_mask | (df[column] > max_val)
+    
+    return df.index[invalid_mask].tolist()
+
+def fill_missing_with_strategy(df, strategy='mean', columns=None):
+    """
+    Fill missing values using specified strategy.
+    """
+    df_filled = df.copy()
+    
+    if columns is None:
+        columns = df_filled.columns
+    
+    for col in columns:
+        if df_filled[col].dtype in ['int64', 'float64']:
+            if strategy == 'mean':
+                fill_value = df_filled[col].mean()
+            elif strategy == 'median':
+                fill_value = df_filled[col].median()
+            elif strategy == 'mode':
+                fill_value = df_filled[col].mode()[0] if not df_filled[col].mode().empty else np.nan
+            else:
+                fill_value = 0
+            
+            df_filled[col] = df_filled[col].fillna(fill_value)
+    
+    return df_filled
