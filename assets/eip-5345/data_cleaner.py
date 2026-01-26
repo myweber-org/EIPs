@@ -480,4 +480,143 @@ def get_data_summary(df):
         'data_types': df.dtypes.to_dict()
     }
     
-    return summary
+    return summaryimport pandas as pd
+import numpy as np
+
+def clean_dataframe(df, fill_strategy='mean', column_case='lower'):
+    """
+    Clean a pandas DataFrame by handling missing values and standardizing column names.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    fill_strategy (str): Strategy for filling missing values. Options: 'mean', 'median', 'mode', 'drop', or 'zero'.
+    column_case (str): Target case for column names. Options: 'lower', 'upper', 'title', or 'snake'.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    # Standardize column names
+    if column_case == 'lower':
+        cleaned_df.columns = cleaned_df.columns.str.lower()
+    elif column_case == 'upper':
+        cleaned_df.columns = cleaned_df.columns.str.upper()
+    elif column_case == 'title':
+        cleaned_df.columns = cleaned_df.columns.str.title()
+    elif column_case == 'snake':
+        cleaned_df.columns = cleaned_df.columns.str.replace(' ', '_').str.lower()
+    
+    # Handle missing values
+    if fill_strategy == 'drop':
+        cleaned_df = cleaned_df.dropna()
+    else:
+        for col in cleaned_df.select_dtypes(include=[np.number]).columns:
+            if cleaned_df[col].isnull().any():
+                if fill_strategy == 'mean':
+                    fill_value = cleaned_df[col].mean()
+                elif fill_strategy == 'median':
+                    fill_value = cleaned_df[col].median()
+                elif fill_strategy == 'mode':
+                    fill_value = cleaned_df[col].mode()[0]
+                elif fill_strategy == 'zero':
+                    fill_value = 0
+                else:
+                    raise ValueError(f"Unsupported fill strategy: {fill_strategy}")
+                cleaned_df[col] = cleaned_df[col].fillna(fill_value)
+        
+        # For non-numeric columns, fill with most frequent value
+        for col in cleaned_df.select_dtypes(exclude=[np.number]).columns:
+            if cleaned_df[col].isnull().any():
+                most_frequent = cleaned_df[col].mode()
+                if not most_frequent.empty:
+                    cleaned_df[col] = cleaned_df[col].fillna(most_frequent[0])
+                else:
+                    cleaned_df[col] = cleaned_df[col].fillna('Unknown')
+    
+    # Reset index after cleaning
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None, unique_constraints=None):
+    """
+    Validate DataFrame structure and constraints.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+    required_columns (list): List of column names that must be present.
+    unique_constraints (list): List of column names that should have unique values.
+    
+    Returns:
+    dict: Dictionary with validation results and messages.
+    """
+    validation_result = {
+        'is_valid': True,
+        'messages': [],
+        'missing_columns': [],
+        'duplicate_rows': 0,
+        'null_counts': {}
+    }
+    
+    # Check required columns
+    if required_columns:
+        missing = [col for col in required_columns if col not in df.columns]
+        if missing:
+            validation_result['is_valid'] = False
+            validation_result['missing_columns'] = missing
+            validation_result['messages'].append(f"Missing required columns: {missing}")
+    
+    # Check for duplicate rows
+    duplicates = df.duplicated().sum()
+    validation_result['duplicate_rows'] = duplicates
+    if duplicates > 0:
+        validation_result['messages'].append(f"Found {duplicates} duplicate rows")
+    
+    # Check unique constraints
+    if unique_constraints:
+        for col in unique_constraints:
+            if col in df.columns:
+                unique_count = df[col].nunique()
+                total_count = len(df[col])
+                if unique_count != total_count:
+                    validation_result['messages'].append(
+                        f"Column '{col}' has {total_count - unique_count} duplicate values"
+                    )
+    
+    # Count null values
+    for col in df.columns:
+        null_count = df[col].isnull().sum()
+        if null_count > 0:
+            validation_result['null_counts'][col] = null_count
+            validation_result['messages'].append(f"Column '{col}' has {null_count} null values")
+    
+    return validation_result
+
+# Example usage (commented out for production)
+# if __name__ == "__main__":
+#     # Create sample data
+#     sample_data = {
+#         'Name': ['Alice', 'Bob', None, 'David'],
+#         'Age': [25, None, 30, 35],
+#         'Score': [85.5, 92.0, None, 88.5],
+#         'Department': ['HR', 'IT', 'IT', None]
+#     }
+#     
+#     df = pd.DataFrame(sample_data)
+#     print("Original DataFrame:")
+#     print(df)
+#     
+#     # Clean the data
+#     cleaned = clean_dataframe(df, fill_strategy='mean', column_case='snake')
+#     print("\nCleaned DataFrame:")
+#     print(cleaned)
+#     
+#     # Validate the cleaned data
+#     validation = validate_dataframe(
+#         cleaned,
+#         required_columns=['name', 'age', 'score'],
+#         unique_constraints=['name']
+#     )
+#     print("\nValidation Results:")
+#     print(validation)
