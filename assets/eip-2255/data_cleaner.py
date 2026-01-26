@@ -1,100 +1,113 @@
 import pandas as pd
-import numpy as np
-from typing import List, Optional
 
-def remove_duplicates(df: pd.DataFrame, subset: Optional[List[str]] = None) -> pd.DataFrame:
+def clean_dataframe(df, drop_duplicates=True, fill_missing=False, fill_value=0):
     """
-    Remove duplicate rows from DataFrame.
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
     
-    Args:
-        df: Input DataFrame
-        subset: Columns to consider for identifying duplicates
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    drop_duplicates (bool): If True, remove duplicate rows.
+    fill_missing (bool): If True, fill missing values with fill_value.
+    fill_value (scalar): Value to use for filling missing data.
     
     Returns:
-        DataFrame with duplicates removed
+    pd.DataFrame: Cleaned DataFrame.
     """
-    return df.drop_duplicates(subset=subset, keep='first')
-
-def normalize_column(df: pd.DataFrame, column: str) -> pd.DataFrame:
-    """
-    Normalize a column to have zero mean and unit variance.
+    cleaned_df = df.copy()
     
-    Args:
-        df: Input DataFrame
-        column: Name of column to normalize
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    if fill_missing:
+        cleaned_df = cleaned_df.fillna(fill_value)
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+    required_columns (list): List of column names that must be present.
     
     Returns:
-        DataFrame with normalized column
+    tuple: (is_valid, error_message)
+    """
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    return True, "DataFrame is valid"
+
+def remove_outliers(df, column, method='iqr', threshold=1.5):
+    """
+    Remove outliers from a DataFrame column using specified method.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    column (str): Column name to process.
+    method (str): 'iqr' for interquartile range or 'zscore' for standard deviation.
+    threshold (float): Threshold for outlier detection.
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed.
     """
     if column not in df.columns:
         raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    df = df.copy()
-    mean_val = df[column].mean()
-    std_val = df[column].std()
+    data = df[column].dropna()
     
-    if std_val > 0:
-        df[column] = (df[column] - mean_val) / std_val
+    if method == 'iqr':
+        Q1 = data.quantile(0.25)
+        Q3 = data.quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - threshold * IQR
+        upper_bound = Q3 + threshold * IQR
+        mask = (df[column] >= lower_bound) & (df[column] <= upper_bound)
+    
+    elif method == 'zscore':
+        mean = data.mean()
+        std = data.std()
+        mask = abs((df[column] - mean) / std) <= threshold
+    
     else:
-        df[column] = 0
+        raise ValueError("Method must be 'iqr' or 'zscore'")
     
-    return df
+    return df[mask]
 
-def handle_missing_values(df: pd.DataFrame, strategy: str = 'mean') -> pd.DataFrame:
-    """
-    Handle missing values in numeric columns.
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'A': [1, 2, 2, 3, 4, 5, 100],
+        'B': [10, 20, None, 30, 40, 50, 60],
+        'C': ['x', 'y', 'z', 'x', 'y', 'z', 'w']
+    }
     
-    Args:
-        df: Input DataFrame
-        strategy: Method for imputation ('mean', 'median', 'zero')
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print()
     
-    Returns:
-        DataFrame with missing values handled
-    """
-    df = df.copy()
-    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    # Clean the data
+    cleaned = clean_dataframe(df, drop_duplicates=True, fill_missing=True, fill_value=0)
+    print("Cleaned DataFrame:")
+    print(cleaned)
+    print()
     
-    for col in numeric_cols:
-        if df[col].isnull().any():
-            if strategy == 'mean':
-                fill_value = df[col].mean()
-            elif strategy == 'median':
-                fill_value = df[col].median()
-            elif strategy == 'zero':
-                fill_value = 0
-            else:
-                raise ValueError(f"Unknown strategy: {strategy}")
-            
-            df[col] = df[col].fillna(fill_value)
+    # Validate
+    is_valid, message = validate_dataframe(cleaned, required_columns=['A', 'B'])
+    print(f"Validation: {is_valid} - {message}")
+    print()
     
-    return df
-
-def clean_dataframe(df: pd.DataFrame, 
-                   deduplicate: bool = True,
-                   normalize_cols: Optional[List[str]] = None,
-                   missing_strategy: str = 'mean') -> pd.DataFrame:
-    """
-    Comprehensive data cleaning pipeline.
-    
-    Args:
-        df: Input DataFrame
-        deduplicate: Whether to remove duplicates
-        normalize_cols: Columns to normalize
-        missing_strategy: Strategy for handling missing values
-    
-    Returns:
-        Cleaned DataFrame
-    """
-    cleaned_df = df.copy()
-    
-    if deduplicate:
-        cleaned_df = remove_duplicates(cleaned_df)
-    
-    cleaned_df = handle_missing_values(cleaned_df, strategy=missing_strategy)
-    
-    if normalize_cols:
-        for col in normalize_cols:
-            if col in cleaned_df.columns:
-                cleaned_df = normalize_column(cleaned_df, col)
-    
-    return cleaned_df
+    # Remove outliers
+    try:
+        no_outliers = remove_outliers(cleaned, 'A', method='iqr', threshold=1.5)
+        print("DataFrame without outliers in column A:")
+        print(no_outliers)
+    except ValueError as e:
+        print(f"Error removing outliers: {e}")
