@@ -251,3 +251,11 @@ if __name__ == "__main__":
     
     is_valid = validate_data(cleaned, required_columns=['A', 'B'])
     print(f"\nData validation passed: {is_valid}")
+def deduplicate_list(original_list):
+    seen = set()
+    deduplicated = []
+    for item in original_list:
+        if item not in seen:
+            seen.add(item)
+            deduplicated.append(item)
+    return deduplicated
