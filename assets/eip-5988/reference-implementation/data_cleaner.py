@@ -90,3 +90,64 @@ if __name__ == "__main__":
     
     is_valid = validate_data(cleaned, required_columns=['A', 'B', 'C'], min_rows=2)
     print(f"\nData is valid: {is_valid}")
+import pandas as pd
+
+def clean_dataset(df, text_columns=None, drop_na=True):
+    """
+    Clean a pandas DataFrame by handling missing values and standardizing text.
+    
+    Args:
+        df: pandas DataFrame to clean
+        text_columns: list of column names containing text data
+        drop_na: if True, drop rows with any null values
+    
+    Returns:
+        Cleaned pandas DataFrame
+    """
+    df_clean = df.copy()
+    
+    if drop_na:
+        df_clean = df_clean.dropna()
+    
+    if text_columns:
+        for col in text_columns:
+            if col in df_clean.columns:
+                df_clean[col] = df_clean[col].astype(str).str.strip().str.lower()
+    
+    df_clean = df_clean.reset_index(drop=True)
+    return df_clean
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from DataFrame.
+    
+    Args:
+        df: pandas DataFrame
+        subset: columns to consider for duplicates
+        keep: which duplicates to keep ('first', 'last', False)
+    
+    Returns:
+        DataFrame with duplicates removed
+    """
+    return df.drop_duplicates(subset=subset, keep=keep)
+
+def validate_data(df, required_columns=None):
+    """
+    Validate that DataFrame contains required columns and has data.
+    
+    Args:
+        df: pandas DataFrame to validate
+        required_columns: list of column names that must be present
+    
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
+    
+    return True, "Data validation passed"
