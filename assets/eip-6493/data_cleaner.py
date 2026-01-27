@@ -2,80 +2,110 @@
 import pandas as pd
 import numpy as np
 
-def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
+def remove_missing_rows(df, threshold=0.5):
     """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    Remove rows with missing values exceeding threshold percentage.
     
     Args:
-        df (pd.DataFrame): Input DataFrame to clean
-        drop_duplicates (bool): Whether to drop duplicate rows
-        fill_missing (str): Method to fill missing values ('mean', 'median', 'mode', or 'drop')
+        df: pandas DataFrame
+        threshold: float between 0 and 1
     
     Returns:
-        pd.DataFrame: Cleaned DataFrame
+        Cleaned DataFrame
     """
-    cleaned_df = df.copy()
-    
-    if drop_duplicates:
-        initial_rows = len(cleaned_df)
-        cleaned_df = cleaned_df.drop_duplicates()
-        removed = initial_rows - len(cleaned_df)
-        print(f"Removed {removed} duplicate rows")
-    
-    if fill_missing == 'drop':
-        cleaned_df = cleaned_df.dropna()
-        print("Dropped rows with missing values")
-    elif fill_missing in ['mean', 'median']:
-        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
-        for col in numeric_cols:
-            if fill_missing == 'mean':
-                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mean())
-            else:
-                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].median())
-        print(f"Filled missing numeric values with {fill_missing}")
-    elif fill_missing == 'mode':
-        for col in cleaned_df.columns:
-            if cleaned_df[col].dtype == 'object':
-                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mode()[0] if not cleaned_df[col].mode().empty else 'Unknown')
-        print("Filled missing categorical values with mode")
-    
-    return cleaned_df
+    missing_per_row = df.isnull().mean(axis=1)
+    return df[missing_per_row <= threshold].reset_index(drop=True)
 
-def validate_dataset(df, required_columns=None, min_rows=1):
+def fill_missing_with_median(df, columns=None):
     """
-    Validate dataset structure and content.
+    Fill missing values with column median.
     
     Args:
-        df (pd.DataFrame): DataFrame to validate
-        required_columns (list): List of required column names
-        min_rows (int): Minimum number of rows required
+        df: pandas DataFrame
+        columns: list of column names or None for all numeric columns
     
     Returns:
-        tuple: (is_valid, message)
+        DataFrame with filled values
     """
-    if len(df) < min_rows:
-        return False, f"Dataset has fewer than {min_rows} rows"
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
     
-    if required_columns:
-        missing_cols = [col for col in required_columns if col not in df.columns]
-        if missing_cols:
-            return False, f"Missing required columns: {missing_cols}"
+    df_filled = df.copy()
+    for col in columns:
+        if col in df.columns:
+            median_val = df[col].median()
+            df_filled[col] = df[col].fillna(median_val)
     
-    return True, "Dataset validation passed"
+    return df_filled
 
-if __name__ == "__main__":
-    sample_data = {
-        'A': [1, 2, 2, 3, None, 4],
-        'B': [5, None, 5, 6, 7, 8],
-        'C': ['x', 'y', 'x', 'y', 'z', None]
-    }
+def detect_outliers_iqr(df, column):
+    """
+    Detect outliers using IQR method.
     
-    df = pd.DataFrame(sample_data)
-    print("Original dataset:")
-    print(df)
-    print("\nCleaned dataset (mean imputation):")
-    cleaned = clean_dataset(df, fill_missing='mean')
-    print(cleaned)
+    Args:
+        df: pandas DataFrame
+        column: column name to check
     
-    is_valid, message = validate_dataset(cleaned, required_columns=['A', 'B'])
-    print(f"\nValidation: {message}")
+    Returns:
+        Series of boolean values indicating outliers
+    """
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    return (df[column] < lower_bound) | (df[column] > upper_bound)
+
+def cap_outliers(df, column, method='iqr'):
+    """
+    Cap outliers to specified bounds.
+    
+    Args:
+        df: pandas DataFrame
+        column: column name to process
+        method: 'iqr' or 'percentile'
+    
+    Returns:
+        DataFrame with capped values
+    """
+    df_capped = df.copy()
+    
+    if method == 'iqr':
+        Q1 = df[column].quantile(0.25)
+        Q3 = df[column].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+    elif method == 'percentile':
+        lower_bound = df[column].quantile(0.01)
+        upper_bound = df[column].quantile(0.99)
+    else:
+        raise ValueError("Method must be 'iqr' or 'percentile'")
+    
+    df_capped[column] = df[column].clip(lower=lower_bound, upper=upper_bound)
+    return df_capped
+
+def standardize_columns(df, columns=None):
+    """
+    Standardize numeric columns to zero mean and unit variance.
+    
+    Args:
+        df: pandas DataFrame
+        columns: list of column names or None for all numeric columns
+    
+    Returns:
+        Standardized DataFrame
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_standardized = df.copy()
+    for col in columns:
+        if col in df.columns:
+            mean_val = df[col].mean()
+            std_val = df[col].std()
+            if std_val > 0:
+                df_standardized[col] = (df[col] - mean_val) / std_val
+    
+    return df_standardized
