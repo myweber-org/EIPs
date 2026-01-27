@@ -155,3 +155,126 @@ if __name__ == "__main__":
     print(f"Data cleaning complete. Saved to {output_file}")
     print(f"Original shape: {pd.read_csv(input_file).shape}")
     print(f"Cleaned shape: {cleaned_df.shape}")
+import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(data, column, factor=1.5):
+    """
+    Remove outliers from a column using the IQR method.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    column (str): Column name to process
+    factor (float): IQR multiplier for outlier detection
+    
+    Returns:
+    pd.DataFrame: Dataframe with outliers removed
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - factor * iqr
+    upper_bound = q3 + factor * iqr
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data.copy()
+
+def normalize_minmax(data, columns=None):
+    """
+    Normalize specified columns using min-max scaling.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    columns (list): List of column names to normalize. If None, normalize all numeric columns.
+    
+    Returns:
+    pd.DataFrame: Dataframe with normalized columns
+    """
+    if columns is None:
+        numeric_cols = data.select_dtypes(include=[np.number]).columns
+        columns = list(numeric_cols)
+    
+    normalized_data = data.copy()
+    
+    for col in columns:
+        if col not in normalized_data.columns:
+            continue
+            
+        if normalized_data[col].dtype in [np.float64, np.int64]:
+            col_min = normalized_data[col].min()
+            col_max = normalized_data[col].max()
+            
+            if col_max != col_min:
+                normalized_data[col] = (normalized_data[col] - col_min) / (col_max - col_min)
+            else:
+                normalized_data[col] = 0
+    
+    return normalized_data
+
+def handle_missing_values(data, strategy='mean', columns=None):
+    """
+    Handle missing values in the dataframe.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    strategy (str): Strategy for imputation ('mean', 'median', 'mode', 'drop')
+    columns (list): List of column names to process. If None, process all columns.
+    
+    Returns:
+    pd.DataFrame: Dataframe with handled missing values
+    """
+    if columns is None:
+        columns = data.columns
+    
+    processed_data = data.copy()
+    
+    for col in columns:
+        if col not in processed_data.columns:
+            continue
+            
+        if processed_data[col].isnull().any():
+            if strategy == 'drop':
+                processed_data = processed_data.dropna(subset=[col])
+            elif strategy == 'mean' and processed_data[col].dtype in [np.float64, np.int64]:
+                processed_data[col] = processed_data[col].fillna(processed_data[col].mean())
+            elif strategy == 'median' and processed_data[col].dtype in [np.float64, np.int64]:
+                processed_data[col] = processed_data[col].fillna(processed_data[col].median())
+            elif strategy == 'mode':
+                processed_data[col] = processed_data[col].fillna(processed_data[col].mode()[0])
+    
+    return processed_data
+
+def clean_dataset(data, config):
+    """
+    Main function to clean dataset based on configuration.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    config (dict): Configuration dictionary with cleaning options
+    
+    Returns:
+    pd.DataFrame: Cleaned dataframe
+    """
+    cleaned_data = data.copy()
+    
+    if 'missing_values' in config:
+        strategy = config['missing_values'].get('strategy', 'mean')
+        columns = config['missing_values'].get('columns')
+        cleaned_data = handle_missing_values(cleaned_data, strategy, columns)
+    
+    if 'outliers' in config:
+        for outlier_config in config['outliers']:
+            column = outlier_config.get('column')
+            factor = outlier_config.get('factor', 1.5)
+            if column:
+                cleaned_data = remove_outliers_iqr(cleaned_data, column, factor)
+    
+    if 'normalize' in config:
+        columns = config['normalize'].get('columns')
+        cleaned_data = normalize_minmax(cleaned_data, columns)
+    
+    return cleaned_data
