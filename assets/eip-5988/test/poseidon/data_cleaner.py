@@ -85,3 +85,30 @@ def validate_dataframe(df, required_columns=None):
 #     print("\nCleaned DataFrame (mean imputation):")
 #     cleaned = clean_dataset(df, fill_missing='mean')
 #     print(cleaned)
+import pandas as pd
+
+def clean_dataframe(df):
+    """
+    Remove rows with null values and standardize column names.
+    """
+    # Drop rows with any null values
+    df_cleaned = df.dropna()
+    
+    # Standardize column names: lowercase and replace spaces with underscores
+    df_cleaned.columns = df_cleaned.columns.str.lower().str.replace(' ', '_')
+    
+    return df_cleaned
+
+def filter_numeric_columns(df):
+    """
+    Return a DataFrame containing only numeric columns.
+    """
+    numeric_df = df.select_dtypes(include=['number'])
+    return numeric_df
+
+def remove_duplicates(df, subset=None):
+    """
+    Remove duplicate rows from the DataFrame.
+    """
+    df_no_duplicates = df.drop_duplicates(subset=subset)
+    return df_no_duplicates
