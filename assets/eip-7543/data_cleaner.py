@@ -116,4 +116,96 @@ if __name__ == "__main__":
     result = clean_dataset(sample_data, numeric_cols)
     print(f"Original shape: {sample_data.shape}")
     print(f"Cleaned shape: {result.shape}")
-    print(result.head())
+    print(result.head())import pandas as pd
+import numpy as np
+from typing import Optional
+
+def clean_csv_data(
+    input_path: str,
+    output_path: Optional[str] = None,
+    missing_strategy: str = "mean",
+    drop_threshold: float = 0.5
+) -> pd.DataFrame:
+    """
+    Clean CSV data by handling missing values and removing low-quality columns.
+    
+    Parameters:
+    input_path: Path to input CSV file
+    output_path: Optional path to save cleaned data
+    missing_strategy: Strategy for handling missing values ('mean', 'median', 'mode', 'drop')
+    drop_threshold: Maximum fraction of missing values allowed per column
+    
+    Returns:
+    Cleaned DataFrame
+    """
+    
+    # Load data
+    df = pd.read_csv(input_path)
+    
+    # Remove columns with too many missing values
+    missing_ratio = df.isnull().sum() / len(df)
+    columns_to_drop = missing_ratio[missing_ratio > drop_threshold].index
+    df = df.drop(columns=columns_to_drop)
+    
+    # Handle remaining missing values
+    for column in df.columns:
+        if df[column].dtype in ['int64', 'float64']:
+            if missing_strategy == "mean":
+                fill_value = df[column].mean()
+            elif missing_strategy == "median":
+                fill_value = df[column].median()
+            elif missing_strategy == "mode":
+                fill_value = df[column].mode()[0] if not df[column].mode().empty else 0
+            else:
+                continue
+            df[column] = df[column].fillna(fill_value)
+        else:
+            # For categorical columns, fill with most frequent value
+            if not df[column].mode().empty:
+                df[column] = df[column].fillna(df[column].mode()[0])
+    
+    # Save cleaned data if output path provided
+    if output_path:
+        df.to_csv(output_path, index=False)
+    
+    return df
+
+def validate_dataframe(df: pd.DataFrame) -> bool:
+    """
+    Validate that DataFrame meets basic quality criteria.
+    
+    Parameters:
+    df: DataFrame to validate
+    
+    Returns:
+    Boolean indicating if data passes validation
+    """
+    if df.empty:
+        return False
+    
+    # Check for remaining missing values
+    if df.isnull().sum().sum() > 0:
+        return False
+    
+    # Check for infinite values in numeric columns
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        if np.any(np.isinf(df[col])):
+            return False
+    
+    return True
+
+if __name__ == "__main__":
+    # Example usage
+    cleaned_data = clean_csv_data(
+        input_path="raw_data.csv",
+        output_path="cleaned_data.csv",
+        missing_strategy="median",
+        drop_threshold=0.3
+    )
+    
+    if validate_dataframe(cleaned_data):
+        print("Data cleaning completed successfully")
+        print(f"Cleaned shape: {cleaned_data.shape}")
+    else:
+        print("Data validation failed")
