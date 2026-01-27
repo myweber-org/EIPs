@@ -865,4 +865,118 @@ def clean_dataset(data, outlier_method='iqr', normalize_method=None, missing_str
                 elif normalize_method == 'zscore':
                     cleaned_data[column] = normalize_zscore(cleaned_data, column)
     
-    return cleaned_data
+    return cleaned_dataimport numpy as np
+import pandas as pd
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_outliers_iqr(self, column, multiplier=1.5):
+        if column not in self.df.columns:
+            raise ValueError(f"Column '{column}' not found in DataFrame")
+            
+        Q1 = self.df[column].quantile(0.25)
+        Q3 = self.df[column].quantile(0.75)
+        IQR = Q3 - Q1
+        
+        lower_bound = Q1 - multiplier * IQR
+        upper_bound = Q3 + multiplier * IQR
+        
+        mask = (self.df[column] >= lower_bound) & (self.df[column] <= upper_bound)
+        self.df = self.df[mask]
+        removed_count = self.original_shape[0] - self.df.shape[0]
+        
+        return removed_count
+    
+    def normalize_column(self, column, method='minmax'):
+        if column not in self.df.columns:
+            raise ValueError(f"Column '{column}' not found in DataFrame")
+            
+        if method == 'minmax':
+            col_min = self.df[column].min()
+            col_max = self.df[column].max()
+            if col_max != col_min:
+                self.df[f"{column}_normalized"] = (self.df[column] - col_min) / (col_max - col_min)
+            else:
+                self.df[f"{column}_normalized"] = 0.5
+                
+        elif method == 'zscore':
+            col_mean = self.df[column].mean()
+            col_std = self.df[column].std()
+            if col_std > 0:
+                self.df[f"{column}_normalized"] = (self.df[column] - col_mean) / col_std
+            else:
+                self.df[f"{column}_normalized"] = 0
+                
+        else:
+            raise ValueError("Method must be 'minmax' or 'zscore'")
+            
+        return self.df[f"{column}_normalized"]
+    
+    def fill_missing(self, column, strategy='mean'):
+        if column not in self.df.columns:
+            raise ValueError(f"Column '{column}' not found in DataFrame")
+            
+        missing_count = self.df[column].isnull().sum()
+        
+        if strategy == 'mean':
+            fill_value = self.df[column].mean()
+        elif strategy == 'median':
+            fill_value = self.df[column].median()
+        elif strategy == 'mode':
+            fill_value = self.df[column].mode()[0]
+        else:
+            raise ValueError("Strategy must be 'mean', 'median', or 'mode'")
+            
+        self.df[column] = self.df[column].fillna(fill_value)
+        
+        return missing_count
+    
+    def get_cleaned_data(self):
+        return self.df.copy()
+    
+    def get_summary(self):
+        summary = {
+            'original_rows': self.original_shape[0],
+            'current_rows': self.df.shape[0],
+            'columns': list(self.df.columns),
+            'missing_values': self.df.isnull().sum().to_dict(),
+            'data_types': self.df.dtypes.to_dict()
+        }
+        return summary
+
+def example_usage():
+    np.random.seed(42)
+    data = {
+        'feature_a': np.random.normal(100, 15, 1000),
+        'feature_b': np.random.exponential(50, 1000),
+        'category': np.random.choice(['A', 'B', 'C'], 1000)
+    }
+    
+    df = pd.DataFrame(data)
+    df.loc[np.random.choice(1000, 50), 'feature_a'] = np.nan
+    
+    cleaner = DataCleaner(df)
+    print(f"Original shape: {cleaner.original_shape}")
+    
+    removed = cleaner.remove_outliers_iqr('feature_a')
+    print(f"Removed {removed} outliers from feature_a")
+    
+    filled = cleaner.fill_missing('feature_a', strategy='mean')
+    print(f"Filled {filled} missing values in feature_a")
+    
+    cleaner.normalize_column('feature_a', method='zscore')
+    cleaner.normalize_column('feature_b', method='minmax')
+    
+    summary = cleaner.get_summary()
+    print(f"Current shape: {summary['current_rows']} rows, {len(summary['columns'])} columns")
+    
+    cleaned_df = cleaner.get_cleaned_data()
+    return cleaned_df
+
+if __name__ == "__main__":
+    result = example_usage()
+    print("Data cleaning completed successfully")
+    print(result.head())
