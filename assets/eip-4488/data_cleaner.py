@@ -326,3 +326,129 @@ if __name__ == "__main__":
     normalized_df = normalize_data(cleaned_df, method='minmax')
     print("\nNormalized DataFrame:")
     print(normalized_df)
+import pandas as pd
+import numpy as np
+
+def remove_duplicates(df, subset=None):
+    """
+    Remove duplicate rows from DataFrame.
+    
+    Args:
+        df: pandas DataFrame
+        subset: column label or sequence of labels to consider for duplicates
+    
+    Returns:
+        DataFrame with duplicates removed
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def handle_missing_values(df, strategy='mean', columns=None):
+    """
+    Handle missing values in DataFrame.
+    
+    Args:
+        df: pandas DataFrame
+        strategy: 'mean', 'median', 'mode', or 'drop'
+        columns: list of columns to apply strategy to
+    
+    Returns:
+        DataFrame with handled missing values
+    """
+    df_copy = df.copy()
+    
+    if columns is None:
+        columns = df_copy.columns
+    
+    for col in columns:
+        if df_copy[col].isnull().any():
+            if strategy == 'mean':
+                df_copy[col].fillna(df_copy[col].mean(), inplace=True)
+            elif strategy == 'median':
+                df_copy[col].fillna(df_copy[col].median(), inplace=True)
+            elif strategy == 'mode':
+                df_copy[col].fillna(df_copy[col].mode()[0], inplace=True)
+            elif strategy == 'drop':
+                df_copy = df_copy.dropna(subset=[col])
+    
+    return df_copy
+
+def normalize_columns(df, columns=None):
+    """
+    Normalize specified columns using min-max scaling.
+    
+    Args:
+        df: pandas DataFrame
+        columns: list of columns to normalize
+    
+    Returns:
+        DataFrame with normalized columns
+    """
+    df_copy = df.copy()
+    
+    if columns is None:
+        columns = df_copy.select_dtypes(include=[np.number]).columns
+    
+    for col in columns:
+        if col in df_copy.columns and pd.api.types.is_numeric_dtype(df_copy[col]):
+            min_val = df_copy[col].min()
+            max_val = df_copy[col].max()
+            
+            if max_val > min_val:
+                df_copy[col] = (df_copy[col] - min_val) / (max_val - min_val)
+    
+    return df_copy
+
+def detect_outliers(df, column, method='iqr'):
+    """
+    Detect outliers in a column.
+    
+    Args:
+        df: pandas DataFrame
+        column: column name to check for outliers
+        method: 'iqr' for interquartile range or 'zscore' for standard deviation
+    
+    Returns:
+        Boolean mask indicating outliers
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    if method == 'iqr':
+        Q1 = df[column].quantile(0.25)
+        Q3 = df[column].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+        return (df[column] < lower_bound) | (df[column] > upper_bound)
+    
+    elif method == 'zscore':
+        mean = df[column].mean()
+        std = df[column].std()
+        z_scores = np.abs((df[column] - mean) / std)
+        return z_scores > 3
+    
+    else:
+        raise ValueError("Method must be 'iqr' or 'zscore'")
+
+def clean_data_pipeline(df, steps):
+    """
+    Apply multiple cleaning steps in sequence.
+    
+    Args:
+        df: pandas DataFrame
+        steps: list of tuples (function_name, kwargs_dict)
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    for step_func, kwargs in steps:
+        if step_func == 'remove_duplicates':
+            cleaned_df = remove_duplicates(cleaned_df, **kwargs)
+        elif step_func == 'handle_missing_values':
+            cleaned_df = handle_missing_values(cleaned_df, **kwargs)
+        elif step_func == 'normalize_columns':
+            cleaned_df = normalize_columns(cleaned_df, **kwargs)
+    
+    return cleaned_df
