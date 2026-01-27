@@ -1,108 +1,125 @@
 
-import numpy as np
 import pandas as pd
+import numpy as np
 
-def remove_outliers_iqr(df, column):
+def remove_missing_rows(df, threshold=0.5):
     """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
+    Remove rows with missing values exceeding a threshold percentage.
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to clean
+    Args:
+        df: pandas DataFrame
+        threshold: float between 0 and 1, default 0.5
     
     Returns:
-    pd.DataFrame: DataFrame with outliers removed
+        Cleaned DataFrame
+    """
+    missing_per_row = df.isnull().mean(axis=1)
+    return df[missing_per_row <= threshold].reset_index(drop=True)
+
+def fill_missing_with_median(df, columns=None):
+    """
+    Fill missing values with column median.
+    
+    Args:
+        df: pandas DataFrame
+        columns: list of column names or None for all numeric columns
+    
+    Returns:
+        DataFrame with filled values
+    """
+    df_filled = df.copy()
+    
+    if columns is None:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        columns = list(numeric_cols)
+    
+    for col in columns:
+        if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
+            median_val = df[col].median()
+            df_filled[col] = df[col].fillna(median_val)
+    
+    return df_filled
+
+def detect_outliers_iqr(df, column, multiplier=1.5):
+    """
+    Detect outliers using IQR method.
+    
+    Args:
+        df: pandas DataFrame
+        column: column name to check for outliers
+        multiplier: IQR multiplier, default 1.5
+    
+    Returns:
+        Boolean Series indicating outliers
     """
     if column not in df.columns:
         raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    if not pd.api.types.is_numeric_dtype(df[column]):
+        raise ValueError(f"Column '{column}' must be numeric")
     
     Q1 = df[column].quantile(0.25)
     Q3 = df[column].quantile(0.75)
     IQR = Q3 - Q1
     
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
+    lower_bound = Q1 - multiplier * IQR
+    upper_bound = Q3 + multiplier * IQR
     
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    
-    return filtered_df.reset_index(drop=True)
+    return (df[column] < lower_bound) | (df[column] > upper_bound)
 
-def calculate_summary_statistics(df, column):
+def cap_outliers(df, column, method='iqr', multiplier=1.5):
     """
-    Calculate summary statistics for a column after outlier removal.
+    Cap outliers to specified bounds.
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to analyze
+    Args:
+        df: pandas DataFrame
+        column: column name to process
+        method: 'iqr' or 'percentile'
+        multiplier: IQR multiplier if method='iqr'
     
     Returns:
-    dict: Dictionary containing summary statistics
+        DataFrame with capped values
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    df_capped = df.copy()
     
-    stats = {
-        'mean': df[column].mean(),
-        'median': df[column].median(),
-        'std': df[column].std(),
-        'min': df[column].min(),
-        'max': df[column].max(),
-        'count': df[column].count(),
-        'q1': df[column].quantile(0.25),
-        'q3': df[column].quantile(0.75)
-    }
+    if method == 'iqr':
+        Q1 = df[column].quantile(0.25)
+        Q3 = df[column].quantile(0.75)
+        IQR = Q3 - Q1
+        
+        lower_bound = Q1 - multiplier * IQR
+        upper_bound = Q3 + multiplier * IQR
+        
+    elif method == 'percentile':
+        lower_bound = df[column].quantile(0.01)
+        upper_bound = df[column].quantile(0.99)
     
-    return stats
+    else:
+        raise ValueError("Method must be 'iqr' or 'percentile'")
+    
+    df_capped[column] = df[column].clip(lower=lower_bound, upper=upper_bound)
+    return df_capped
 
-def clean_dataset(df, columns_to_clean):
+def clean_dataset(df, missing_threshold=0.3, outlier_columns=None):
     """
-    Clean multiple columns in a DataFrame by removing outliers.
+    Comprehensive data cleaning pipeline.
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    columns_to_clean (list): List of column names to clean
+    Args:
+        df: pandas DataFrame
+        missing_threshold: threshold for removing rows with missing values
+        outlier_columns: list of columns to process for outliers
     
     Returns:
-    pd.DataFrame: Cleaned DataFrame
-    dict: Dictionary of summary statistics for each cleaned column
+        Cleaned DataFrame
     """
     cleaned_df = df.copy()
-    summary_stats = {}
     
-    for column in columns_to_clean:
-        if column in cleaned_df.columns:
-            original_count = len(cleaned_df)
-            cleaned_df = remove_outliers_iqr(cleaned_df, column)
-            removed_count = original_count - len(cleaned_df)
-            
-            stats = calculate_summary_statistics(cleaned_df, column)
-            stats['outliers_removed'] = removed_count
-            summary_stats[column] = stats
+    cleaned_df = remove_missing_rows(cleaned_df, threshold=missing_threshold)
+    cleaned_df = fill_missing_with_median(cleaned_df)
     
-    return cleaned_df, summary_stats
-
-if __name__ == "__main__":
-    # Example usage
-    sample_data = {
-        'temperature': [22, 23, 24, 25, 26, 100, 27, 28, 29, -10, 30, 31],
-        'humidity': [45, 46, 47, 48, 49, 50, 200, 51, 52, 53, -5, 54],
-        'pressure': [1013, 1014, 1015, 1016, 1017, 1018, 1019, 1020, 2000, 1021, -100, 1022]
-    }
+    if outlier_columns:
+        for col in outlier_columns:
+            if col in cleaned_df.columns:
+                cleaned_df = cap_outliers(cleaned_df, col, method='iqr')
     
-    df = pd.DataFrame(sample_data)
-    print("Original DataFrame:")
-    print(df)
-    print("\n" + "="*50 + "\n")
-    
-    columns_to_clean = ['temperature', 'humidity', 'pressure']
-    cleaned_df, stats = clean_dataset(df, columns_to_clean)
-    
-    print("Cleaned DataFrame:")
-    print(cleaned_df)
-    print("\n" + "="*50 + "\n")
-    
-    print("Summary Statistics:")
-    for column, column_stats in stats.items():
-        print(f"\n{column}:")
-        for stat_name, stat_value in column_stats.items():
-            print(f"  {stat_name}: {stat_value}")
+    return cleaned_df.reset_index(drop=True)
