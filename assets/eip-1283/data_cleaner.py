@@ -226,3 +226,115 @@ def clean_dataset(data, outlier_method='iqr', normalize_method='minmax', missing
     cleaned_data = handle_missing_values(cleaned_data, strategy=missing_strategy)
     
     return cleaned_data
+import pandas as pd
+import numpy as np
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.original_shape = df.shape
+
+    def handle_missing_values(self, strategy='mean', columns=None):
+        if columns is None:
+            columns = self.df.columns
+
+        for col in columns:
+            if self.df[col].isnull().any():
+                if strategy == 'mean':
+                    fill_value = self.df[col].mean()
+                elif strategy == 'median':
+                    fill_value = self.df[col].median()
+                elif strategy == 'mode':
+                    fill_value = self.df[col].mode()[0]
+                elif strategy == 'drop':
+                    self.df = self.df.dropna(subset=[col])
+                    continue
+                else:
+                    raise ValueError("Invalid strategy. Use 'mean', 'median', 'mode', or 'drop'")
+                
+                self.df[col] = self.df[col].fillna(fill_value)
+        
+        return self
+
+    def remove_outliers_iqr(self, columns=None, multiplier=1.5):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+
+        for col in columns:
+            Q1 = self.df[col].quantile(0.25)
+            Q3 = self.df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - multiplier * IQR
+            upper_bound = Q3 + multiplier * IQR
+            
+            self.df = self.df[(self.df[col] >= lower_bound) & (self.df[col] <= upper_bound)]
+        
+        return self
+
+    def standardize_columns(self, columns=None):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+
+        for col in columns:
+            mean = self.df[col].mean()
+            std = self.df[col].std()
+            if std > 0:
+                self.df[col] = (self.df[col] - mean) / std
+        
+        return self
+
+    def get_cleaned_data(self):
+        return self.df
+
+    def get_summary(self):
+        cleaned_shape = self.df.shape
+        rows_removed = self.original_shape[0] - cleaned_shape[0]
+        cols_removed = self.original_shape[1] - cleaned_shape[1]
+        
+        summary = {
+            'original_shape': self.original_shape,
+            'cleaned_shape': cleaned_shape,
+            'rows_removed': rows_removed,
+            'columns_removed': cols_removed,
+            'missing_values_remaining': self.df.isnull().sum().sum()
+        }
+        
+        return summary
+
+def create_sample_data():
+    np.random.seed(42)
+    data = {
+        'feature1': np.random.normal(100, 15, 100),
+        'feature2': np.random.exponential(50, 100),
+        'feature3': np.random.randint(1, 100, 100)
+    }
+    
+    df = pd.DataFrame(data)
+    
+    df.loc[10:15, 'feature1'] = np.nan
+    df.loc[20:25, 'feature2'] = np.nan
+    
+    df.loc[95, 'feature1'] = 500
+    df.loc[96, 'feature2'] = 1000
+    
+    return df
+
+if __name__ == "__main__":
+    sample_df = create_sample_data()
+    print("Original data shape:", sample_df.shape)
+    print("Missing values:", sample_df.isnull().sum().sum())
+    
+    cleaner = DataCleaner(sample_df)
+    cleaned_df = (cleaner
+                  .handle_missing_values(strategy='mean')
+                  .remove_outliers_iqr(multiplier=1.5)
+                  .standardize_columns()
+                  .get_cleaned_data())
+    
+    summary = cleaner.get_summary()
+    print("\nCleaning Summary:")
+    for key, value in summary.items():
+        print(f"{key}: {value}")
+    
+    print("\nFirst 5 rows of cleaned data:")
+    print(cleaned_df.head())
