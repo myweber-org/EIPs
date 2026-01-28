@@ -405,4 +405,127 @@ if __name__ == "__main__":
     validation = validate_dataset(cleaned, required_columns=['id', 'value'])
     print("\nValidation Results:")
     for key, value in validation.items():
-        print(f"{key}: {value}")
+        print(f"{key}: {value}")import pandas as pd
+import numpy as np
+
+def remove_duplicates(df, subset=None):
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        subset (list, optional): Column names to consider for duplicates.
+    
+    Returns:
+        pd.DataFrame: DataFrame with duplicates removed.
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def fill_missing_values(df, strategy='mean', columns=None):
+    """
+    Fill missing values in DataFrame columns.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        strategy (str): 'mean', 'median', 'mode', or 'constant'.
+        columns (list, optional): Specific columns to fill.
+    
+    Returns:
+        pd.DataFrame: DataFrame with filled missing values.
+    """
+    df_filled = df.copy()
+    
+    if columns is None:
+        columns = df.columns
+    
+    for col in columns:
+        if df[col].dtype in [np.float64, np.int64]:
+            if strategy == 'mean':
+                fill_value = df[col].mean()
+            elif strategy == 'median':
+                fill_value = df[col].median()
+            elif strategy == 'mode':
+                fill_value = df[col].mode()[0] if not df[col].mode().empty else 0
+            elif strategy == 'constant':
+                fill_value = 0
+            else:
+                raise ValueError("Strategy must be 'mean', 'median', 'mode', or 'constant'")
+            
+            df_filled[col] = df[col].fillna(fill_value)
+    
+    return df_filled
+
+def normalize_column(df, column, method='minmax'):
+    """
+    Normalize a column in the DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        column (str): Column name to normalize.
+        method (str): 'minmax' or 'zscore'.
+    
+    Returns:
+        pd.DataFrame: DataFrame with normalized column.
+    """
+    df_normalized = df.copy()
+    
+    if method == 'minmax':
+        min_val = df[column].min()
+        max_val = df[column].max()
+        if max_val != min_val:
+            df_normalized[column] = (df[column] - min_val) / (max_val - min_val)
+    
+    elif method == 'zscore':
+        mean_val = df[column].mean()
+        std_val = df[column].std()
+        if std_val != 0:
+            df_normalized[column] = (df[column] - mean_val) / std_val
+    
+    else:
+        raise ValueError("Method must be 'minmax' or 'zscore'")
+    
+    return df_normalized
+
+def clean_dataframe(df, remove_dups=True, fill_na=True, normalize_cols=None):
+    """
+    Apply multiple cleaning operations to a DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        remove_dups (bool): Whether to remove duplicates.
+        fill_na (bool): Whether to fill missing values.
+        normalize_cols (list, optional): Columns to normalize.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    if remove_dups:
+        cleaned_df = remove_duplicates(cleaned_df)
+    
+    if fill_na:
+        cleaned_df = fill_missing_values(cleaned_df, strategy='mean')
+    
+    if normalize_cols:
+        for col in normalize_cols:
+            if col in cleaned_df.columns:
+                cleaned_df = normalize_column(cleaned_df, col, method='minmax')
+    
+    return cleaned_df
+
+def save_cleaned_data(df, output_path, format='csv'):
+    """
+    Save cleaned DataFrame to file.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to save.
+        output_path (str): Output file path.
+        format (str): 'csv' or 'parquet'.
+    """
+    if format == 'csv':
+        df.to_csv(output_path, index=False)
+    elif format == 'parquet':
+        df.to_parquet(output_path, index=False)
+    else:
+        raise ValueError("Format must be 'csv' or 'parquet'")
