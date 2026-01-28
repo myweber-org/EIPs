@@ -163,4 +163,120 @@ def remove_outliers_iqr(df, column, multiplier=1.5):
     lower_bound = Q1 - multiplier * IQR
     upper_bound = Q3 + multiplier * IQR
     
-    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]import pandas as pd
+import numpy as np
+
+def remove_duplicates(df, subset=None):
+    """
+    Remove duplicate rows from a DataFrame.
+    """
+    if subset is None:
+        return df.drop_duplicates()
+    else:
+        return df.drop_duplicates(subset=subset)
+
+def fill_missing_values(df, strategy='mean', columns=None):
+    """
+    Fill missing values in specified columns using a given strategy.
+    """
+    if columns is None:
+        columns = df.columns
+    
+    df_filled = df.copy()
+    
+    for col in columns:
+        if df[col].dtype in [np.float64, np.int64]:
+            if strategy == 'mean':
+                fill_value = df[col].mean()
+            elif strategy == 'median':
+                fill_value = df[col].median()
+            elif strategy == 'mode':
+                fill_value = df[col].mode()[0]
+            else:
+                fill_value = 0
+            
+            df_filled[col] = df[col].fillna(fill_value)
+        else:
+            df_filled[col] = df[col].fillna('Unknown')
+    
+    return df_filled
+
+def normalize_column(df, column, method='minmax'):
+    """
+    Normalize a numerical column using specified method.
+    """
+    if method == 'minmax':
+        min_val = df[column].min()
+        max_val = df[column].max()
+        if max_val != min_val:
+            df[column] = (df[column] - min_val) / (max_val - min_val)
+    elif method == 'zscore':
+        mean_val = df[column].mean()
+        std_val = df[column].std()
+        if std_val != 0:
+            df[column] = (df[column] - mean_val) / std_val
+    
+    return df
+
+def clean_dataframe(df, operations=None):
+    """
+    Apply multiple cleaning operations to a DataFrame.
+    """
+    if operations is None:
+        operations = []
+    
+    cleaned_df = df.copy()
+    
+    for operation in operations:
+        if operation['type'] == 'remove_duplicates':
+            cleaned_df = remove_duplicates(cleaned_df, operation.get('subset'))
+        elif operation['type'] == 'fill_missing':
+            cleaned_df = fill_missing_values(
+                cleaned_df, 
+                operation.get('strategy', 'mean'),
+                operation.get('columns')
+            )
+        elif operation['type'] == 'normalize':
+            cleaned_df = normalize_column(
+                cleaned_df,
+                operation['column'],
+                operation.get('method', 'minmax')
+            )
+    
+    return cleaned_df
+
+def validate_dataframe(df, rules=None):
+    """
+    Validate DataFrame against a set of rules.
+    """
+    if rules is None:
+        return True, []
+    
+    errors = []
+    
+    for rule in rules:
+        if rule['type'] == 'not_null':
+            null_count = df[rule['column']].isnull().sum()
+            if null_count > 0:
+                errors.append(f"Column {rule['column']} has {null_count} null values")
+        
+        elif rule['type'] == 'unique':
+            duplicate_count = df[rule['column']].duplicated().sum()
+            if duplicate_count > 0:
+                errors.append(f"Column {rule['column']} has {duplicate_count} duplicate values")
+        
+        elif rule['type'] == 'range':
+            min_val = rule.get('min')
+            max_val = rule.get('max')
+            
+            if min_val is not None:
+                below_min = (df[rule['column']] < min_val).sum()
+                if below_min > 0:
+                    errors.append(f"Column {rule['column']} has {below_min} values below minimum {min_val}")
+            
+            if max_val is not None:
+                above_max = (df[rule['column']] > max_val).sum()
+                if above_max > 0:
+                    errors.append(f"Column {rule['column']} has {above_max} values above maximum {max_val}")
+    
+    return len(errors) == 0, errors
