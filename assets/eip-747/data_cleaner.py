@@ -193,3 +193,102 @@ if __name__ == "__main__":
     cleaned_df = clean_dataset(df, ['A', 'B'])
     print("\nCleaned DataFrame:")
     print(cleaned_df)
+import pandas as pd
+import numpy as np
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_duplicates(self, subset=None, keep='first'):
+        self.df = self.df.drop_duplicates(subset=subset, keep=keep)
+        return self
+        
+    def handle_missing_values(self, strategy='mean', columns=None):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+        
+        for col in columns:
+            if col in self.df.columns:
+                if strategy == 'mean':
+                    self.df[col].fillna(self.df[col].mean(), inplace=True)
+                elif strategy == 'median':
+                    self.df[col].fillna(self.df[col].median(), inplace=True)
+                elif strategy == 'mode':
+                    self.df[col].fillna(self.df[col].mode()[0], inplace=True)
+                elif strategy == 'drop':
+                    self.df = self.df.dropna(subset=[col])
+                elif isinstance(strategy, (int, float)):
+                    self.df[col].fillna(strategy, inplace=True)
+        return self
+        
+    def remove_outliers(self, columns=None, method='iqr', threshold=1.5):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+            
+        for col in columns:
+            if col in self.df.columns:
+                if method == 'iqr':
+                    Q1 = self.df[col].quantile(0.25)
+                    Q3 = self.df[col].quantile(0.75)
+                    IQR = Q3 - Q1
+                    lower_bound = Q1 - threshold * IQR
+                    upper_bound = Q3 + threshold * IQR
+                    self.df = self.df[(self.df[col] >= lower_bound) & (self.df[col] <= upper_bound)]
+                elif method == 'zscore':
+                    from scipy import stats
+                    z_scores = np.abs(stats.zscore(self.df[col]))
+                    self.df = self.df[z_scores < threshold]
+        return self
+        
+    def normalize_data(self, columns=None, method='minmax'):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+            
+        for col in columns:
+            if col in self.df.columns:
+                if method == 'minmax':
+                    min_val = self.df[col].min()
+                    max_val = self.df[col].max()
+                    if max_val > min_val:
+                        self.df[col] = (self.df[col] - min_val) / (max_val - min_val)
+                elif method == 'standard':
+                    mean_val = self.df[col].mean()
+                    std_val = self.df[col].std()
+                    if std_val > 0:
+                        self.df[col] = (self.df[col] - mean_val) / std_val
+        return self
+        
+    def get_cleaned_data(self):
+        return self.df
+        
+    def get_summary(self):
+        cleaned_shape = self.df.shape
+        rows_removed = self.original_shape[0] - cleaned_shape[0]
+        cols_removed = self.original_shape[1] - cleaned_shape[1]
+        
+        summary = {
+            'original_shape': self.original_shape,
+            'cleaned_shape': cleaned_shape,
+            'rows_removed': rows_removed,
+            'cols_removed': cols_removed,
+            'missing_values': self.df.isnull().sum().sum(),
+            'duplicates': self.df.duplicated().sum()
+        }
+        return summary
+
+def clean_dataset(df, remove_duplicates=True, handle_missing=True, 
+                  missing_strategy='mean', normalize=False):
+    cleaner = DataCleaner(df)
+    
+    if remove_duplicates:
+        cleaner.remove_duplicates()
+    
+    if handle_missing:
+        cleaner.handle_missing_values(strategy=missing_strategy)
+    
+    if normalize:
+        cleaner.normalize_data()
+    
+    return cleaner.get_cleaned_data(), cleaner.get_summary()
