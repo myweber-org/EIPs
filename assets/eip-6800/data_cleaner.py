@@ -1,6 +1,6 @@
 
-import numpy as np
 import pandas as pd
+import numpy as np
 
 def remove_outliers_iqr(df, column):
     """
@@ -27,16 +27,16 @@ def remove_outliers_iqr(df, column):
     
     return filtered_df
 
-def calculate_basic_stats(df, column):
+def calculate_summary_statistics(df, column):
     """
-    Calculate basic statistics for a DataFrame column.
+    Calculate summary statistics for a DataFrame column.
     
     Parameters:
     df (pd.DataFrame): Input DataFrame
     column (str): Column name to analyze
     
     Returns:
-    dict: Dictionary containing statistical measures
+    dict: Dictionary containing summary statistics
     """
     if column not in df.columns:
         raise ValueError(f"Column '{column}' not found in DataFrame")
@@ -53,202 +53,46 @@ def calculate_basic_stats(df, column):
     
     return stats
 
-def normalize_column(df, column, method='minmax'):
+def clean_numeric_data(df, columns=None):
     """
-    Normalize a DataFrame column using specified method.
+    Clean numeric data by removing NaN values and converting to appropriate types.
     
     Parameters:
     df (pd.DataFrame): Input DataFrame
-    column (str): Column name to normalize
-    method (str): Normalization method ('minmax' or 'zscore')
-    
-    Returns:
-    pd.DataFrame: DataFrame with normalized column
-    """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    df_copy = df.copy()
-    
-    if method == 'minmax':
-        min_val = df_copy[column].min()
-        max_val = df_copy[column].max()
-        if max_val != min_val:
-            df_copy[column] = (df_copy[column] - min_val) / (max_val - min_val)
-    
-    elif method == 'zscore':
-        mean_val = df_copy[column].mean()
-        std_val = df_copy[column].std()
-        if std_val != 0:
-            df_copy[column] = (df_copy[column] - mean_val) / std_val
-    
-    else:
-        raise ValueError("Method must be 'minmax' or 'zscore'")
-    
-    return df_copy
-
-def example_usage():
-    """
-    Example usage of the data cleaning functions.
-    """
-    np.random.seed(42)
-    data = {
-        'values': np.random.normal(100, 15, 1000),
-        'category': np.random.choice(['A', 'B', 'C'], 1000)
-    }
-    
-    df = pd.DataFrame(data)
-    
-    print("Original DataFrame shape:", df.shape)
-    print("Original statistics:", calculate_basic_stats(df, 'values'))
-    
-    cleaned_df = remove_outliers_iqr(df, 'values')
-    print("\nCleaned DataFrame shape:", cleaned_df.shape)
-    print("Cleaned statistics:", calculate_basic_stats(cleaned_df, 'values'))
-    
-    normalized_df = normalize_column(cleaned_df, 'values', method='zscore')
-    print("\nNormalized statistics:", calculate_basic_stats(normalized_df, 'values'))
-    
-    return cleaned_df, normalized_df
-
-if __name__ == "__main__":
-    cleaned, normalized = example_usage()
-import numpy as np
-import pandas as pd
-
-def detect_outliers_iqr(data, column, threshold=1.5):
-    """
-    Detect outliers in a pandas Series using the Interquartile Range method.
-    
-    Parameters:
-    data (pd.Series): Input data series
-    column (str): Column name to analyze
-    threshold (float): Multiplier for IQR (default 1.5)
-    
-    Returns:
-    pd.Series: Boolean mask where True indicates outliers
-    """
-    if column not in data.columns:
-        raise ValueError(f"Column '{column}' not found in data")
-    
-    series = data[column]
-    q1 = series.quantile(0.25)
-    q3 = series.quantile(0.75)
-    iqr = q3 - q1
-    
-    lower_bound = q1 - threshold * iqr
-    upper_bound = q3 + threshold * iqr
-    
-    return (series < lower_bound) | (series > upper_bound)
-
-def remove_outliers(data, column, threshold=1.5, inplace=False):
-    """
-    Remove outliers from a DataFrame column using IQR method.
-    
-    Parameters:
-    data (pd.DataFrame): Input DataFrame
-    column (str): Column name to clean
-    threshold (float): Multiplier for IQR (default 1.5)
-    inplace (bool): Whether to modify the DataFrame in place
-    
-    Returns:
-    pd.DataFrame: DataFrame with outliers removed
-    """
-    outlier_mask = detect_outliers_iqr(data, column, threshold)
-    
-    if inplace:
-        data.drop(data[outlier_mask].index, inplace=True)
-        return data
-    else:
-        return data[~outlier_mask].copy()
-
-def winsorize_data(data, column, limits=(0.05, 0.05)):
-    """
-    Apply winsorization to limit extreme values in a column.
-    
-    Parameters:
-    data (pd.DataFrame): Input DataFrame
-    column (str): Column name to winsorize
-    limits (tuple): Lower and upper percentile limits
-    
-    Returns:
-    pd.Series: Winsorized column values
-    """
-    if column not in data.columns:
-        raise ValueError(f"Column '{column}' not found in data")
-    
-    series = data[column].copy()
-    lower_limit = series.quantile(limits[0])
-    upper_limit = series.quantile(1 - limits[1])
-    
-    series[series < lower_limit] = lower_limit
-    series[series > upper_limit] = upper_limit
-    
-    return series
-
-def clean_dataset(data, numeric_columns=None, outlier_threshold=1.5, winsorize_limits=(0.01, 0.01)):
-    """
-    Comprehensive data cleaning pipeline for numeric columns.
-    
-    Parameters:
-    data (pd.DataFrame): Input DataFrame
-    numeric_columns (list): List of numeric column names to clean
-    outlier_threshold (float): IQR multiplier for outlier detection
-    winsorize_limits (tuple): Percentile limits for winsorization
+    columns (list): List of column names to clean. If None, cleans all numeric columns.
     
     Returns:
     pd.DataFrame: Cleaned DataFrame
     """
-    if numeric_columns is None:
-        numeric_columns = data.select_dtypes(include=[np.number]).columns.tolist()
+    if columns is None:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        columns = list(numeric_cols)
     
-    cleaned_data = data.copy()
+    cleaned_df = df.copy()
     
-    for column in numeric_columns:
-        if column in cleaned_data.columns:
-            # Remove extreme outliers
-            cleaned_data = remove_outliers(cleaned_data, column, outlier_threshold, inplace=False)
-            
-            # Apply winsorization to remaining data
-            cleaned_data[column] = winsorize_data(cleaned_data, column, winsorize_limits)
+    for col in columns:
+        if col in cleaned_df.columns:
+            cleaned_df[col] = pd.to_numeric(cleaned_df[col], errors='coerce')
+            cleaned_df[col].fillna(cleaned_df[col].median(), inplace=True)
     
-    return cleaned_data.reset_index(drop=True)
+    return cleaned_df
 
-def get_cleaning_report(data, cleaned_data, numeric_columns=None):
-    """
-    Generate a report comparing original and cleaned data.
+if __name__ == "__main__":
+    sample_data = {
+        'values': [10, 12, 12, 13, 12, 11, 14, 13, 15, 100, 12, 13, 12, 11, 14]
+    }
     
-    Parameters:
-    data (pd.DataFrame): Original DataFrame
-    cleaned_data (pd.DataFrame): Cleaned DataFrame
-    numeric_columns (list): List of numeric column names to report
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print()
     
-    Returns:
-    pd.DataFrame: Summary statistics comparison
-    """
-    if numeric_columns is None:
-        numeric_columns = data.select_dtypes(include=[np.number]).columns.tolist()
+    cleaned_df = remove_outliers_iqr(df, 'values')
+    print("DataFrame after removing outliers:")
+    print(cleaned_df)
+    print()
     
-    report_data = []
-    
-    for column in numeric_columns:
-        if column in data.columns and column in cleaned_data.columns:
-            original_stats = data[column].describe()
-            cleaned_stats = cleaned_data[column].describe()
-            
-            report_data.append({
-                'column': column,
-                'original_count': original_stats['count'],
-                'cleaned_count': cleaned_stats['count'],
-                'removed_count': original_stats['count'] - cleaned_stats['count'],
-                'original_mean': original_stats['mean'],
-                'cleaned_mean': cleaned_stats['mean'],
-                'original_std': original_stats['std'],
-                'cleaned_std': cleaned_stats['std'],
-                'original_min': original_stats['min'],
-                'cleaned_min': cleaned_stats['min'],
-                'original_max': original_stats['max'],
-                'cleaned_max': cleaned_stats['max']
-            })
-    
-    return pd.DataFrame(report_data)
+    stats = calculate_summary_statistics(df, 'values')
+    print("Summary statistics:")
+    for key, value in stats.items():
+        print(f"{key}: {value}")
