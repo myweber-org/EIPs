@@ -111,4 +111,53 @@ def remove_outliers(df, column, method='iqr', threshold=1.5):
     removed_count = len(df) - len(filtered_df)
     print(f"Removed {removed_count} outliers from column '{column}'")
     
-    return filtered_df
+    return filtered_dfimport pandas as pd
+
+def clean_dataframe(df, drop_duplicates=True, fill_missing=True, fill_value=0):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    if fill_missing:
+        cleaned_df = cleaned_df.fillna(fill_value)
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and required columns.
+    """
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            raise ValueError(f"Missing required columns: {missing_columns}")
+    
+    if df.empty:
+        raise ValueError("DataFrame is empty")
+    
+    return True
+
+if __name__ == "__main__":
+    sample_data = {
+        'id': [1, 2, 2, 3, 4],
+        'value': [10, None, 20, 30, None],
+        'category': ['A', 'B', 'B', 'A', 'C']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned = clean_dataframe(df)
+    print("\nCleaned DataFrame:")
+    print(cleaned)
+    
+    try:
+        validate_dataframe(cleaned, required_columns=['id', 'value'])
+        print("\nData validation passed")
+    except ValueError as e:
+        print(f"\nData validation failed: {e}")
