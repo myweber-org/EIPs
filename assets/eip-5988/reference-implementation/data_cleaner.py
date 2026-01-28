@@ -346,3 +346,171 @@ if __name__ == "__main__":
     cleaned = clean_dataset(df, drop_duplicates=True, fill_missing='mean')
     print("\nCleaned DataFrame:")
     print(cleaned)
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(dataframe, column, multiplier=1.5):
+    """
+    Remove outliers using the Interquartile Range method.
+    
+    Args:
+        dataframe: pandas DataFrame
+        column: column name to process
+        multiplier: IQR multiplier (default 1.5)
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = dataframe[column].quantile(0.25)
+    q3 = dataframe[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - multiplier * iqr
+    upper_bound = q3 + multiplier * iqr
+    
+    return dataframe[(dataframe[column] >= lower_bound) & 
+                     (dataframe[column] <= upper_bound)]
+
+def remove_outliers_zscore(dataframe, column, threshold=3):
+    """
+    Remove outliers using Z-score method.
+    
+    Args:
+        dataframe: pandas DataFrame
+        column: column name to process
+        threshold: Z-score threshold (default 3)
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    z_scores = np.abs(stats.zscore(dataframe[column]))
+    return dataframe[z_scores < threshold]
+
+def normalize_minmax(dataframe, columns=None):
+    """
+    Normalize data using Min-Max scaling.
+    
+    Args:
+        dataframe: pandas DataFrame
+        columns: list of columns to normalize (default: all numeric columns)
+    
+    Returns:
+        DataFrame with normalized columns
+    """
+    if columns is None:
+        columns = dataframe.select_dtypes(include=[np.number]).columns
+    
+    result = dataframe.copy()
+    for col in columns:
+        if col in dataframe.columns and np.issubdtype(dataframe[col].dtype, np.number):
+            min_val = dataframe[col].min()
+            max_val = dataframe[col].max()
+            if max_val > min_val:  # Avoid division by zero
+                result[col] = (dataframe[col] - min_val) / (max_val - min_val)
+    
+    return result
+
+def normalize_zscore(dataframe, columns=None):
+    """
+    Normalize data using Z-score standardization.
+    
+    Args:
+        dataframe: pandas DataFrame
+        columns: list of columns to normalize (default: all numeric columns)
+    
+    Returns:
+        DataFrame with standardized columns
+    """
+    if columns is None:
+        columns = dataframe.select_dtypes(include=[np.number]).columns
+    
+    result = dataframe.copy()
+    for col in columns:
+        if col in dataframe.columns and np.issubdtype(dataframe[col].dtype, np.number):
+            mean_val = dataframe[col].mean()
+            std_val = dataframe[col].std()
+            if std_val > 0:  # Avoid division by zero
+                result[col] = (dataframe[col] - mean_val) / std_val
+    
+    return result
+
+def clean_dataset(dataframe, outlier_method='iqr', normalize_method='minmax', 
+                  outlier_params=None, normalize_params=None):
+    """
+    Complete data cleaning pipeline.
+    
+    Args:
+        dataframe: pandas DataFrame
+        outlier_method: 'iqr', 'zscore', or None
+        normalize_method: 'minmax', 'zscore', or None
+        outlier_params: dictionary of parameters for outlier removal
+        normalize_params: dictionary of parameters for normalization
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    if outlier_params is None:
+        outlier_params = {}
+    if normalize_params is None:
+        normalize_params = {}
+    
+    result = dataframe.copy()
+    
+    # Remove outliers from numeric columns
+    if outlier_method:
+        numeric_cols = result.select_dtypes(include=[np.number]).columns
+        
+        for col in numeric_cols:
+            if outlier_method == 'iqr':
+                result = remove_outliers_iqr(result, col, **outlier_params)
+            elif outlier_method == 'zscore':
+                result = remove_outliers_zscore(result, col, **outlier_params)
+    
+    # Normalize numeric columns
+    if normalize_method:
+        if normalize_method == 'minmax':
+            result = normalize_minmax(result, **normalize_params)
+        elif normalize_method == 'zscore':
+            result = normalize_zscore(result, **normalize_params)
+    
+    return result
+
+def get_data_summary(dataframe):
+    """
+    Generate summary statistics for the dataset.
+    
+    Args:
+        dataframe: pandas DataFrame
+    
+    Returns:
+        Dictionary with summary statistics
+    """
+    summary = {
+        'shape': dataframe.shape,
+        'columns': list(dataframe.columns),
+        'dtypes': dataframe.dtypes.to_dict(),
+        'missing_values': dataframe.isnull().sum().to_dict(),
+        'numeric_summary': {}
+    }
+    
+    numeric_cols = dataframe.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        summary['numeric_summary'][col] = {
+            'mean': dataframe[col].mean(),
+            'std': dataframe[col].std(),
+            'min': dataframe[col].min(),
+            '25%': dataframe[col].quantile(0.25),
+            '50%': dataframe[col].quantile(0.50),
+            '75%': dataframe[col].quantile(0.75),
+            'max': dataframe[col].max(),
+            'skew': dataframe[col].skew(),
+            'kurtosis': dataframe[col].kurtosis()
+        }
+    
+    return summary
