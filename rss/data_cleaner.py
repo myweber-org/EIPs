@@ -317,3 +317,92 @@ if __name__ == "__main__":
     
     is_valid = validate_dataset(cleaned, required_columns=['A', 'B'])
     print(f"\nDataset validation: {is_valid}")
+import pandas as pd
+
+def clean_dataset(df, missing_strategy='drop', duplicate_strategy='drop_first'):
+    """
+    Clean a pandas DataFrame by handling missing values and duplicates.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    missing_strategy (str): Strategy for missing values. 
+                            'drop': Drop rows with any missing values.
+                            'fill_mean': Fill missing values with column mean (numeric only).
+    duplicate_strategy (str): Strategy for duplicates.
+                              'drop_first': Keep first occurrence, drop subsequent duplicates.
+                              'drop_last': Keep last occurrence, drop previous duplicates.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    # Handle missing values
+    if missing_strategy == 'drop':
+        cleaned_df = cleaned_df.dropna()
+    elif missing_strategy == 'fill_mean':
+        numeric_cols = cleaned_df.select_dtypes(include=['number']).columns
+        for col in numeric_cols:
+            cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mean())
+    
+    # Handle duplicates
+    if duplicate_strategy == 'drop_first':
+        cleaned_df = cleaned_df.drop_duplicates(keep='first')
+    elif duplicate_strategy == 'drop_last':
+        cleaned_df = cleaned_df.drop_duplicates(keep='last')
+    
+    return cleaned_df
+
+def validate_dataset(df, required_columns=None):
+    """
+    Validate dataset structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+    required_columns (list): List of column names that must be present.
+    
+    Returns:
+    dict: Dictionary with validation results.
+    """
+    validation_results = {
+        'is_valid': True,
+        'missing_columns': [],
+        'empty_rows': 0,
+        'total_rows': len(df),
+        'total_columns': len(df.columns)
+    }
+    
+    if required_columns:
+        missing = [col for col in required_columns if col not in df.columns]
+        if missing:
+            validation_results['is_valid'] = False
+            validation_results['missing_columns'] = missing
+    
+    validation_results['empty_rows'] = df.isnull().all(axis=1).sum()
+    
+    return validation_results
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'id': [1, 2, 3, 4, 5, 5],
+        'value': [10.5, None, 15.2, 20.1, 10.5, 10.5],
+        'category': ['A', 'B', 'A', None, 'B', 'B']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nDataset Info:")
+    print(df.info())
+    
+    # Clean the dataset
+    cleaned = clean_dataset(df, missing_strategy='fill_mean', duplicate_strategy='drop_first')
+    print("\nCleaned DataFrame:")
+    print(cleaned)
+    
+    # Validate the cleaned dataset
+    validation = validate_dataset(cleaned, required_columns=['id', 'value'])
+    print("\nValidation Results:")
+    for key, value in validation.items():
+        print(f"{key}: {value}")
