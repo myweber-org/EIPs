@@ -75,4 +75,160 @@ if __name__ == "__main__":
     print(cleaned)
     
     is_valid, message = validate_dataframe(cleaned, required_columns=['id', 'value'])
-    print(f"\nValidation: {message}")
+    print(f"\nValidation: {message}")import pandas as pd
+import numpy as np
+from typing import Optional, List, Dict, Any
+
+def remove_duplicate_rows(df: pd.DataFrame, subset: Optional[List[str]] = None) -> pd.DataFrame:
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Args:
+        df: Input DataFrame
+        subset: Columns to consider for identifying duplicates
+    
+    Returns:
+        DataFrame with duplicates removed
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def fill_missing_values(df: pd.DataFrame, strategy: str = 'mean', columns: Optional[List[str]] = None) -> pd.DataFrame:
+    """
+    Fill missing values in DataFrame columns.
+    
+    Args:
+        df: Input DataFrame
+        strategy: 'mean', 'median', 'mode', or 'constant'
+        columns: Specific columns to fill, fills all if None
+    
+    Returns:
+        DataFrame with filled missing values
+    """
+    df_filled = df.copy()
+    
+    if columns is None:
+        columns = df_filled.columns
+    
+    for col in columns:
+        if df_filled[col].isnull().any():
+            if strategy == 'mean':
+                fill_value = df_filled[col].mean()
+            elif strategy == 'median':
+                fill_value = df_filled[col].median()
+            elif strategy == 'mode':
+                fill_value = df_filled[col].mode()[0]
+            elif strategy == 'constant':
+                fill_value = 0
+            else:
+                raise ValueError(f"Unknown strategy: {strategy}")
+            
+            df_filled[col] = df_filled[col].fillna(fill_value)
+    
+    return df_filled
+
+def normalize_columns(df: pd.DataFrame, columns: Optional[List[str]] = None, method: str = 'minmax') -> pd.DataFrame:
+    """
+    Normalize specified columns in DataFrame.
+    
+    Args:
+        df: Input DataFrame
+        columns: Columns to normalize, normalizes all numeric if None
+        method: 'minmax' or 'zscore'
+    
+    Returns:
+        DataFrame with normalized columns
+    """
+    df_normalized = df.copy()
+    
+    if columns is None:
+        columns = df_normalized.select_dtypes(include=[np.number]).columns
+    
+    for col in columns:
+        if method == 'minmax':
+            min_val = df_normalized[col].min()
+            max_val = df_normalized[col].max()
+            if max_val > min_val:
+                df_normalized[col] = (df_normalized[col] - min_val) / (max_val - min_val)
+        elif method == 'zscore':
+            mean_val = df_normalized[col].mean()
+            std_val = df_normalized[col].std()
+            if std_val > 0:
+                df_normalized[col] = (df_normalized[col] - mean_val) / std_val
+        else:
+            raise ValueError(f"Unknown method: {method}")
+    
+    return df_normalized
+
+def clean_dataframe(df: pd.DataFrame, 
+                    remove_dups: bool = True,
+                    fill_na: bool = True,
+                    fill_strategy: str = 'mean',
+                    normalize: bool = False,
+                    norm_method: str = 'minmax') -> pd.DataFrame:
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Args:
+        df: Input DataFrame
+        remove_dups: Whether to remove duplicate rows
+        fill_na: Whether to fill missing values
+        fill_strategy: Strategy for filling missing values
+        normalize: Whether to normalize numeric columns
+        norm_method: Normalization method
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    if remove_dups:
+        cleaned_df = remove_duplicate_rows(cleaned_df)
+    
+    if fill_na:
+        cleaned_df = fill_missing_values(cleaned_df, strategy=fill_strategy)
+    
+    if normalize:
+        cleaned_df = normalize_columns(cleaned_df, method=norm_method)
+    
+    return cleaned_df
+
+def validate_dataframe(df: pd.DataFrame, 
+                       required_columns: List[str],
+                       min_rows: int = 1) -> Dict[str, Any]:
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df: DataFrame to validate
+        required_columns: Columns that must be present
+        min_rows: Minimum number of rows required
+    
+    Returns:
+        Dictionary with validation results
+    """
+    validation_result = {
+        'is_valid': True,
+        'missing_columns': [],
+        'empty_columns': [],
+        'issues': []
+    }
+    
+    # Check required columns
+    missing_cols = [col for col in required_columns if col not in df.columns]
+    if missing_cols:
+        validation_result['missing_columns'] = missing_cols
+        validation_result['is_valid'] = False
+        validation_result['issues'].append(f"Missing required columns: {missing_cols}")
+    
+    # Check minimum rows
+    if len(df) < min_rows:
+        validation_result['is_valid'] = False
+        validation_result['issues'].append(f"DataFrame has only {len(df)} rows, minimum required is {min_rows}")
+    
+    # Check for empty columns
+    empty_cols = [col for col in df.columns if df[col].isnull().all()]
+    if empty_cols:
+        validation_result['empty_columns'] = empty_cols
+        validation_result['issues'].append(f"Empty columns detected: {empty_cols}")
+    
+    return validation_result
