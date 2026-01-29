@@ -1,97 +1,84 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 
-def clean_csv_data(input_file, output_file):
+def remove_outliers_iqr(data, column, threshold=1.5):
     """
-    Clean CSV data by handling missing values and converting data types.
+    Remove outliers using IQR method
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in data")
     
-    Args:
-        input_file (str): Path to input CSV file
-        output_file (str): Path to save cleaned CSV file
-    """
-    try:
-        df = pd.read_csv(input_file)
-        
-        print(f"Original data shape: {df.shape}")
-        print(f"Missing values before cleaning:\n{df.isnull().sum()}")
-        
-        numeric_columns = df.select_dtypes(include=[np.number]).columns
-        categorical_columns = df.select_dtypes(include=['object']).columns
-        
-        for col in numeric_columns:
-            if df[col].isnull().any():
-                df[col].fillna(df[col].median(), inplace=True)
-        
-        for col in categorical_columns:
-            if df[col].isnull().any():
-                df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else 'Unknown', inplace=True)
-        
-        for col in df.columns:
-            if df[col].dtype == 'object':
-                try:
-                    df[col] = pd.to_datetime(df[col])
-                except (ValueError, TypeError):
-                    pass
-        
-        df = df.drop_duplicates()
-        
-        print(f"Cleaned data shape: {df.shape}")
-        print(f"Missing values after cleaning:\n{df.isnull().sum()}")
-        
-        df.to_csv(output_file, index=False)
-        print(f"Cleaned data saved to: {output_file}")
-        
-        return df
-        
-    except FileNotFoundError:
-        print(f"Error: Input file '{input_file}' not found.")
-        return None
-    except pd.errors.EmptyDataError:
-        print("Error: Input file is empty.")
-        return None
-    except Exception as e:
-        print(f"Error during data cleaning: {str(e)}")
-        return None
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - threshold * IQR
+    upper_bound = Q3 + threshold * IQR
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
 
-def validate_data(df, required_columns=None):
+def normalize_minmax(data, column):
     """
-    Validate cleaned data for required columns and basic integrity.
-    
-    Args:
-        df (pd.DataFrame): DataFrame to validate
-        required_columns (list): List of required column names
-    
-    Returns:
-        bool: True if validation passes, False otherwise
+    Normalize data using min-max scaling
     """
-    if df is None or df.empty:
-        print("Validation failed: DataFrame is empty or None.")
-        return False
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in data")
     
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            print(f"Validation failed: Missing required columns: {missing_columns}")
-            return False
+    min_val = data[column].min()
+    max_val = data[column].max()
     
-    if df.isnull().any().any():
-        print("Validation failed: DataFrame contains null values.")
-        return False
+    if max_val == min_val:
+        return data[column].apply(lambda x: 0.5)
     
-    print("Data validation passed.")
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def standardize_zscore(data, column):
+    """
+    Standardize data using z-score normalization
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in data")
+    
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return data[column].apply(lambda x: 0)
+    
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
+
+def clean_dataset(data, numeric_columns=None, outlier_threshold=1.5):
+    """
+    Clean dataset by removing outliers and normalizing numeric columns
+    """
+    if numeric_columns is None:
+        numeric_columns = data.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_data = data.copy()
+    
+    for column in numeric_columns:
+        if column in data.columns:
+            # Remove outliers
+            cleaned_data = remove_outliers_iqr(cleaned_data, column, outlier_threshold)
+            
+            # Normalize the column
+            cleaned_data[f"{column}_normalized"] = normalize_minmax(cleaned_data, column)
+            cleaned_data[f"{column}_standardized"] = standardize_zscore(cleaned_data, column)
+    
+    return cleaned_data
+
+def validate_data(data, required_columns, min_rows=1):
+    """
+    Validate data structure and content
+    """
+    if len(data) < min_rows:
+        raise ValueError(f"Data must have at least {min_rows} rows")
+    
+    missing_columns = [col for col in required_columns if col not in data.columns]
+    if missing_columns:
+        raise ValueError(f"Missing required columns: {missing_columns}")
+    
     return True
-
-if __name__ == "__main__":
-    input_csv = "raw_data.csv"
-    output_csv = "cleaned_data.csv"
-    
-    cleaned_df = clean_csv_data(input_csv, output_csv)
-    
-    if cleaned_df is not None:
-        required_cols = ['id', 'timestamp', 'value']
-        validation_result = validate_data(cleaned_df, required_cols)
-        
-        if validation_result:
-            print("Data cleaning and validation completed successfully.")
-        else:
-            print("Data cleaning completed but validation failed.")
