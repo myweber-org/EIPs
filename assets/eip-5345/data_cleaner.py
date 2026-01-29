@@ -1,4 +1,3 @@
-
 import pandas as pd
 
 def clean_dataset(df, drop_duplicates=True, fill_missing=None):
@@ -7,32 +6,33 @@ def clean_dataset(df, drop_duplicates=True, fill_missing=None):
     
     Args:
         df (pd.DataFrame): Input DataFrame to clean.
-        drop_duplicates (bool): Whether to drop duplicate rows. Default is True.
-        fill_missing (str or dict): Method to fill missing values. 
-            Can be 'mean', 'median', 'mode', or a dictionary of column:value pairs.
-            If None, missing values are not filled.
+        drop_duplicates (bool): Whether to drop duplicate rows.
+        fill_missing (str or dict): Method to fill missing values.
+            Options: 'mean', 'median', 'mode', or a dictionary of column:value pairs.
     
     Returns:
         pd.DataFrame: Cleaned DataFrame.
     """
-    cleaned_df = df.copy()
+    df_clean = df.copy()
     
     if drop_duplicates:
-        cleaned_df = cleaned_df.drop_duplicates()
+        df_clean = df_clean.drop_duplicates()
     
     if fill_missing is not None:
         if isinstance(fill_missing, dict):
-            cleaned_df = cleaned_df.fillna(fill_missing)
+            for col, value in fill_missing.items():
+                if col in df_clean.columns:
+                    df_clean[col] = df_clean[col].fillna(value)
         elif fill_missing == 'mean':
-            cleaned_df = cleaned_df.fillna(cleaned_df.mean(numeric_only=True))
+            df_clean = df_clean.fillna(df_clean.mean(numeric_only=True))
         elif fill_missing == 'median':
-            cleaned_df = cleaned_df.fillna(cleaned_df.median(numeric_only=True))
+            df_clean = df_clean.fillna(df_clean.median(numeric_only=True))
         elif fill_missing == 'mode':
-            cleaned_df = cleaned_df.fillna(cleaned_df.mode().iloc[0])
+            df_clean = df_clean.fillna(df_clean.mode().iloc[0])
     
-    return cleaned_df
+    return df_clean
 
-def validate_data(df, required_columns=None, unique_columns=None):
+def validate_dataset(df, required_columns=None, unique_columns=None):
     """
     Validate a DataFrame for required columns and unique constraints.
     
@@ -42,36 +42,26 @@ def validate_data(df, required_columns=None, unique_columns=None):
         unique_columns (list): List of column names that should have unique values.
     
     Returns:
-        tuple: (is_valid, error_message)
+        dict: Dictionary with validation results.
     """
+    validation_results = {
+        'is_valid': True,
+        'missing_columns': [],
+        'duplicate_values': {}
+    }
+    
     if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            return False, f"Missing required columns: {missing_columns}"
+        missing = [col for col in required_columns if col not in df.columns]
+        if missing:
+            validation_results['missing_columns'] = missing
+            validation_results['is_valid'] = False
     
     if unique_columns:
-        for column in unique_columns:
-            if column in df.columns:
-                if df[column].duplicated().any():
-                    return False, f"Column '{column}' contains duplicate values"
+        for col in unique_columns:
+            if col in df.columns:
+                duplicates = df[col].duplicated().sum()
+                if duplicates > 0:
+                    validation_results['duplicate_values'][col] = duplicates
+                    validation_results['is_valid'] = False
     
-    return True, "Data validation passed"
-import numpy as np
-import pandas as pd
-
-def remove_outliers_iqr(df, column):
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    return filtered_df
-
-def clean_dataset(df, numeric_columns):
-    cleaned_df = df.copy()
-    for col in numeric_columns:
-        if col in cleaned_df.columns:
-            cleaned_df = remove_outliers_iqr(cleaned_df, col)
-    cleaned_df = cleaned_df.reset_index(drop=True)
-    return cleaned_df
+    return validation_results
