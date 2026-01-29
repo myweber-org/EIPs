@@ -161,3 +161,11 @@ if __name__ == "__main__":
         print("\nData validation passed")
     except ValueError as e:
         print(f"\nData validation failed: {e}")
+def remove_duplicates_preserve_order(iterable):
+    seen = set()
+    result = []
+    for item in iterable:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
