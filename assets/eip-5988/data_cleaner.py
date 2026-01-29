@@ -1,70 +1,140 @@
 
 import pandas as pd
-import re
+import numpy as np
 
-def clean_dataframe(df, column_names):
+def clean_dataset(df, strategy='mean', outlier_threshold=3):
     """
-    Clean a pandas DataFrame by removing duplicate rows and normalizing
-    specified string columns (strip whitespace, lowercase).
-    """
-    # Remove duplicate rows
-    df_cleaned = df.drop_duplicates().reset_index(drop=True)
+    Clean a dataset by handling missing values and removing outliers.
     
-    # Normalize specified string columns
-    for col in column_names:
-        if col in df_cleaned.columns:
-            # Convert to string, strip whitespace, convert to lowercase
-            df_cleaned[col] = df_cleaned[col].astype(str).str.strip().str.lower()
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    strategy (str): Strategy for missing values ('mean', 'median', 'mode', 'drop')
+    outlier_threshold (float): Z-score threshold for outlier detection
     
-    return df_cleaned
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    # Handle missing values
+    if strategy == 'mean':
+        cleaned_df = cleaned_df.fillna(cleaned_df.mean(numeric_only=True))
+    elif strategy == 'median':
+        cleaned_df = cleaned_df.fillna(cleaned_df.median(numeric_only=True))
+    elif strategy == 'mode':
+        cleaned_df = cleaned_df.fillna(cleaned_df.mode().iloc[0])
+    elif strategy == 'drop':
+        cleaned_df = cleaned_df.dropna()
+    else:
+        raise ValueError("Invalid strategy. Choose from 'mean', 'median', 'mode', or 'drop'")
+    
+    # Remove outliers using Z-score method
+    numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        z_scores = np.abs((cleaned_df[col] - cleaned_df[col].mean()) / cleaned_df[col].std())
+        cleaned_df = cleaned_df[z_scores < outlier_threshold]
+    
+    return cleaned_df.reset_index(drop=True)
 
-def remove_special_characters(text):
+def normalize_data(df, method='minmax'):
     """
-    Remove special characters from a string, keeping only alphanumeric and spaces.
+    Normalize numerical columns in the DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    method (str): Normalization method ('minmax' or 'standard')
+    
+    Returns:
+    pd.DataFrame: Normalized DataFrame
     """
-    if isinstance(text, str):
-        return re.sub(r'[^a-zA-Z0-9\s]', '', text)
-    return text
+    normalized_df = df.copy()
+    numeric_cols = normalized_df.select_dtypes(include=[np.number]).columns
+    
+    if method == 'minmax':
+        for col in numeric_cols:
+            min_val = normalized_df[col].min()
+            max_val = normalized_df[col].max()
+            if max_val != min_val:
+                normalized_df[col] = (normalized_df[col] - min_val) / (max_val - min_val)
+    
+    elif method == 'standard':
+        for col in numeric_cols:
+            mean_val = normalized_df[col].mean()
+            std_val = normalized_df[col].std()
+            if std_val != 0:
+                normalized_df[col] = (normalized_df[col] - mean_val) / std_val
+    
+    else:
+        raise ValueError("Invalid method. Choose from 'minmax' or 'standard'")
+    
+    return normalized_df
 
-def validate_email(email):
+def remove_duplicates(df, subset=None, keep='first'):
     """
-    Validate email format using a simple regex pattern.
+    Remove duplicate rows from the DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    subset (list): Columns to consider for duplicate detection
+    keep (str): Which duplicates to keep ('first', 'last', False)
+    
+    Returns:
+    pd.DataFrame: DataFrame without duplicates
     """
-    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    if isinstance(email, str):
-        return bool(re.match(pattern, email))
-    return False
+    return df.drop_duplicates(subset=subset, keep=keep).reset_index(drop=True)
 
-def process_data(file_path, output_path, columns_to_clean):
+def validate_data(df, required_columns=None, min_rows=1):
     """
-    Main function to load, clean, and save data.
+    Validate the DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    required_columns (list): List of required column names
+    min_rows (int): Minimum number of rows required
+    
+    Returns:
+    tuple: (is_valid, error_message)
     """
-    try:
-        # Load data
-        df = pd.read_csv(file_path)
-        
-        # Clean data
-        df_cleaned = clean_dataframe(df, columns_to_clean)
-        
-        # Apply additional cleaning to specific columns if needed
-        if 'email' in df_cleaned.columns:
-            df_cleaned['email'] = df_cleaned['email'].apply(remove_special_characters)
-        
-        # Save cleaned data
-        df_cleaned.to_csv(output_path, index=False)
-        print(f"Data cleaned and saved to {output_path}")
-        
-        return df_cleaned
-    except Exception as e:
-        print(f"Error processing data: {e}")
-        return None
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if len(df) < min_rows:
+        return False, f"DataFrame has fewer than {min_rows} rows"
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
+    
+    return True, "Data validation passed"
 
+# Example usage
 if __name__ == "__main__":
-    # Example usage
-    input_file = "raw_data.csv"
-    output_file = "cleaned_data.csv"
-    columns = ["name", "email", "address"]
+    # Create sample data
+    sample_data = {
+        'A': [1, 2, np.nan, 4, 5, 100],
+        'B': [10, 20, 30, np.nan, 50, 60],
+        'C': ['x', 'y', 'z', 'x', 'y', 'z']
+    }
     
-    cleaned_df = process_data(input_file, output_file, columns)
-    if cleaned_df is not None:
-        print(f"Cleaned {len(cleaned_df)} records")
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print()
+    
+    # Clean the data
+    cleaned = clean_dataset(df, strategy='mean', outlier_threshold=2)
+    print("Cleaned DataFrame:")
+    print(cleaned)
+    print()
+    
+    # Normalize the data
+    normalized = normalize_data(cleaned, method='minmax')
+    print("Normalized DataFrame:")
+    print(normalized)
+    print()
+    
+    # Validate the data
+    is_valid, message = validate_data(normalized, required_columns=['A', 'B'], min_rows=3)
+    print(f"Validation result: {is_valid}")
+    print(f"Validation message: {message}")
