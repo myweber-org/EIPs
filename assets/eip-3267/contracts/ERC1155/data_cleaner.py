@@ -30,4 +30,35 @@ def main():
     print(cleaned_df)
 
 if __name__ == "__main__":
-    main()
+    main()import pandas as pd
+import numpy as np
+
+def load_data(filepath):
+    """Load data from CSV file."""
+    return pd.read_csv(filepath)
+
+def remove_outliers(df, column, threshold=3):
+    """Remove outliers using Z-score method."""
+    z_scores = np.abs((df[column] - df[column].mean()) / df[column].std())
+    return df[z_scores < threshold]
+
+def normalize_column(df, column):
+    """Normalize column using Min-Max scaling."""
+    min_val = df[column].min()
+    max_val = df[column].max()
+    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
+    return df
+
+def clean_data(df, numeric_columns):
+    """Apply outlier removal and normalization to numeric columns."""
+    for col in numeric_columns:
+        if col in df.columns:
+            df = remove_outliers(df, col)
+            df = normalize_column(df, col)
+    return df
+
+if __name__ == "__main__":
+    data = load_data('sample_data.csv')
+    numeric_cols = ['age', 'income', 'score']
+    cleaned_data = clean_data(data, numeric_cols)
+    cleaned_data.to_csv('cleaned_data.csv', index=False)
