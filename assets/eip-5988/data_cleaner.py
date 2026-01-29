@@ -1,70 +1,70 @@
-import pandas as pd
 
-def clean_dataset(df):
+import pandas as pd
+import re
+
+def clean_dataframe(df, column_names):
     """
-    Clean a pandas DataFrame by removing null values and duplicates.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame to be cleaned.
-    
-    Returns:
-        pd.DataFrame: Cleaned DataFrame.
+    Clean a pandas DataFrame by removing duplicate rows and normalizing
+    specified string columns (strip whitespace, lowercase).
     """
-    # Remove rows with any null values
-    df_cleaned = df.dropna()
-    
     # Remove duplicate rows
-    df_cleaned = df_cleaned.drop_duplicates()
+    df_cleaned = df.drop_duplicates().reset_index(drop=True)
     
-    # Reset index after cleaning
-    df_cleaned = df_cleaned.reset_index(drop=True)
+    # Normalize specified string columns
+    for col in column_names:
+        if col in df_cleaned.columns:
+            # Convert to string, strip whitespace, convert to lowercase
+            df_cleaned[col] = df_cleaned[col].astype(str).str.strip().str.lower()
     
     return df_cleaned
 
-def clean_dataset_with_threshold(df, null_threshold=0.5):
+def remove_special_characters(text):
     """
-    Clean DataFrame with configurable null threshold for column removal.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame.
-        null_threshold (float): Threshold for null percentage to drop columns.
-    
-    Returns:
-        pd.DataFrame: Cleaned DataFrame.
+    Remove special characters from a string, keeping only alphanumeric and spaces.
     """
-    # Calculate null percentage for each column
-    null_percentage = df.isnull().sum() / len(df)
-    
-    # Drop columns with null percentage above threshold
-    columns_to_drop = null_percentage[null_percentage > null_threshold].index
-    df_cleaned = df.drop(columns=columns_to_drop)
-    
-    # Fill remaining null values with column mean for numeric columns
-    numeric_cols = df_cleaned.select_dtypes(include=['number']).columns
-    df_cleaned[numeric_cols] = df_cleaned[numeric_cols].fillna(df_cleaned[numeric_cols].mean())
-    
-    # Fill categorical columns with mode
-    categorical_cols = df_cleaned.select_dtypes(include=['object']).columns
-    for col in categorical_cols:
-        df_cleaned[col] = df_cleaned[col].fillna(df_cleaned[col].mode()[0] if not df_cleaned[col].mode().empty else 'Unknown')
-    
-    # Remove duplicates
-    df_cleaned = df_cleaned.drop_duplicates()
-    
-    return df_cleaned.reset_index(drop=True)
+    if isinstance(text, str):
+        return re.sub(r'[^a-zA-Z0-9\s]', '', text)
+    return text
+
+def validate_email(email):
+    """
+    Validate email format using a simple regex pattern.
+    """
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    if isinstance(email, str):
+        return bool(re.match(pattern, email))
+    return False
+
+def process_data(file_path, output_path, columns_to_clean):
+    """
+    Main function to load, clean, and save data.
+    """
+    try:
+        # Load data
+        df = pd.read_csv(file_path)
+        
+        # Clean data
+        df_cleaned = clean_dataframe(df, columns_to_clean)
+        
+        # Apply additional cleaning to specific columns if needed
+        if 'email' in df_cleaned.columns:
+            df_cleaned['email'] = df_cleaned['email'].apply(remove_special_characters)
+        
+        # Save cleaned data
+        df_cleaned.to_csv(output_path, index=False)
+        print(f"Data cleaned and saved to {output_path}")
+        
+        return df_cleaned
+    except Exception as e:
+        print(f"Error processing data: {e}")
+        return None
 
 if __name__ == "__main__":
     # Example usage
-    sample_data = {
-        'A': [1, 2, None, 4, 5],
-        'B': [5, 6, 7, None, 9],
-        'C': ['x', 'y', 'z', 'x', 'y'],
-        'D': [10, 20, 30, 40, 50]
-    }
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    columns = ["name", "email", "address"]
     
-    df = pd.DataFrame(sample_data)
-    print("Original DataFrame:")
-    print(df)
-    print("\nCleaned DataFrame:")
-    cleaned_df = clean_dataset(df)
-    print(cleaned_df)
+    cleaned_df = process_data(input_file, output_file, columns)
+    if cleaned_df is not None:
+        print(f"Cleaned {len(cleaned_df)} records")
