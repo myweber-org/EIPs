@@ -232,3 +232,36 @@ def validate_dataframe(df: pd.DataFrame,
         validation_result['issues'].append(f"Empty columns detected: {empty_cols}")
     
     return validation_result
+import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    return filtered_df
+
+def clean_dataset(file_path, output_path):
+    try:
+        df = pd.read_csv(file_path)
+        numeric_columns = df.select_dtypes(include=[np.number]).columns
+        
+        for col in numeric_columns:
+            df = remove_outliers_iqr(df, col)
+        
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to {output_path}")
+        print(f"Original rows: {len(pd.read_csv(file_path))}, Cleaned rows: {len(df)}")
+        
+    except FileNotFoundError:
+        print(f"Error: File {file_path} not found")
+    except Exception as e:
+        print(f"Error during cleaning: {str(e)}")
+
+if __name__ == "__main__":
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    clean_dataset(input_file, output_file)
