@@ -125,3 +125,11 @@ if __name__ == "__main__":
     cleaned_df = clean_numeric_data(df)
     print("\nCleaned data:")
     print(cleaned_df)
+def deduplicate_list(sequence):
+    seen = set()
+    deduplicated = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            deduplicated.append(item)
+    return deduplicated
