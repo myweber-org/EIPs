@@ -148,3 +148,112 @@ def example_usage():
 
 if __name__ == "__main__":
     example_usage()
+import pandas as pd
+import numpy as np
+from datetime import datetime
+
+def clean_csv_data(input_path, output_path):
+    """
+    Clean CSV data by handling missing values, converting data types,
+    and removing duplicates.
+    """
+    try:
+        df = pd.read_csv(input_path)
+        
+        # Remove duplicate rows
+        initial_count = len(df)
+        df = df.drop_duplicates()
+        duplicates_removed = initial_count - len(df)
+        
+        # Handle missing values
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        categorical_cols = df.select_dtypes(include=['object']).columns
+        
+        # Fill numeric missing values with median
+        for col in numeric_cols:
+            if df[col].isnull().any():
+                df[col] = df[col].fillna(df[col].median())
+        
+        # Fill categorical missing values with mode
+        for col in categorical_cols:
+            if df[col].isnull().any():
+                df[col] = df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else 'Unknown')
+        
+        # Convert date columns if present
+        date_patterns = ['date', 'time', 'timestamp', 'created', 'updated']
+        for col in df.columns:
+            col_lower = col.lower()
+            if any(pattern in col_lower for pattern in date_patterns):
+                try:
+                    df[col] = pd.to_datetime(df[col], errors='coerce')
+                except:
+                    continue
+        
+        # Remove rows where all values are NaN
+        df = df.dropna(how='all')
+        
+        # Reset index after cleaning
+        df = df.reset_index(drop=True)
+        
+        # Save cleaned data
+        df.to_csv(output_path, index=False)
+        
+        # Generate cleaning report
+        report = {
+            'original_rows': initial_count,
+            'cleaned_rows': len(df),
+            'duplicates_removed': duplicates_removed,
+            'columns_processed': len(df.columns),
+            'numeric_columns': len(numeric_cols),
+            'categorical_columns': len(categorical_cols),
+            'output_path': output_path,
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        return report
+        
+    except Exception as e:
+        print(f"Error cleaning data: {str(e)}")
+        return None
+
+def validate_dataframe(df):
+    """
+    Validate dataframe for common data quality issues.
+    """
+    validation_results = {}
+    
+    # Check for missing values
+    missing_values = df.isnull().sum().sum()
+    validation_results['total_missing_values'] = int(missing_values)
+    
+    # Check data types
+    validation_results['dtypes'] = df.dtypes.to_dict()
+    
+    # Check for infinite values
+    numeric_df = df.select_dtypes(include=[np.number])
+    infinite_count = np.isinf(numeric_df).sum().sum()
+    validation_results['infinite_values'] = int(infinite_count)
+    
+    # Check for zeros in numeric columns (potential issue)
+    zero_count = (numeric_df == 0).sum().sum()
+    validation_results['zero_values'] = int(zero_count)
+    
+    return validation_results
+
+if __name__ == "__main__":
+    # Example usage
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    
+    result = clean_csv_data(input_file, output_file)
+    
+    if result:
+        print("Data cleaning completed successfully!")
+        print(f"Report: {result}")
+        
+        # Load and validate cleaned data
+        cleaned_df = pd.read_csv(output_file)
+        validation = validate_dataframe(cleaned_df)
+        print(f"Validation results: {validation}")
+    else:
+        print("Data cleaning failed!")
