@@ -369,4 +369,107 @@ if __name__ == "__main__":
         stats = calculate_summary_statistics(cleaned_df, col)
         print(f"\nStatistics for column {col}:")
         for key, value in stats.items():
-            print(f"  {key}: {value:.2f}")
+            print(f"  {key}: {value:.2f}")import pandas as pd
+import numpy as np
+
+def clean_csv_data(file_path, output_path=None):
+    """
+    Load a CSV file, perform basic cleaning operations,
+    and optionally save the cleaned data.
+    """
+    try:
+        df = pd.read_csv(file_path)
+    except FileNotFoundError:
+        print(f"Error: File '{file_path}' not found.")
+        return None
+    except pd.errors.EmptyDataError:
+        print(f"Error: File '{file_path}' is empty.")
+        return None
+
+    # Remove duplicate rows
+    initial_rows = df.shape[0]
+    df.drop_duplicates(inplace=True)
+    removed_duplicates = initial_rows - df.shape[0]
+
+    # Fill missing numeric values with column median
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        if df[col].isnull().any():
+            median_val = df[col].median()
+            df[col].fillna(median_val, inplace=True)
+
+    # Fill missing categorical values with mode
+    categorical_cols = df.select_dtypes(include=['object']).columns
+    for col in categorical_cols:
+        if df[col].isnull().any():
+            mode_val = df[col].mode()[0] if not df[col].mode().empty else 'Unknown'
+            df[col].fillna(mode_val, inplace=True)
+
+    # Remove columns with more than 50% missing values
+    threshold = 0.5 * len(df)
+    cols_to_drop = [col for col in df.columns if df[col].isnull().sum() > threshold]
+    df.drop(columns=cols_to_drop, inplace=True)
+
+    # Reset index after cleaning
+    df.reset_index(drop=True, inplace=True)
+
+    # Print cleaning summary
+    print(f"Data cleaning completed:")
+    print(f"  - Removed {removed_duplicates} duplicate rows")
+    print(f"  - Filled missing values in {len(numeric_cols) + len(categorical_cols)} columns")
+    print(f"  - Dropped {len(cols_to_drop)} columns with excessive missing values")
+    print(f"  - Final dataset shape: {df.shape}")
+
+    # Save cleaned data if output path is provided
+    if output_path:
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to: {output_path}")
+
+    return df
+
+def validate_dataframe(df):
+    """
+    Perform basic validation on a pandas DataFrame.
+    """
+    if df is None or df.empty:
+        print("DataFrame is empty or None.")
+        return False
+
+    validation_passed = True
+
+    # Check for any remaining NaN values
+    if df.isnull().any().any():
+        nan_cols = df.columns[df.isnull().any()].tolist()
+        print(f"Warning: NaN values found in columns: {nan_cols}")
+        validation_passed = False
+
+    # Check for infinite values in numeric columns
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        if np.any(np.isinf(df[col])):
+            print(f"Warning: Infinite values found in column: {col}")
+            validation_passed = False
+
+    # Check for negative values in columns that shouldn't have them
+    non_negative_cols = [col for col in numeric_cols if 'age' in col.lower() or 'count' in col.lower()]
+    for col in non_negative_cols:
+        if (df[col] < 0).any():
+            print(f"Warning: Negative values found in column: {col}")
+            validation_passed = False
+
+    if validation_passed:
+        print("Data validation passed.")
+    else:
+        print("Data validation failed.")
+
+    return validation_passed
+
+if __name__ == "__main__":
+    # Example usage
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+
+    cleaned_df = clean_csv_data(input_file, output_file)
+
+    if cleaned_df is not None:
+        validate_dataframe(cleaned_df)
