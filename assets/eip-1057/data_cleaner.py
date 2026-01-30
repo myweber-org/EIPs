@@ -125,3 +125,151 @@ if __name__ == "__main__":
     without_outliers = remove_outliers_iqr(cleaned, 'value')
     print("\nDataFrame without outliers:")
     print(without_outliers)
+import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(dataframe, column, multiplier=1.5):
+    """
+    Remove outliers using the Interquartile Range method.
+    
+    Args:
+        dataframe: pandas DataFrame containing the data
+        column: column name to process
+        multiplier: IQR multiplier for outlier detection
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = dataframe[column].quantile(0.25)
+    q3 = dataframe[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - multiplier * iqr
+    upper_bound = q3 + multiplier * iqr
+    
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
+                           (dataframe[column] <= upper_bound)]
+    
+    return filtered_df
+
+def normalize_minmax(dataframe, columns=None):
+    """
+    Normalize specified columns using Min-Max scaling.
+    
+    Args:
+        dataframe: pandas DataFrame to normalize
+        columns: list of column names to normalize (default: all numeric columns)
+    
+    Returns:
+        DataFrame with normalized columns
+    """
+    if columns is None:
+        columns = dataframe.select_dtypes(include=[np.number]).columns.tolist()
+    
+    normalized_df = dataframe.copy()
+    
+    for col in columns:
+        if col not in dataframe.columns:
+            continue
+            
+        col_min = normalized_df[col].min()
+        col_max = normalized_df[col].max()
+        
+        if col_max != col_min:
+            normalized_df[col] = (normalized_df[col] - col_min) / (col_max - col_min)
+        else:
+            normalized_df[col] = 0
+    
+    return normalized_df
+
+def standardize_zscore(dataframe, columns=None):
+    """
+    Standardize specified columns using Z-score normalization.
+    
+    Args:
+        dataframe: pandas DataFrame to standardize
+        columns: list of column names to standardize (default: all numeric columns)
+    
+    Returns:
+        DataFrame with standardized columns
+    """
+    if columns is None:
+        columns = dataframe.select_dtypes(include=[np.number]).columns.tolist()
+    
+    standardized_df = dataframe.copy()
+    
+    for col in columns:
+        if col not in dataframe.columns:
+            continue
+            
+        col_mean = standardized_df[col].mean()
+        col_std = standardized_df[col].std()
+        
+        if col_std != 0:
+            standardized_df[col] = (standardized_df[col] - col_mean) / col_std
+        else:
+            standardized_df[col] = 0
+    
+    return standardized_df
+
+def handle_missing_values(dataframe, strategy='mean', columns=None):
+    """
+    Handle missing values in specified columns.
+    
+    Args:
+        dataframe: pandas DataFrame with missing values
+        strategy: imputation strategy ('mean', 'median', 'mode', or 'drop')
+        columns: list of column names to process (default: all columns)
+    
+    Returns:
+        DataFrame with handled missing values
+    """
+    if columns is None:
+        columns = dataframe.columns.tolist()
+    
+    processed_df = dataframe.copy()
+    
+    for col in columns:
+        if col not in processed_df.columns:
+            continue
+            
+        if strategy == 'drop':
+            processed_df = processed_df.dropna(subset=[col])
+        elif strategy == 'mean':
+            processed_df[col].fillna(processed_df[col].mean(), inplace=True)
+        elif strategy == 'median':
+            processed_df[col].fillna(processed_df[col].median(), inplace=True)
+        elif strategy == 'mode':
+            processed_df[col].fillna(processed_df[col].mode()[0], inplace=True)
+        else:
+            raise ValueError(f"Unknown strategy: {strategy}")
+    
+    return processed_df
+
+def validate_dataframe(dataframe, required_columns=None, min_rows=1):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        dataframe: pandas DataFrame to validate
+        required_columns: list of required column names
+        min_rows: minimum number of rows required
+    
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    if not isinstance(dataframe, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
+    if len(dataframe) < min_rows:
+        return False, f"DataFrame has less than {min_rows} rows"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in dataframe.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "DataFrame is valid"
