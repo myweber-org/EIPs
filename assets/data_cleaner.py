@@ -357,4 +357,87 @@ def example_usage():
     return cleaned_df
 
 if __name__ == "__main__":
-    cleaned_data = example_usage()
+    cleaned_data = example_usage()import numpy as np
+import pandas as pd
+from scipy import stats
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_outliers_iqr(self, columns=None, threshold=1.5):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+        
+        clean_df = self.df.copy()
+        for col in columns:
+            if col in clean_df.columns:
+                Q1 = clean_df[col].quantile(0.25)
+                Q3 = clean_df[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - threshold * IQR
+                upper_bound = Q3 + threshold * IQR
+                clean_df = clean_df[(clean_df[col] >= lower_bound) & (clean_df[col] <= upper_bound)]
+        
+        removed_count = len(self.df) - len(clean_df)
+        self.df = clean_df
+        return removed_count
+    
+    def zscore_normalize(self, columns=None):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+        
+        normalized_df = self.df.copy()
+        for col in columns:
+            if col in normalized_df.columns:
+                mean = normalized_df[col].mean()
+                std = normalized_df[col].std()
+                if std > 0:
+                    normalized_df[col] = (normalized_df[col] - mean) / std
+        
+        self.df = normalized_df
+        return self
+    
+    def minmax_normalize(self, columns=None, feature_range=(0, 1)):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+        
+        normalized_df = self.df.copy()
+        min_val, max_val = feature_range
+        
+        for col in columns:
+            if col in normalized_df.columns:
+                col_min = normalized_df[col].min()
+                col_max = normalized_df[col].max()
+                col_range = col_max - col_min
+                
+                if col_range > 0:
+                    normalized_df[col] = min_val + (normalized_df[col] - col_min) * (max_val - min_val) / col_range
+        
+        self.df = normalized_df
+        return self
+    
+    def fill_missing_median(self, columns=None):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+        
+        filled_df = self.df.copy()
+        for col in columns:
+            if col in filled_df.columns and filled_df[col].isnull().any():
+                median_val = filled_df[col].median()
+                filled_df[col].fillna(median_val, inplace=True)
+        
+        self.df = filled_df
+        return self
+    
+    def get_cleaned_data(self):
+        return self.df
+    
+    def get_summary(self):
+        return {
+            'original_rows': self.original_shape[0],
+            'cleaned_rows': len(self.df),
+            'removed_rows': self.original_shape[0] - len(self.df),
+            'columns': list(self.df.columns)
+        }
