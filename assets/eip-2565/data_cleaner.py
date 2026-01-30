@@ -97,4 +97,55 @@ if __name__ == "__main__":
     
     print("\nCleaned DataFrame shape:", cleaned_df.shape)
     print("\nCleaned statistics for column 'A':")
-    print(calculate_basic_stats(cleaned_df, 'A'))
+    print(calculate_basic_stats(cleaned_df, 'A'))import pandas as pd
+import numpy as np
+
+def remove_duplicates(df):
+    """Remove duplicate rows from DataFrame."""
+    return df.drop_duplicates()
+
+def fill_missing_values(df, strategy='mean'):
+    """Fill missing values using specified strategy."""
+    if strategy == 'mean':
+        return df.fillna(df.mean(numeric_only=True))
+    elif strategy == 'median':
+        return df.fillna(df.median(numeric_only=True))
+    elif strategy == 'mode':
+        return df.fillna(df.mode().iloc[0])
+    else:
+        return df.fillna(0)
+
+def normalize_column(df, column_name):
+    """Normalize specified column to range [0,1]."""
+    if column_name in df.columns:
+        col_min = df[column_name].min()
+        col_max = df[column_name].max()
+        if col_max != col_min:
+            df[column_name] = (df[column_name] - col_min) / (col_max - col_min)
+    return df
+
+def clean_dataframe(df, remove_dups=True, fill_na=True, norm_columns=None):
+    """Apply multiple cleaning operations to DataFrame."""
+    if remove_dups:
+        df = remove_duplicates(df)
+    
+    if fill_na:
+        df = fill_missing_values(df)
+    
+    if norm_columns:
+        for col in norm_columns:
+            df = normalize_column(df, col)
+    
+    return df
+
+def validate_dataframe(df):
+    """Perform basic validation on DataFrame."""
+    validation_report = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_values': df.isnull().sum().sum(),
+        'duplicate_rows': df.duplicated().sum(),
+        'numeric_columns': list(df.select_dtypes(include=[np.number]).columns),
+        'categorical_columns': list(df.select_dtypes(include=['object']).columns)
+    }
+    return validation_report
