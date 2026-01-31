@@ -606,3 +606,119 @@ if __name__ == "__main__":
     # Validate the cleaned data
     is_valid, message = validate_dataframe(cleaned, required_columns=['age', 'salary'])
     print(f"\nValidation: {message}")
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def detect_outliers_iqr(data, column, threshold=1.5):
+    """
+    Detect outliers using Interquartile Range method.
+    Returns indices of outliers.
+    """
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    
+    outliers = data[(data[column] < lower_bound) | (data[column] > upper_bound)]
+    return outliers.index.tolist()
+
+def remove_outliers_zscore(data, column, threshold=3):
+    """
+    Remove outliers using Z-score method.
+    Returns cleaned dataframe.
+    """
+    z_scores = np.abs(stats.zscore(data[column].dropna()))
+    filtered_data = data[(z_scores < threshold) | (data[column].isna())]
+    return filtered_data
+
+def normalize_minmax(data, column):
+    """
+    Normalize column using Min-Max scaling.
+    Returns normalized series.
+    """
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return pd.Series([0.5] * len(data), index=data.index)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def standardize_column(data, column):
+    """
+    Standardize column using Z-score normalization.
+    Returns standardized series.
+    """
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return pd.Series([0] * len(data), index=data.index)
+    
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
+
+def handle_missing_values(data, strategy='mean', columns=None):
+    """
+    Handle missing values using specified strategy.
+    Supported strategies: 'mean', 'median', 'mode', 'drop'
+    """
+    if columns is None:
+        columns = data.columns
+    
+    data_copy = data.copy()
+    
+    for col in columns:
+        if col not in data_copy.columns:
+            continue
+            
+        if strategy == 'drop':
+            data_copy = data_copy.dropna(subset=[col])
+        elif strategy == 'mean':
+            data_copy[col] = data_copy[col].fillna(data_copy[col].mean())
+        elif strategy == 'median':
+            data_copy[col] = data_copy[col].fillna(data_copy[col].median())
+        elif strategy == 'mode':
+            mode_val = data_copy[col].mode()
+            if not mode_val.empty:
+                data_copy[col] = data_copy[col].fillna(mode_val[0])
+    
+    return data_copy
+
+def create_sample_data():
+    """
+    Create sample dataframe for testing.
+    """
+    np.random.seed(42)
+    data = {
+        'feature_a': np.random.normal(100, 15, 100),
+        'feature_b': np.random.exponential(50, 100),
+        'feature_c': np.random.uniform(0, 1, 100)
+    }
+    
+    df = pd.DataFrame(data)
+    
+    df.loc[10:15, 'feature_a'] = np.nan
+    df.loc[95, 'feature_b'] = 500
+    df.loc[96, 'feature_b'] = 600
+    
+    return df
+
+if __name__ == "__main__":
+    df = create_sample_data()
+    print("Original data shape:", df.shape)
+    
+    outliers = detect_outliers_iqr(df, 'feature_b')
+    print(f"Outliers detected in feature_b: {len(outliers)}")
+    
+    cleaned_df = remove_outliers_zscore(df, 'feature_b')
+    print("Cleaned data shape:", cleaned_df.shape)
+    
+    df['feature_a_norm'] = normalize_minmax(df, 'feature_a')
+    df['feature_b_std'] = standardize_column(df, 'feature_b')
+    
+    df_filled = handle_missing_values(df, strategy='mean')
+    print("Missing values handled. Final shape:", df_filled.shape)
