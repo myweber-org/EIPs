@@ -62,3 +62,17 @@ if __name__ == "__main__":
     if username:
         result = fetch_github_user(username)
         display_user_info(result)
+import requests
+
+def get_github_user(username):
+    url = f"https://api.github.com/users/{username}"
+    response = requests.get(url)
+    
+    if response.status_code == 200:
+        return response.json()
+    else:
+        return {"error": f"Failed to fetch user: {response.status_code}"}
+
+if __name__ == "__main__":
+    user_data = get_github_user("octocat")
+    print(user_data)
