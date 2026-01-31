@@ -284,3 +284,11 @@ if __name__ == "__main__":
         print(f"Original shape: {pd.read_csv('sample_dataset.csv').shape}")
         print(f"Cleaned shape: {cleaned_data.shape}")
         print("Data cleaning completed successfully")
+def remove_duplicates(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
