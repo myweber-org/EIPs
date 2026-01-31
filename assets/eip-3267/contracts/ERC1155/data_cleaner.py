@@ -146,3 +146,120 @@ def main():
 
 if __name__ == "__main__":
     main()
+import pandas as pd
+import numpy as np
+from pathlib import Path
+
+def clean_csv_data(input_path, output_path=None, missing_strategy='mean'):
+    """
+    Clean CSV data by handling missing values and removing duplicates.
+    
+    Parameters:
+    input_path (str): Path to input CSV file
+    output_path (str, optional): Path for cleaned output CSV
+    missing_strategy (str): Strategy for handling missing values
+                           ('mean', 'median', 'drop', 'zero')
+    
+    Returns:
+    pandas.DataFrame: Cleaned dataframe
+    """
+    
+    # Read the CSV file
+    if not Path(input_path).exists():
+        raise FileNotFoundError(f"Input file not found: {input_path}")
+    
+    df = pd.read_csv(input_path)
+    
+    # Remove duplicate rows
+    initial_rows = len(df)
+    df = df.drop_duplicates()
+    duplicates_removed = initial_rows - len(df)
+    
+    # Handle missing values
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    
+    if missing_strategy == 'mean':
+        for col in numeric_cols:
+            df[col] = df[col].fillna(df[col].mean())
+    elif missing_strategy == 'median':
+        for col in numeric_cols:
+            df[col] = df[col].fillna(df[col].median())
+    elif missing_strategy == 'zero':
+        df = df.fillna(0)
+    elif missing_strategy == 'drop':
+        df = df.dropna()
+    
+    # Reset index after cleaning
+    df = df.reset_index(drop=True)
+    
+    # Save cleaned data if output path provided
+    if output_path:
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to: {output_path}")
+    
+    # Print cleaning summary
+    print(f"Data cleaning completed:")
+    print(f"  - Initial rows: {initial_rows}")
+    print(f"  - Duplicates removed: {duplicates_removed}")
+    print(f"  - Final rows: {len(df)}")
+    print(f"  - Missing values handled using: {missing_strategy} strategy")
+    
+    return df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate dataframe structure and content.
+    
+    Parameters:
+    df (pandas.DataFrame): Dataframe to validate
+    required_columns (list): List of required column names
+    
+    Returns:
+    dict: Validation results
+    """
+    validation_results = {
+        'is_valid': True,
+        'errors': [],
+        'warnings': []
+    }
+    
+    # Check if dataframe is empty
+    if df.empty:
+        validation_results['is_valid'] = False
+        validation_results['errors'].append('Dataframe is empty')
+    
+    # Check required columns
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            validation_results['is_valid'] = False
+            validation_results['errors'].append(f'Missing required columns: {missing_columns}')
+    
+    # Check for all-NaN columns
+    nan_columns = df.columns[df.isna().all()].tolist()
+    if nan_columns:
+        validation_results['warnings'].append(f'Columns with all NaN values: {nan_columns}')
+    
+    return validation_results
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'id': [1, 2, 3, 4, 5, 5],
+        'value': [10.5, np.nan, 15.2, np.nan, 20.1, 20.1],
+        'category': ['A', 'B', 'A', 'C', 'B', 'B']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    test_input = 'test_input.csv'
+    df.to_csv(test_input, index=False)
+    
+    try:
+        cleaned_df = clean_csv_data(test_input, 'test_output.csv', 'mean')
+        validation = validate_dataframe(cleaned_df, ['id', 'value', 'category'])
+        print(f"Validation results: {validation}")
+    finally:
+        # Clean up test files
+        for file in [test_input, 'test_output.csv']:
+            if Path(file).exists():
+                Path(file).unlink()
