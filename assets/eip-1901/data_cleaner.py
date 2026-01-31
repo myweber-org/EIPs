@@ -118,4 +118,56 @@ class DataCleaner:
         print("\nData types:")
         print(self.df.dtypes.value_counts())
         print("\nMissing values:")
-        print(self.df.isnull().sum())
+        print(self.df.isnull().sum())import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(df, columns, factor=1.5):
+    """
+    Remove outliers using IQR method.
+    """
+    cleaned_df = df.copy()
+    for col in columns:
+        if col in cleaned_df.columns:
+            Q1 = cleaned_df[col].quantile(0.25)
+            Q3 = cleaned_df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - factor * IQR
+            upper_bound = Q3 + factor * IQR
+            cleaned_df = cleaned_df[(cleaned_df[col] >= lower_bound) & (cleaned_df[col] <= upper_bound)]
+    return cleaned_df
+
+def normalize_minmax(df, columns):
+    """
+    Normalize data using min-max scaling.
+    """
+    normalized_df = df.copy()
+    for col in columns:
+        if col in normalized_df.columns:
+            min_val = normalized_df[col].min()
+            max_val = normalized_df[col].max()
+            if max_val != min_val:
+                normalized_df[col] = (normalized_df[col] - min_val) / (max_val - min_val)
+    return normalized_df
+
+def clean_dataset(df, numeric_columns):
+    """
+    Clean dataset by removing outliers and normalizing numeric columns.
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise ValueError("Input must be a pandas DataFrame")
+    
+    if not numeric_columns:
+        return df
+    
+    cleaned = remove_outliers_iqr(df, numeric_columns)
+    cleaned = normalize_minmax(cleaned, numeric_columns)
+    return cleaned
+
+def validate_data(df, required_columns):
+    """
+    Validate that required columns exist in dataframe.
+    """
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        raise ValueError(f"Missing required columns: {missing_columns}")
+    return True
