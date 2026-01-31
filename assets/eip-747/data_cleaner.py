@@ -188,3 +188,102 @@ if __name__ == "__main__":
         print("Data validation passed")
     except Exception as e:
         print(f"Data validation failed: {e}")
+import pandas as pd
+import numpy as np
+from typing import List, Optional
+
+class DataCleaner:
+    def __init__(self, df: pd.DataFrame):
+        self.df = df.copy()
+        self.original_shape = df.shape
+    
+    def remove_duplicates(self, subset: Optional[List[str]] = None) -> pd.DataFrame:
+        initial_count = len(self.df)
+        self.df = self.df.drop_duplicates(subset=subset)
+        removed = initial_count - len(self.df)
+        print(f"Removed {removed} duplicate rows")
+        return self.df
+    
+    def normalize_column(self, column_name: str) -> pd.DataFrame:
+        if column_name not in self.df.columns:
+            raise ValueError(f"Column '{column_name}' not found in DataFrame")
+        
+        col_data = self.df[column_name]
+        if pd.api.types.is_numeric_dtype(col_data):
+            mean_val = col_data.mean()
+            std_val = col_data.std()
+            if std_val > 0:
+                self.df[f"{column_name}_normalized"] = (col_data - mean_val) / std_val
+            else:
+                self.df[f"{column_name}_normalized"] = 0
+        else:
+            print(f"Column '{column_name}' is not numeric. Skipping normalization.")
+        
+        return self.df
+    
+    def fill_missing_values(self, strategy: str = 'mean', fill_value: Optional[float] = None) -> pd.DataFrame:
+        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+        
+        for col in numeric_cols:
+            missing_count = self.df[col].isnull().sum()
+            if missing_count > 0:
+                if strategy == 'mean':
+                    fill_val = self.df[col].mean()
+                elif strategy == 'median':
+                    fill_val = self.df[col].median()
+                elif strategy == 'mode':
+                    fill_val = self.df[col].mode()[0]
+                elif strategy == 'constant' and fill_value is not None:
+                    fill_val = fill_value
+                else:
+                    continue
+                
+                self.df[col] = self.df[col].fillna(fill_val)
+                print(f"Filled {missing_count} missing values in column '{col}' using {strategy}")
+        
+        return self.df
+    
+    def get_summary(self) -> dict:
+        return {
+            'original_shape': self.original_shape,
+            'current_shape': self.df.shape,
+            'missing_values': self.df.isnull().sum().to_dict(),
+            'numeric_columns': list(self.df.select_dtypes(include=[np.number]).columns),
+            'categorical_columns': list(self.df.select_dtypes(include=['object']).columns)
+        }
+    
+    def get_cleaned_data(self) -> pd.DataFrame:
+        return self.df.copy()
+
+def create_sample_data() -> pd.DataFrame:
+    data = {
+        'id': [1, 2, 3, 4, 5, 5, 6],
+        'value': [10.5, 20.3, np.nan, 15.7, 10.5, 10.5, 30.1],
+        'category': ['A', 'B', 'A', 'C', 'A', 'A', 'B'],
+        'score': [85, 92, 78, np.nan, 85, 85, 95]
+    }
+    return pd.DataFrame(data)
+
+if __name__ == "__main__":
+    sample_df = create_sample_data()
+    cleaner = DataCleaner(sample_df)
+    
+    print("Initial data shape:", cleaner.original_shape)
+    print("\nRemoving duplicates...")
+    cleaner.remove_duplicates(subset=['id'])
+    
+    print("\nFilling missing values...")
+    cleaner.fill_missing_values(strategy='mean')
+    
+    print("\nNormalizing numeric columns...")
+    cleaner.normalize_column('value')
+    cleaner.normalize_column('score')
+    
+    summary = cleaner.get_summary()
+    print("\nCleaning summary:")
+    for key, value in summary.items():
+        print(f"{key}: {value}")
+    
+    cleaned_df = cleaner.get_cleaned_data()
+    print("\nFirst few rows of cleaned data:")
+    print(cleaned_df.head())
