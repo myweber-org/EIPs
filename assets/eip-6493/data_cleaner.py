@@ -379,3 +379,38 @@ if __name__ == "__main__":
         print("\nValidation Results:")
         for key, value in validation.items():
             print(f"  {key}: {value}")
+def remove_duplicates(input_list):
+    """
+    Remove duplicate elements from a list while preserving order.
+    Returns a new list with unique elements.
+    """
+    seen = set()
+    unique_list = []
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            unique_list.append(item)
+    return unique_list
+
+def clean_numeric_strings(string_list):
+    """
+    Clean a list of numeric strings by converting to integers,
+    removing invalid entries, and returning sorted unique values.
+    """
+    cleaned = []
+    for s in string_list:
+        try:
+            num = int(s.strip())
+            cleaned.append(num)
+        except ValueError:
+            continue
+    return sorted(set(cleaned))
+
+if __name__ == "__main__":
+    sample_data = [1, 2, 2, 3, 4, 4, 5]
+    print("Original:", sample_data)
+    print("Cleaned:", remove_duplicates(sample_data))
+    
+    numeric_strings = ["10", "5", "abc", "20", "5", "15"]
+    print("Numeric strings:", numeric_strings)
+    print("Cleaned numeric:", clean_numeric_strings(numeric_strings))
