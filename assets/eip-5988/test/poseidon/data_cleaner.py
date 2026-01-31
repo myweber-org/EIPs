@@ -75,3 +75,76 @@ if __name__ == "__main__":
     
     is_valid, message = validate_data(cleaned, required_columns=['A', 'B'])
     print(f"\nValidation: {is_valid} - {message}")
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df):
+    """
+    Clean a pandas DataFrame by removing duplicates and standardizing column names.
+    """
+    # Remove duplicate rows
+    df_cleaned = df.drop_duplicates()
+    
+    # Standardize column names: lowercase and replace spaces with underscores
+    df_cleaned.columns = df_cleaned.columns.str.lower().str.replace(' ', '_')
+    
+    # Remove rows with missing values in critical columns
+    critical_columns = ['id', 'name', 'value']
+    existing_critical = [col for col in critical_columns if col in df_cleaned.columns]
+    if existing_critical:
+        df_cleaned = df_cleaned.dropna(subset=existing_critical)
+    
+    # Reset index after cleaning
+    df_cleaned = df_cleaned.reset_index(drop=True)
+    
+    return df_cleaned
+
+def validate_data(df, required_columns):
+    """
+    Validate that required columns exist in the DataFrame.
+    """
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        raise ValueError(f"Missing required columns: {missing_columns}")
+    return True
+
+def process_data_file(input_path, output_path, required_columns=None):
+    """
+    Process a data file: load, clean, validate, and save.
+    """
+    # Load data
+    if input_path.endswith('.csv'):
+        df = pd.read_csv(input_path)
+    elif input_path.endswith('.xlsx'):
+        df = pd.read_excel(input_path)
+    else:
+        raise ValueError("Unsupported file format. Use .csv or .xlsx")
+    
+    # Clean data
+    df_cleaned = clean_dataset(df)
+    
+    # Validate data if required columns are specified
+    if required_columns:
+        validate_data(df_cleaned, required_columns)
+    
+    # Save cleaned data
+    if output_path.endswith('.csv'):
+        df_cleaned.to_csv(output_path, index=False)
+    elif output_path.endswith('.xlsx'):
+        df_cleaned.to_excel(output_path, index=False)
+    else:
+        raise ValueError("Unsupported output format. Use .csv or .xlsx")
+    
+    return df_cleaned
+
+if __name__ == "__main__":
+    # Example usage
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    
+    try:
+        cleaned_df = process_data_file(input_file, output_file, ['id', 'value'])
+        print(f"Data cleaned successfully. Shape: {cleaned_df.shape}")
+        print(f"Saved to: {output_file}")
+    except Exception as e:
+        print(f"Error processing data: {e}")
