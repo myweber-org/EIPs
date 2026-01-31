@@ -1,75 +1,72 @@
-
 import pandas as pd
 
-def clean_dataset(df):
+def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
     """
-    Clean a pandas DataFrame by removing null values and duplicate rows.
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
     
     Args:
-        df (pd.DataFrame): Input DataFrame to be cleaned.
+        df (pd.DataFrame): Input DataFrame to clean.
+        drop_duplicates (bool): Whether to drop duplicate rows. Default is True.
+        fill_missing (str): Method to fill missing values. Options: 'mean', 'median', 'mode', or 'drop'. Default is 'mean'.
     
     Returns:
         pd.DataFrame: Cleaned DataFrame.
     """
-    if not isinstance(df, pd.DataFrame):
-        raise TypeError("Input must be a pandas DataFrame")
+    cleaned_df = df.copy()
     
-    df_cleaned = df.copy()
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
     
-    df_cleaned = df_cleaned.dropna()
+    if fill_missing == 'drop':
+        cleaned_df = cleaned_df.dropna()
+    elif fill_missing in ['mean', 'median']:
+        numeric_cols = cleaned_df.select_dtypes(include=['number']).columns
+        for col in numeric_cols:
+            if fill_missing == 'mean':
+                cleaned_df[col].fillna(cleaned_df[col].mean(), inplace=True)
+            elif fill_missing == 'median':
+                cleaned_df[col].fillna(cleaned_df[col].median(), inplace=True)
+    elif fill_missing == 'mode':
+        for col in cleaned_df.columns:
+            cleaned_df[col].fillna(cleaned_df[col].mode()[0] if not cleaned_df[col].mode().empty else None, inplace=True)
     
-    df_cleaned = df_cleaned.drop_duplicates()
-    
-    df_cleaned = df_cleaned.reset_index(drop=True)
-    
-    return df_cleaned
+    return cleaned_df
 
-def validate_dataframe(df, required_columns=None):
+def validate_data(df, required_columns=None):
     """
-    Validate DataFrame structure and content.
+    Validate the DataFrame for required columns and data types.
     
     Args:
         df (pd.DataFrame): DataFrame to validate.
         required_columns (list): List of required column names.
     
     Returns:
-        bool: True if validation passes, False otherwise.
+        tuple: (bool, str) indicating validation success and message.
     """
-    if not isinstance(df, pd.DataFrame):
-        return False
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
     
     if df.empty:
-        return False
+        return False, "DataFrame is empty"
     
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            return False
-    
-    return True
-
-def sample_usage():
-    """
-    Example usage of the data cleaning functions.
-    """
-    data = {
-        'name': ['Alice', 'Bob', 'Charlie', None, 'Alice'],
-        'age': [25, 30, 35, None, 25],
-        'score': [85.5, 92.0, 78.5, 88.0, 85.5]
-    }
-    
-    df = pd.DataFrame(data)
-    print("Original DataFrame:")
-    print(df)
-    print("\nShape:", df.shape)
-    
-    if validate_dataframe(df, required_columns=['name', 'age', 'score']):
-        cleaned_df = clean_dataset(df)
-        print("\nCleaned DataFrame:")
-        print(cleaned_df)
-        print("\nCleaned shape:", cleaned_df.shape)
-    else:
-        print("DataFrame validation failed")
+    return True, "Data validation passed"
 
 if __name__ == "__main__":
-    sample_usage()
+    sample_data = {
+        'A': [1, 2, 2, 4, None],
+        'B': [5, None, 7, 8, 9],
+        'C': ['x', 'y', 'y', 'z', None]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned = clean_dataset(df, fill_missing='mean')
+    print("\nCleaned DataFrame:")
+    print(cleaned)
+    
+    is_valid, message = validate_data(cleaned, required_columns=['A', 'B'])
+    print(f"\nValidation: {is_valid}, Message: {message}")
