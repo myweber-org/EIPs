@@ -124,3 +124,11 @@ def convert_data_types(df, type_mapping):
                 print(f"Warning: Could not convert column '{column}' to {dtype}: {e}")
     
     return df_converted
+def remove_duplicates_preserve_order(iterable):
+    seen = set()
+    result = []
+    for item in iterable:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
