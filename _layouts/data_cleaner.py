@@ -75,4 +75,61 @@ def validate_dataframe(dataframe, required_columns=None):
     return result
 
 def clean_data_with_order(input_list):
-    return list(dict.fromkeys(input_list))
+    return list(dict.fromkeys(input_list))import pandas as pd
+import numpy as np
+from scipy import stats
+
+def load_and_clean_data(filepath):
+    """
+    Load a CSV file and perform basic data cleaning operations.
+    """
+    try:
+        df = pd.read_csv(filepath)
+    except FileNotFoundError:
+        print(f"Error: File not found at {filepath}")
+        return None
+    except Exception as e:
+        print(f"Error loading file: {e}")
+        return None
+
+    print(f"Original shape: {df.shape}")
+
+    # Remove duplicate rows
+    df = df.drop_duplicates()
+    print(f"After removing duplicates: {df.shape}")
+
+    # Remove rows with any missing values
+    df = df.dropna()
+    print(f"After removing rows with missing values: {df.shape}")
+
+    # Remove outliers using Z-score for numeric columns
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    if len(numeric_cols) > 0:
+        z_scores = np.abs(stats.zscore(df[numeric_cols], nan_policy='omit'))
+        outlier_mask = (z_scores < 3).all(axis=1)
+        df = df[outlier_mask]
+        print(f"After removing outliers (|Z| > 3): {df.shape}")
+
+    # Normalize numeric columns to range [0, 1]
+    if len(numeric_cols) > 0:
+        df[numeric_cols] = (df[numeric_cols] - df[numeric_cols].min()) / (df[numeric_cols].max() - df[numeric_cols].min())
+
+    print("Data cleaning completed successfully.")
+    return df
+
+def save_cleaned_data(df, output_filepath):
+    """
+    Save the cleaned DataFrame to a CSV file.
+    """
+    if df is not None:
+        df.to_csv(output_filepath, index=False)
+        print(f"Cleaned data saved to {output_filepath}")
+    else:
+        print("No data to save.")
+
+if __name__ == "__main__":
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+
+    cleaned_df = load_and_clean_data(input_file)
+    save_cleaned_data(cleaned_df, output_file)
