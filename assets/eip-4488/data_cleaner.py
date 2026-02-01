@@ -83,4 +83,36 @@ def process_numeric_columns(df, threshold=0.5):
             cleaned_df = cleaned_df[(cleaned_df[col] >= lower_bound) & 
                                    (cleaned_df[col] <= upper_bound)]
     
-    return cleaned_df.reset_index(drop=True)
+    return cleaned_df.reset_index(drop=True)import pandas as pd
+
+def clean_dataset(df):
+    """
+    Cleans a pandas DataFrame by removing duplicate rows and
+    filling missing numeric values with the column mean.
+    """
+    # Remove duplicate rows
+    df_cleaned = df.drop_duplicates()
+    
+    # Fill missing values in numeric columns with the column mean
+    numeric_cols = df_cleaned.select_dtypes(include=['number']).columns
+    df_cleaned[numeric_cols] = df_cleaned[numeric_cols].fillna(df_cleaned[numeric_cols].mean())
+    
+    return df_cleaned
+
+def main():
+    # Example usage
+    data = {
+        'A': [1, 2, 2, None, 5],
+        'B': [None, 2, 2, 4, 5],
+        'C': ['x', 'y', 'y', 'z', 'x']
+    }
+    df = pd.DataFrame(data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned_df = clean_dataset(df)
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+
+if __name__ == "__main__":
+    main()
