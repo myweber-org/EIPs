@@ -173,4 +173,90 @@ if __name__ == "__main__":
     stats = calculate_basic_stats(cleaned_data, 'values')
     print("\nBasic statistics for cleaned data:")
     for key, value in stats.items():
-        print(f"{key}: {value:.2f}")
+        print(f"{key}: {value:.2f}")import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers using the Interquartile Range method.
+    Returns filtered DataFrame.
+    """
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+
+def remove_outliers_zscore(data, column, threshold=3):
+    """
+    Remove outliers using Z-score method.
+    Returns filtered DataFrame.
+    """
+    z_scores = np.abs(stats.zscore(data[column]))
+    return data[z_scores < threshold]
+
+def normalize_minmax(data, column):
+    """
+    Normalize data to [0, 1] range using min-max scaling.
+    Returns normalized Series.
+    """
+    min_val = data[column].min()
+    max_val = data[column].max()
+    return (data[column] - min_val) / (max_val - min_val)
+
+def normalize_zscore(data, column):
+    """
+    Normalize data using Z-score normalization.
+    Returns normalized Series.
+    """
+    mean = data[column].mean()
+    std = data[column].std()
+    return (data[column] - mean) / std
+
+def handle_missing_mean(data, column):
+    """
+    Fill missing values with column mean.
+    Returns Series with filled values.
+    """
+    return data[column].fillna(data[column].mean())
+
+def handle_missing_median(data, column):
+    """
+    Fill missing values with column median.
+    Returns Series with filled values.
+    """
+    return data[column].fillna(data[column].median())
+
+def create_sample_data():
+    """
+    Create sample DataFrame for testing.
+    """
+    np.random.seed(42)
+    data = {
+        'feature_a': np.random.normal(100, 15, 100),
+        'feature_b': np.random.exponential(50, 100),
+        'feature_c': np.random.uniform(0, 200, 100)
+    }
+    df = pd.DataFrame(data)
+    df.iloc[5, 0] = np.nan
+    df.iloc[10, 1] = np.nan
+    df.iloc[15, 2] = np.nan
+    return df
+
+if __name__ == "__main__":
+    df = create_sample_data()
+    print("Original data shape:", df.shape)
+    
+    df_clean = remove_outliers_iqr(df, 'feature_a')
+    print("After IQR outlier removal:", df_clean.shape)
+    
+    df['feature_a_normalized'] = normalize_minmax(df, 'feature_a')
+    df['feature_b_normalized'] = normalize_zscore(df, 'feature_b')
+    
+    df['feature_a_filled'] = handle_missing_mean(df, 'feature_a')
+    df['feature_b_filled'] = handle_missing_median(df, 'feature_b')
+    
+    print("Data cleaning completed.")
+    print(df.head())
