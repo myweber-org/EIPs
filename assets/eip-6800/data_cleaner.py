@@ -55,3 +55,11 @@ if __name__ == "__main__":
     if cleaned_data is not None:
         print("Data cleaning completed successfully")
         print(cleaned_data.describe())
+def remove_duplicates_preserve_order(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
