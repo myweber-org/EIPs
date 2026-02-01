@@ -318,4 +318,97 @@ def get_data_summary(df):
         'categorical_columns': list(df.select_dtypes(include=['object', 'category']).columns)
     }
     
-    return summary
+    return summaryimport pandas as pd
+import numpy as np
+
+def clean_dataframe(df, drop_duplicates=True, fill_missing=True, fill_strategy='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Parameters:
+    df (pd.DataFrame): The DataFrame to clean.
+    drop_duplicates (bool): Whether to drop duplicate rows.
+    fill_missing (bool): Whether to fill missing values.
+    fill_strategy (str): Strategy for filling missing values ('mean', 'median', 'mode', or 'constant').
+    
+    Returns:
+    pd.DataFrame: The cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        initial_rows = cleaned_df.shape[0]
+        cleaned_df = cleaned_df.drop_duplicates()
+        removed = initial_rows - cleaned_df.shape[0]
+        print(f"Removed {removed} duplicate rows.")
+    
+    if fill_missing and cleaned_df.isnull().sum().any():
+        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+        categorical_cols = cleaned_df.select_dtypes(exclude=[np.number]).columns
+        
+        for col in numeric_cols:
+            if cleaned_df[col].isnull().any():
+                if fill_strategy == 'mean':
+                    fill_value = cleaned_df[col].mean()
+                elif fill_strategy == 'median':
+                    fill_value = cleaned_df[col].median()
+                elif fill_strategy == 'constant':
+                    fill_value = 0
+                else:
+                    fill_value = cleaned_df[col].mean()
+                
+                cleaned_df[col] = cleaned_df[col].fillna(fill_value)
+                print(f"Filled missing values in numeric column '{col}' with {fill_strategy} value: {fill_value}")
+        
+        for col in categorical_cols:
+            if cleaned_df[col].isnull().any():
+                mode_value = cleaned_df[col].mode()[0] if not cleaned_df[col].mode().empty else 'Unknown'
+                cleaned_df[col] = cleaned_df[col].fillna(mode_value)
+                print(f"Filled missing values in categorical column '{col}' with mode: {mode_value}")
+    
+    print(f"Data cleaning complete. Original shape: {df.shape}, Cleaned shape: {cleaned_df.shape}")
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None, min_rows=1):
+    """
+    Validate a DataFrame for required columns and minimum row count.
+    
+    Parameters:
+    df (pd.DataFrame): The DataFrame to validate.
+    required_columns (list): List of column names that must be present.
+    min_rows (int): Minimum number of rows required.
+    
+    Returns:
+    bool: True if validation passes, False otherwise.
+    """
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            print(f"Validation failed: Missing required columns: {missing_columns}")
+            return False
+    
+    if df.shape[0] < min_rows:
+        print(f"Validation failed: DataFrame has {df.shape[0]} rows, minimum required is {min_rows}")
+        return False
+    
+    print("DataFrame validation passed.")
+    return True
+
+def get_dataframe_stats(df):
+    """
+    Get basic statistics about a DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): The DataFrame to analyze.
+    
+    Returns:
+    dict: Dictionary containing DataFrame statistics.
+    """
+    stats = {
+        'shape': df.shape,
+        'columns': list(df.columns),
+        'dtypes': df.dtypes.to_dict(),
+        'missing_values': df.isnull().sum().to_dict(),
+        'numeric_stats': df.describe().to_dict() if df.select_dtypes(include=[np.number]).shape[1] > 0 else {}
+    }
+    return stats
