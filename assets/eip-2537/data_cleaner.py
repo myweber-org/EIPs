@@ -126,3 +126,99 @@ if __name__ == "__main__":
     
     clean_data = cleaner.get_clean_data()
     print(f"\nClean data shape: {clean_data.shape}")
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(dataframe, column, threshold=1.5):
+    """
+    Remove outliers using IQR method
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    Q1 = dataframe[column].quantile(0.25)
+    Q3 = dataframe[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - threshold * IQR
+    upper_bound = Q3 + threshold * IQR
+    
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
+                           (dataframe[column] <= upper_bound)]
+    
+    return filtered_df
+
+def z_score_normalize(dataframe, column):
+    """
+    Normalize column using z-score normalization
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    mean_val = dataframe[column].mean()
+    std_val = dataframe[column].std()
+    
+    if std_val == 0:
+        return dataframe[column]
+    
+    normalized = (dataframe[column] - mean_val) / std_val
+    return normalized
+
+def min_max_normalize(dataframe, column, feature_range=(0, 1)):
+    """
+    Normalize column using min-max scaling
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    min_val = dataframe[column].min()
+    max_val = dataframe[column].max()
+    
+    if max_val == min_val:
+        return dataframe[column]
+    
+    normalized = (dataframe[column] - min_val) / (max_val - min_val)
+    
+    if feature_range != (0, 1):
+        min_target, max_target = feature_range
+        normalized = normalized * (max_target - min_target) + min_target
+    
+    return normalized
+
+def detect_missing_patterns(dataframe, threshold=0.3):
+    """
+    Detect columns with high percentage of missing values
+    """
+    missing_percentage = dataframe.isnull().sum() / len(dataframe)
+    high_missing_cols = missing_percentage[missing_percentage > threshold].index.tolist()
+    
+    return {
+        'missing_percentage': missing_percentage,
+        'high_missing_columns': high_missing_cols,
+        'total_missing': dataframe.isnull().sum().sum()
+    }
+
+def clean_dataset(dataframe, outlier_columns=None, normalize_columns=None, 
+                  normalization_method='zscore', missing_threshold=0.3):
+    """
+    Comprehensive data cleaning pipeline
+    """
+    cleaned_df = dataframe.copy()
+    
+    if outlier_columns:
+        for col in outlier_columns:
+            if col in cleaned_df.columns:
+                cleaned_df = remove_outliers_iqr(cleaned_df, col)
+    
+    if normalize_columns:
+        for col in normalize_columns:
+            if col in cleaned_df.columns:
+                if normalization_method == 'zscore':
+                    cleaned_df[f'{col}_normalized'] = z_score_normalize(cleaned_df, col)
+                elif normalization_method == 'minmax':
+                    cleaned_df[f'{col}_normalized'] = min_max_normalize(cleaned_df, col)
+    
+    missing_info = detect_missing_patterns(cleaned_df, missing_threshold)
+    
+    return cleaned_df, missing_info
