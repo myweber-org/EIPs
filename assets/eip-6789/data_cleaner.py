@@ -180,3 +180,25 @@ def get_data_summary(data):
         }
     
     return summary
+import re
+
+def clean_string(input_str):
+    """
+    Remove extra whitespace, normalize to lowercase, and strip special characters.
+    """
+    if not isinstance(input_str, str):
+        return ""
+    
+    # Convert to lowercase
+    cleaned = input_str.lower()
+    
+    # Remove any characters that are not alphanumeric or whitespace
+    cleaned = re.sub(r'[^a-z0-9\s]', '', cleaned)
+    
+    # Replace multiple whitespace characters with a single space
+    cleaned = re.sub(r'\s+', ' ', cleaned)
+    
+    # Strip leading and trailing whitespace
+    cleaned = cleaned.strip()
+    
+    return cleaned
