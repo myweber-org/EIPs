@@ -359,4 +359,108 @@ if __name__ == "__main__":
     stats = cleaner.get_removal_stats()
     print("Data cleaning statistics:")
     for key, value in stats.items():
-        print(f"{key}: {value}")
+        print(f"{key}: {value}")import pandas as pd
+import numpy as np
+from typing import Union, List
+
+def remove_duplicates(df: pd.DataFrame, subset: Union[str, List[str]] = None) -> pd.DataFrame:
+    """
+    Remove duplicate rows from DataFrame.
+    
+    Args:
+        df: Input DataFrame
+        subset: Column(s) to consider for identifying duplicates
+    
+    Returns:
+        DataFrame with duplicates removed
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def convert_column_types(df: pd.DataFrame, column_types: dict) -> pd.DataFrame:
+    """
+    Convert columns to specified data types.
+    
+    Args:
+        df: Input DataFrame
+        column_types: Dictionary mapping column names to target types
+    
+    Returns:
+        DataFrame with converted column types
+    """
+    df_converted = df.copy()
+    for column, dtype in column_types.items():
+        if column in df_converted.columns:
+            try:
+                df_converted[column] = df_converted[column].astype(dtype)
+            except (ValueError, TypeError):
+                df_converted[column] = pd.to_numeric(df_converted[column], errors='coerce')
+    return df_converted
+
+def handle_missing_values(df: pd.DataFrame, strategy: str = 'drop', fill_value: any = None) -> pd.DataFrame:
+    """
+    Handle missing values in DataFrame.
+    
+    Args:
+        df: Input DataFrame
+        strategy: 'drop' to remove rows, 'fill' to fill values
+        fill_value: Value to fill when strategy is 'fill'
+    
+    Returns:
+        DataFrame with handled missing values
+    """
+    if strategy == 'drop':
+        return df.dropna()
+    elif strategy == 'fill':
+        return df.fillna(fill_value)
+    else:
+        raise ValueError("Strategy must be 'drop' or 'fill'")
+
+def normalize_text_columns(df: pd.DataFrame, columns: List[str]) -> pd.DataFrame:
+    """
+    Normalize text columns by stripping whitespace and converting to lowercase.
+    
+    Args:
+        df: Input DataFrame
+        columns: List of column names to normalize
+    
+    Returns:
+        DataFrame with normalized text columns
+    """
+    df_normalized = df.copy()
+    for column in columns:
+        if column in df_normalized.columns and df_normalized[column].dtype == 'object':
+            df_normalized[column] = df_normalized[column].str.strip().str.lower()
+    return df_normalized
+
+def clean_dataframe(df: pd.DataFrame, 
+                   deduplicate: bool = True,
+                   type_conversions: dict = None,
+                   missing_strategy: str = 'drop',
+                   text_columns: List[str] = None) -> pd.DataFrame:
+    """
+    Apply multiple cleaning operations to DataFrame.
+    
+    Args:
+        df: Input DataFrame
+        deduplicate: Whether to remove duplicates
+        type_conversions: Dictionary of column type conversions
+        missing_strategy: Strategy for handling missing values
+        text_columns: Columns to normalize text
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    if deduplicate:
+        cleaned_df = remove_duplicates(cleaned_df)
+    
+    if type_conversions:
+        cleaned_df = convert_column_types(cleaned_df, type_conversions)
+    
+    cleaned_df = handle_missing_values(cleaned_df, strategy=missing_strategy)
+    
+    if text_columns:
+        cleaned_df = normalize_text_columns(cleaned_df, text_columns)
+    
+    return cleaned_df
