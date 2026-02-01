@@ -119,3 +119,44 @@ if __name__ == "__main__":
     cleaned_data = clean_dataset('sample_data.csv', ['age', 'income', 'score'])
     cleaned_data.to_csv('cleaned_data.csv', index=False)
     print("Data cleaning completed. Cleaned data saved to 'cleaned_data.csv'")
+import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+def clean_dataset(df, numeric_columns):
+    cleaned_df = df.copy()
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+    cleaned_df = cleaned_df.dropna()
+    return cleaned_df.reset_index(drop=True)
+
+def main():
+    data = {
+        'A': np.random.normal(100, 15, 1000),
+        'B': np.random.exponential(50, 1000),
+        'C': np.random.uniform(0, 200, 1000)
+    }
+    df = pd.DataFrame(data)
+    df.loc[10, 'A'] = 500
+    df.loc[20, 'B'] = 1000
+    
+    print("Original dataset shape:", df.shape)
+    print("Original statistics:")
+    print(df.describe())
+    
+    cleaned_df = clean_dataset(df, ['A', 'B', 'C'])
+    
+    print("\nCleaned dataset shape:", cleaned_df.shape)
+    print("Cleaned statistics:")
+    print(cleaned_df.describe())
+
+if __name__ == "__main__":
+    main()
