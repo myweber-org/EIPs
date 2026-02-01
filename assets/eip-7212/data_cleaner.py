@@ -232,4 +232,89 @@ def example_usage():
     return cleaned_data
 
 if __name__ == "__main__":
-    cleaned = example_usage()
+    cleaned = example_usage()import pandas as pd
+import numpy as np
+
+def detect_outliers_iqr(data, column):
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    outliers = data[(data[column] < lower_bound) | (data[column] > upper_bound)]
+    return outliers
+
+def handle_missing_values(data, strategy='mean', columns=None):
+    if columns is None:
+        columns = data.columns
+    
+    data_filled = data.copy()
+    
+    for col in columns:
+        if data[col].isnull().any():
+            if strategy == 'mean':
+                fill_value = data[col].mean()
+            elif strategy == 'median':
+                fill_value = data[col].median()
+            elif strategy == 'mode':
+                fill_value = data[col].mode()[0]
+            elif strategy == 'constant':
+                fill_value = 0
+            else:
+                raise ValueError(f"Unknown strategy: {strategy}")
+            
+            data_filled[col] = data[col].fillna(fill_value)
+    
+    return data_filled
+
+def remove_duplicates(data, subset=None, keep='first'):
+    return data.drop_duplicates(subset=subset, keep=keep)
+
+def normalize_column(data, column):
+    min_val = data[column].min()
+    max_val = data[column].max()
+    if max_val - min_val == 0:
+        return data[column]
+    return (data[column] - min_val) / (max_val - min_val)
+
+def clean_dataset(data, outlier_columns=None, missing_strategy='mean', normalize_columns=None):
+    cleaned_data = data.copy()
+    
+    if outlier_columns:
+        for col in outlier_columns:
+            outliers = detect_outliers_iqr(cleaned_data, col)
+            if not outliers.empty:
+                Q1 = cleaned_data[col].quantile(0.25)
+                Q3 = cleaned_data[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - 1.5 * IQR
+                upper_bound = Q3 + 1.5 * IQR
+                cleaned_data[col] = cleaned_data[col].clip(lower=lower_bound, upper=upper_bound)
+    
+    cleaned_data = handle_missing_values(cleaned_data, strategy=missing_strategy)
+    cleaned_data = remove_duplicates(cleaned_data)
+    
+    if normalize_columns:
+        for col in normalize_columns:
+            cleaned_data[col] = normalize_column(cleaned_data, col)
+    
+    return cleaned_data
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'A': [1, 2, 3, 4, 5, 100, 7, 8, 9, 10],
+        'B': [10, 20, np.nan, 40, 50, 60, 70, 80, 90, 100],
+        'C': [1, 2, 2, 3, 4, 5, 6, 7, 8, 9]
+    })
+    
+    cleaned = clean_dataset(
+        sample_data,
+        outlier_columns=['A'],
+        missing_strategy='mean',
+        normalize_columns=['C']
+    )
+    
+    print("Original data:")
+    print(sample_data)
+    print("\nCleaned data:")
+    print(cleaned)
