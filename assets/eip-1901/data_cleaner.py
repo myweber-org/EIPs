@@ -1,46 +1,78 @@
+
 import pandas as pd
-import numpy as np
+import re
 
-def clean_csv_data(input_file, output_file):
+def clean_dataframe(df, columns_to_clean=None):
     """
-    Clean CSV data by handling missing values and removing duplicates.
+    Clean a DataFrame by removing duplicates and normalizing string columns.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        columns_to_clean (list, optional): List of column names to normalize.
+            If None, all object dtype columns are cleaned.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
     """
-    try:
-        df = pd.read_csv(input_file)
-        
-        print(f"Original shape: {df.shape}")
-        
-        df_cleaned = df.copy()
-        
-        df_cleaned = df_cleaned.drop_duplicates()
-        
-        for column in df_cleaned.columns:
-            if df_cleaned[column].dtype in ['int64', 'float64']:
-                df_cleaned[column].fillna(df_cleaned[column].median(), inplace=True)
-            elif df_cleaned[column].dtype == 'object':
-                df_cleaned[column].fillna(df_cleaned[column].mode()[0], inplace=True)
-        
-        df_cleaned.to_csv(output_file, index=False)
-        
-        print(f"Cleaned shape: {df_cleaned.shape}")
-        print(f"Data saved to: {output_file}")
-        
-        return True
-        
-    except FileNotFoundError:
-        print(f"Error: File '{input_file}' not found.")
-        return False
-    except Exception as e:
-        print(f"Error during cleaning: {str(e)}")
-        return False
+    df_clean = df.copy()
+    
+    # Remove duplicate rows
+    df_clean = df_clean.drop_duplicates()
+    
+    # Determine columns to normalize
+    if columns_to_clean is None:
+        columns_to_clean = df_clean.select_dtypes(include=['object']).columns.tolist()
+    
+    # Normalize string columns
+    for col in columns_to_clean:
+        if col in df_clean.columns and df_clean[col].dtype == 'object':
+            df_clean[col] = df_clean[col].apply(_normalize_string)
+    
+    return df_clean
 
-if __name__ == "__main__":
-    input_csv = "raw_data.csv"
-    output_csv = "cleaned_data.csv"
+def _normalize_string(text):
+    """
+    Normalize a string by converting to lowercase, removing extra whitespace,
+    and stripping special characters.
     
-    success = clean_csv_data(input_csv, output_csv)
+    Args:
+        text (str): Input string.
     
-    if success:
-        print("Data cleaning completed successfully.")
-    else:
-        print("Data cleaning failed.")
+    Returns:
+        str: Normalized string.
+    """
+    if pd.isna(text):
+        return text
+    
+    text = str(text)
+    # Convert to lowercase
+    text = text.lower()
+    # Remove extra whitespace
+    text = re.sub(r'\s+', ' ', text).strip()
+    # Remove special characters except alphanumeric and spaces
+    text = re.sub(r'[^a-z0-9\s]', '', text)
+    
+    return text
+
+def validate_email_column(df, email_column):
+    """
+    Validate email addresses in a DataFrame column.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        email_column (str): Name of the column containing email addresses.
+    
+    Returns:
+        pd.DataFrame: DataFrame with validation results.
+    """
+    if email_column not in df.columns:
+        raise ValueError(f"Column '{email_column}' not found in DataFrame")
+    
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    
+    df_result = df.copy()
+    df_result['is_valid_email'] = df_result[email_column].apply(
+        lambda x: bool(re.match(email_pattern, str(x))) if pd.notna(x) else False
+    )
+    
+    return df_result
