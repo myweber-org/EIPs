@@ -240,3 +240,11 @@ if __name__ == "__main__":
     print(f"Is valid: {validation['is_valid']}")
     print(f"Issues: {validation['issues']}")
     print(f"Summary: {validation['summary']}")
+def remove_duplicates_preserve_order(iterable):
+    seen = set()
+    result = []
+    for item in iterable:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
