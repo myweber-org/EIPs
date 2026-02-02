@@ -418,3 +418,69 @@ def save_cleaned_data(df, output_path, format='csv'):
         raise ValueError(f"Unsupported format: {format}")
     
     print(f"Data saved to {output_path} in {format} format")
+import pandas as pd
+import numpy as np
+
+def remove_missing_rows(df, threshold=0.5):
+    """
+    Remove rows with missing values exceeding the threshold percentage.
+    """
+    missing_per_row = df.isnull().mean(axis=1)
+    return df[missing_per_row <= threshold].reset_index(drop=True)
+
+def fill_missing_with_median(df, columns=None):
+    """
+    Fill missing values with column median for specified columns or all numeric columns.
+    """
+    df_filled = df.copy()
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    for col in columns:
+        if col in df.columns:
+            median_val = df[col].median()
+            df_filled[col].fillna(median_val, inplace=True)
+    
+    return df_filled
+
+def remove_outliers_iqr(df, column, multiplier=1.5):
+    """
+    Remove outliers from a specified column using the IQR method.
+    """
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - multiplier * IQR
+    upper_bound = Q3 + multiplier * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    return filtered_df.reset_index(drop=True)
+
+def standardize_columns(df, columns=None):
+    """
+    Standardize specified columns to have zero mean and unit variance.
+    """
+    from sklearn.preprocessing import StandardScaler
+    
+    df_scaled = df.copy()
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    scaler = StandardScaler()
+    df_scaled[columns] = scaler.fit_transform(df[columns])
+    
+    return df_scaled
+
+def clean_dataset(df, missing_threshold=0.5, outlier_columns=None, outlier_multiplier=1.5):
+    """
+    Perform a complete cleaning pipeline on the dataset.
+    """
+    df_clean = remove_missing_rows(df, threshold=missing_threshold)
+    df_clean = fill_missing_with_median(df_clean)
+    
+    if outlier_columns:
+        for col in outlier_columns:
+            if col in df_clean.columns:
+                df_clean = remove_outliers_iqr(df_clean, col, multiplier=outlier_multiplier)
+    
+    return df_clean
