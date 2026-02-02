@@ -104,3 +104,104 @@ if __name__ == "__main__":
     print("\nSummary statistics for column A:")
     for key, value in stats.items():
         print(f"{key}: {value:.2f}")
+import pandas as pd
+import numpy as np
+from datetime import datetime
+
+def clean_dataset(df):
+    """
+    Clean dataset by removing duplicates, handling missing values,
+    and standardizing column formats.
+    """
+    # Remove duplicate rows
+    df = df.drop_duplicates()
+    
+    # Fill missing numeric values with column median
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        df[col] = df[col].fillna(df[col].median())
+    
+    # Fill missing categorical values with mode
+    categorical_cols = df.select_dtypes(include=['object']).columns
+    for col in categorical_cols:
+        df[col] = df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else 'Unknown')
+    
+    # Standardize date columns
+    date_columns = [col for col in df.columns if 'date' in col.lower() or 'time' in col.lower()]
+    for col in date_columns:
+        try:
+            df[col] = pd.to_datetime(df[col], errors='coerce')
+        except:
+            pass
+    
+    # Remove outliers using IQR method for numeric columns
+    for col in numeric_cols:
+        Q1 = df[col].quantile(0.25)
+        Q3 = df[col].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+        df = df[(df[col] >= lower_bound) & (df[col] <= upper_bound)]
+    
+    # Reset index after cleaning
+    df = df.reset_index(drop=True)
+    
+    return df
+
+def validate_data(df, required_columns=None):
+    """
+    Validate dataset structure and content.
+    """
+    if required_columns:
+        missing_cols = set(required_columns) - set(df.columns)
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    # Check for empty dataset
+    if df.empty:
+        raise ValueError("Dataset is empty after cleaning")
+    
+    # Check data types consistency
+    for col in df.columns:
+        if df[col].dtype == 'object':
+            unique_count = df[col].nunique()
+            if unique_count == 1:
+                print(f"Warning: Column '{col}' has only one unique value")
+    
+    return True
+
+def save_cleaned_data(df, output_path):
+    """
+    Save cleaned dataset to file.
+    """
+    if output_path.endswith('.csv'):
+        df.to_csv(output_path, index=False)
+    elif output_path.endswith('.parquet'):
+        df.to_parquet(output_path, index=False)
+    else:
+        raise ValueError("Unsupported file format. Use .csv or .parquet")
+    
+    print(f"Cleaned data saved to: {output_path}")
+    print(f"Shape: {df.shape}")
+    print(f"Columns: {list(df.columns)}")
+
+if __name__ == "__main__":
+    # Example usage
+    try:
+        # Load data
+        data = pd.read_csv('raw_data.csv')
+        
+        # Clean data
+        cleaned_data = clean_dataset(data)
+        
+        # Validate data
+        required_cols = ['id', 'value', 'timestamp']
+        validate_data(cleaned_data, required_cols)
+        
+        # Save cleaned data
+        save_cleaned_data(cleaned_data, 'cleaned_data.parquet')
+        
+    except FileNotFoundError:
+        print("Error: Input file not found")
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
