@@ -69,3 +69,94 @@ if __name__ == "__main__":
     print("\nCleaned DataFrame:")
     print(cleaned_df)
     print(f"Cleaned shape: {cleaned_df.shape}")
+import pandas as pd
+
+def clean_dataframe(df, drop_duplicates=True, fill_missing=None):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        drop_duplicates (bool): Whether to drop duplicate rows. Default is True.
+        fill_missing (str or dict): Method to fill missing values. 
+            Options: 'mean', 'median', 'mode', or a dictionary of column:value pairs.
+            If None, missing values are not filled.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    if fill_missing is not None:
+        if isinstance(fill_missing, dict):
+            cleaned_df = cleaned_df.fillna(fill_missing)
+        elif fill_missing == 'mean':
+            cleaned_df = cleaned_df.fillna(cleaned_df.mean(numeric_only=True))
+        elif fill_missing == 'median':
+            cleaned_df = cleaned_df.fillna(cleaned_df.median(numeric_only=True))
+        elif fill_missing == 'mode':
+            cleaned_df = cleaned_df.fillna(cleaned_df.mode().iloc[0])
+        else:
+            raise ValueError("Invalid fill_missing method. Use 'mean', 'median', 'mode', or a dictionary.")
+    
+    return cleaned_df
+
+def remove_outliers_iqr(df, columns, factor=1.5):
+    """
+    Remove outliers from specified columns using the Interquartile Range (IQR) method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        columns (list): List of column names to process.
+        factor (float): IQR multiplier for outlier detection. Default is 1.5.
+    
+    Returns:
+        pd.DataFrame: DataFrame with outliers removed.
+    """
+    df_clean = df.copy()
+    
+    for col in columns:
+        if col in df_clean.columns:
+            Q1 = df_clean[col].quantile(0.25)
+            Q3 = df_clean[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - factor * IQR
+            upper_bound = Q3 + factor * IQR
+            
+            df_clean = df_clean[(df_clean[col] >= lower_bound) & (df_clean[col] <= upper_bound)]
+    
+    return df_clean
+
+def standardize_columns(df, columns, method='zscore'):
+    """
+    Standardize specified columns using z-score or min-max normalization.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        columns (list): List of column names to standardize.
+        method (str): Standardization method. Options: 'zscore' or 'minmax'.
+    
+    Returns:
+        pd.DataFrame: DataFrame with standardized columns.
+    """
+    df_std = df.copy()
+    
+    for col in columns:
+        if col in df_std.columns and pd.api.types.is_numeric_dtype(df_std[col]):
+            if method == 'zscore':
+                mean = df_std[col].mean()
+                std = df_std[col].std()
+                if std != 0:
+                    df_std[col] = (df_std[col] - mean) / std
+            elif method == 'minmax':
+                min_val = df_std[col].min()
+                max_val = df_std[col].max()
+                if max_val != min_val:
+                    df_std[col] = (df_std[col] - min_val) / (max_val - min_val)
+            else:
+                raise ValueError("Invalid method. Use 'zscore' or 'minmax'.")
+    
+    return df_std
