@@ -74,3 +74,36 @@ if __name__ == "__main__":
     
     is_valid, message = validate_data(cleaned, required_columns=['A', 'B'])
     print(f"\nValidation: {is_valid} - {message}")
+import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+def clean_dataset(df, numeric_columns):
+    original_shape = df.shape
+    for col in numeric_columns:
+        if col in df.columns:
+            df = remove_outliers_iqr(df, col)
+    cleaned_shape = df.shape
+    print(f"Original shape: {original_shape}")
+    print(f"Cleaned shape: {cleaned_shape}")
+    print(f"Removed {original_shape[0] - cleaned_shape[0]} rows")
+    return df
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': np.random.normal(100, 15, 1000),
+        'B': np.random.exponential(50, 1000),
+        'C': np.random.uniform(0, 200, 1000)
+    }
+    sample_data['A'][:50] = np.random.normal(300, 10, 50)
+    
+    df = pd.DataFrame(sample_data)
+    cleaned_df = clean_dataset(df, ['A', 'B', 'C'])
+    print("Data cleaning completed successfully")
