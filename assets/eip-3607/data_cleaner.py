@@ -1,52 +1,43 @@
 
+import re
 import pandas as pd
-import numpy as np
-from scipy import stats
+from typing import List, Optional
 
-def load_dataset(filepath):
-    return pd.read_csv(filepath)
+def remove_special_chars(text: str) -> str:
+    """Remove non-alphanumeric characters from a string."""
+    if not isinstance(text, str):
+        return text
+    return re.sub(r'[^A-Za-z0-9\s]+', '', text)
 
-def remove_outliers(df, column, threshold=3):
-    z_scores = np.abs(stats.zscore(df[column]))
-    return df[z_scores < threshold]
+def normalize_whitespace(text: str) -> str:
+    """Replace multiple whitespace characters with a single space."""
+    if not isinstance(text, str):
+        return text
+    return re.sub(r'\s+', ' ', text).strip()
 
-def normalize_column(df, column):
-    min_val = df[column].min()
-    max_val = df[column].max()
-    df[column] = (df[column] - min_val) / (max_val - min_val)
+def clean_column_names(df: pd.DataFrame) -> pd.DataFrame:
+    """Clean column names by removing special characters and normalizing."""
+    df.columns = [remove_special_chars(str(col)) for col in df.columns]
+    df.columns = [normalize_whitespace(col) for col in df.columns]
+    df.columns = [col.lower().replace(' ', '_') for col in df.columns]
     return df
 
-def clean_data(df, numeric_columns):
-    for col in numeric_columns:
-        df = remove_outliers(df, col)
-        df = normalize_column(df, col)
+def drop_missing_rows(df: pd.DataFrame, columns: Optional[List[str]] = None) -> pd.DataFrame:
+    """Drop rows with missing values in specified columns or all columns."""
+    if columns:
+        return df.dropna(subset=columns)
     return df.dropna()
 
-if __name__ == "__main__":
-    data = load_dataset("raw_data.csv")
-    numeric_cols = data.select_dtypes(include=[np.number]).columns.tolist()
-    cleaned_data = clean_data(data, numeric_cols)
-    cleaned_data.to_csv("cleaned_data.csv", index=False)
-import re
+def convert_to_numeric(df: pd.DataFrame, columns: List[str]) -> pd.DataFrame:
+    """Convert specified columns to numeric, coercing errors to NaN."""
+    df_copy = df.copy()
+    for col in columns:
+        if col in df_copy.columns:
+            df_copy[col] = pd.to_numeric(df_copy[col], errors='coerce')
+    return df_copy
 
-def clean_string(input_string):
-    """
-    Cleans a string by:
-    1. Stripping leading/trailing whitespace.
-    2. Converting to lowercase.
-    3. Replacing multiple spaces with a single space.
-    4. Removing any non-alphanumeric characters except spaces.
-    """
-    if not isinstance(input_string, str):
-        return input_string
-
-    # Convert to lowercase and strip whitespace
-    cleaned = input_string.lower().strip()
-
-    # Remove any character that is not a letter, number, or space
-    cleaned = re.sub(r'[^a-z0-9\s]', '', cleaned)
-
-    # Replace multiple spaces with a single space
-    cleaned = re.sub(r'\s+', ' ', cleaned)
-
-    return cleaned
+def clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """Apply a series of cleaning functions to a DataFrame."""
+    df = clean_column_names(df)
+    df = drop_missing_rows(df)
+    return df
