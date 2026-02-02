@@ -75,4 +75,88 @@ def clean_dataset(df, numeric_columns=None):
             removed_count = original_count - len(cleaned_df)
             print(f"Removed {removed_count} outliers from column '{column}'")
     
-    return cleaned_df
+    return cleaned_dfimport pandas as pd
+import numpy as np
+from scipy import stats
+
+def detect_outliers_iqr(data, column):
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    outliers = data[(data[column] < lower_bound) | (data[column] > upper_bound)]
+    return outliers
+
+def handle_missing_values(data, strategy='mean', columns=None):
+    if columns is None:
+        columns = data.columns
+    
+    data_filled = data.copy()
+    
+    for col in columns:
+        if data[col].isnull().any():
+            if strategy == 'mean':
+                fill_value = data[col].mean()
+            elif strategy == 'median':
+                fill_value = data[col].median()
+            elif strategy == 'mode':
+                fill_value = data[col].mode()[0]
+            elif strategy == 'constant':
+                fill_value = 0
+            else:
+                raise ValueError("Strategy must be 'mean', 'median', 'mode', or 'constant'")
+            
+            data_filled[col] = data_filled[col].fillna(fill_value)
+    
+    return data_filled
+
+def remove_duplicates(data, subset=None, keep='first'):
+    return data.drop_duplicates(subset=subset, keep=keep)
+
+def normalize_data(data, columns=None, method='minmax'):
+    if columns is None:
+        columns = data.select_dtypes(include=[np.number]).columns
+    
+    data_normalized = data.copy()
+    
+    for col in columns:
+        if method == 'minmax':
+            min_val = data[col].min()
+            max_val = data[col].max()
+            if max_val != min_val:
+                data_normalized[col] = (data[col] - min_val) / (max_val - min_val)
+        elif method == 'zscore':
+            mean_val = data[col].mean()
+            std_val = data[col].std()
+            if std_val != 0:
+                data_normalized[col] = (data[col] - mean_val) / std_val
+        else:
+            raise ValueError("Method must be 'minmax' or 'zscore'")
+    
+    return data_normalized
+
+def clean_dataset(data, outlier_columns=None, missing_strategy='mean', normalize_method=None):
+    cleaned_data = data.copy()
+    
+    cleaned_data = remove_duplicates(cleaned_data)
+    
+    if outlier_columns:
+        for col in outlier_columns:
+            if col in cleaned_data.columns:
+                outliers = detect_outliers_iqr(cleaned_data, col)
+                if not outliers.empty:
+                    Q1 = cleaned_data[col].quantile(0.25)
+                    Q3 = cleaned_data[col].quantile(0.75)
+                    IQR = Q3 - Q1
+                    lower_bound = Q1 - 1.5 * IQR
+                    upper_bound = Q3 + 1.5 * IQR
+                    cleaned_data[col] = cleaned_data[col].clip(lower=lower_bound, upper=upper_bound)
+    
+    cleaned_data = handle_missing_values(cleaned_data, strategy=missing_strategy)
+    
+    if normalize_method:
+        numeric_cols = cleaned_data.select_dtypes(include=[np.number]).columns
+        cleaned_data = normalize_data(cleaned_data, columns=numeric_cols, method=normalize_method)
+    
+    return cleaned_data
