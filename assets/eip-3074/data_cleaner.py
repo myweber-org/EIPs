@@ -267,3 +267,128 @@ def validate_data(df, required_columns=None, min_rows=1):
             return False, f"Missing required columns: {missing_columns}"
     
     return True, "Data validation passed"
+import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(data, column, threshold=1.5):
+    """
+    Remove outliers using the Interquartile Range method.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to process
+        threshold: multiplier for IQR (default 1.5)
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    
+    return data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using min-max scaling to [0, 1] range.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to normalize
+    
+    Returns:
+        DataFrame with normalized column
+    """
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return data
+    
+    data[column] = (data[column] - min_val) / (max_val - min_val)
+    return data
+
+def standardize_zscore(data, column):
+    """
+    Standardize data using z-score normalization.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to standardize
+    
+    Returns:
+        DataFrame with standardized column
+    """
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return data
+    
+    data[column] = (data[column] - mean_val) / std_val
+    return data
+
+def clean_dataset(df, numeric_columns, outlier_threshold=1.5, normalization_method='minmax'):
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Args:
+        df: input DataFrame
+        numeric_columns: list of numeric column names to process
+        outlier_threshold: IQR threshold for outlier removal
+        normalization_method: 'minmax' or 'zscore'
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col, outlier_threshold)
+            
+            if normalization_method == 'minmax':
+                cleaned_df = normalize_minmax(cleaned_df, col)
+            elif normalization_method == 'zscore':
+                cleaned_df = standardize_zscore(cleaned_df, col)
+    
+    return cleaned_df.reset_index(drop=True)
+
+def validate_data(df, required_columns, numeric_columns):
+    """
+    Validate data structure and content.
+    
+    Args:
+        df: DataFrame to validate
+        required_columns: list of required column names
+        numeric_columns: list of expected numeric columns
+    
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        return False, f"Missing required columns: {missing_columns}"
+    
+    for col in numeric_columns:
+        if col in df.columns:
+            if not pd.api.types.is_numeric_dtype(df[col]):
+                return False, f"Column '{col}' is not numeric"
+    
+    return True, "Data validation passed"
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'id': range(1, 11),
+        'value': [10, 12, 13, 14, 15, 100, 17, 18, 19, 20],
+        'score': [85, 90, 78, 92, 88, 30, 95, 87, 91, 89]
+    })
+    
+    print("Original data:")
+    print(sample_data)
+    
+    cleaned = clean_dataset(sample_data, ['value', 'score'])
+    print("\nCleaned data:")
+    print(cleaned)
