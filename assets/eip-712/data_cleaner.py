@@ -141,3 +141,119 @@ def remove_outliers_iqr(data, column):
     
     mask = (col_data >= lower_bound) & (col_data <= upper_bound)
     return data[mask]
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_duplicates=True, fill_missing=True, missing_strategy='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean
+        drop_duplicates (bool): Whether to remove duplicate rows
+        fill_missing (bool): Whether to fill missing values
+        missing_strategy (str): Strategy for filling missing values ('mean', 'median', 'mode', 'zero')
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    # Remove duplicate rows
+    if drop_duplicates:
+        initial_rows = len(cleaned_df)
+        cleaned_df = cleaned_df.drop_duplicates()
+        removed_duplicates = initial_rows - len(cleaned_df)
+        print(f"Removed {removed_duplicates} duplicate rows")
+    
+    # Handle missing values
+    if fill_missing:
+        missing_count = cleaned_df.isnull().sum().sum()
+        if missing_count > 0:
+            print(f"Found {missing_count} missing values")
+            
+            for column in cleaned_df.columns:
+                if cleaned_df[column].dtype in ['int64', 'float64']:
+                    if missing_strategy == 'mean':
+                        cleaned_df[column] = cleaned_df[column].fillna(cleaned_df[column].mean())
+                    elif missing_strategy == 'median':
+                        cleaned_df[column] = cleaned_df[column].fillna(cleaned_df[column].median())
+                    elif missing_strategy == 'zero':
+                        cleaned_df[column] = cleaned_df[column].fillna(0)
+                elif cleaned_df[column].dtype == 'object':
+                    if missing_strategy == 'mode':
+                        mode_value = cleaned_df[column].mode()[0] if not cleaned_df[column].mode().empty else ''
+                        cleaned_df[column] = cleaned_df[column].fillna(mode_value)
+                    else:
+                        cleaned_df[column] = cleaned_df[column].fillna('')
+            
+            print(f"Filled missing values using '{missing_strategy}' strategy")
+    
+    return cleaned_df
+
+def validate_dataset(df):
+    """
+    Validate dataset for common data quality issues.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+    
+    Returns:
+        dict: Dictionary containing validation results
+    """
+    validation_results = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_values': df.isnull().sum().sum(),
+        'duplicate_rows': df.duplicated().sum(),
+        'data_types': df.dtypes.to_dict(),
+        'column_stats': {}
+    }
+    
+    for column in df.columns:
+        if df[column].dtype in ['int64', 'float64']:
+            validation_results['column_stats'][column] = {
+                'min': df[column].min(),
+                'max': df[column].max(),
+                'mean': df[column].mean(),
+                'std': df[column].std()
+            }
+        elif df[column].dtype == 'object':
+            validation_results['column_stats'][column] = {
+                'unique_values': df[column].nunique(),
+                'most_common': df[column].mode()[0] if not df[column].mode().empty else None
+            }
+    
+    return validation_results
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'id': [1, 2, 2, 3, 4, 5],
+        'name': ['Alice', 'Bob', 'Bob', None, 'Eve', 'Frank'],
+        'age': [25, 30, 30, 35, None, 40],
+        'score': [85.5, 92.0, 92.0, 78.5, 88.0, None]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original dataset:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    # Clean the dataset
+    cleaned_df = clean_dataset(df, missing_strategy='mean')
+    print("\nCleaned dataset:")
+    print(cleaned_df)
+    
+    # Validate the cleaned dataset
+    validation = validate_dataset(cleaned_df)
+    print("\nValidation results:")
+    for key, value in validation.items():
+        if key != 'column_stats':
+            print(f"{key}: {value}")
+    
+    print("\nColumn statistics:")
+    for column, stats in validation['column_stats'].items():
+        print(f"\n{column}:")
+        for stat_name, stat_value in stats.items():
+            print(f"  {stat_name}: {stat_value}")
