@@ -809,4 +809,32 @@ if __name__ == "__main__":
         validate_data(cleaned_df, required_columns=['id', 'value'], unique_constraints=['id'])
         print("Data validation passed.")
     except ValueError as e:
-        print(f"Data validation failed: {e}")
+        print(f"Data validation failed: {e}")import numpy as np
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specified column using the Interquartile Range method.
+    
+    Parameters:
+    data (list or array-like): The dataset containing the column to clean.
+    column (int or str): Index or name of the column to process.
+    
+    Returns:
+    numpy.ndarray: Data with outliers removed from the specified column.
+    """
+    data_array = np.array(data)
+    col_data = data_array[:, column] if isinstance(column, int) else data_array[column]
+    
+    q1 = np.percentile(col_data, 25)
+    q3 = np.percentile(col_data, 75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - 1.5 * iqr
+    upper_bound = q3 + 1.5 * iqr
+    
+    mask = (col_data >= lower_bound) & (col_data <= upper_bound)
+    
+    if isinstance(column, int):
+        return data_array[mask]
+    else:
+        return data_array[mask]
