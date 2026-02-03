@@ -93,3 +93,11 @@ def remove_outliers(df, column, method='iqr', threshold=1.5):
         df_clean = df_clean[np.abs((df_clean[column] - mean) / std) <= threshold]
     
     return df_clean
+def remove_duplicates(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
