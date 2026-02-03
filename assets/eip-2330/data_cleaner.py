@@ -77,3 +77,72 @@ def clean_numeric_data(df, columns=None):
                 print(f"Error cleaning column {column}: {e}")
     
     return cleaned_df
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df):
+    """
+    Clean a pandas DataFrame by removing duplicates and standardizing column names.
+    """
+    # Create a copy to avoid modifying the original
+    df_clean = df.copy()
+    
+    # Standardize column names: lowercase and replace spaces with underscores
+    df_clean.columns = df_clean.columns.str.lower().str.replace(' ', '_')
+    
+    # Remove duplicate rows
+    initial_rows = df_clean.shape[0]
+    df_clean = df_clean.drop_duplicates()
+    removed_rows = initial_rows - df_clean.shape[0]
+    
+    # Reset index after cleaning
+    df_clean = df_clean.reset_index(drop=True)
+    
+    # Log cleaning results
+    print(f"Removed {removed_rows} duplicate rows.")
+    print(f"Final dataset shape: {df_clean.shape}")
+    
+    return df_clean
+
+def handle_missing_values(df, strategy='mean'):
+    """
+    Handle missing values in numeric columns.
+    """
+    df_filled = df.copy()
+    
+    # Select numeric columns
+    numeric_cols = df_filled.select_dtypes(include=[np.number]).columns
+    
+    if strategy == 'mean':
+        df_filled[numeric_cols] = df_filled[numeric_cols].fillna(df_filled[numeric_cols].mean())
+    elif strategy == 'median':
+        df_filled[numeric_cols] = df_filled[numeric_cols].fillna(df_filled[numeric_cols].median())
+    elif strategy == 'zero':
+        df_filled[numeric_cols] = df_filled[numeric_cols].fillna(0)
+    
+    missing_count = df_filled[numeric_cols].isnull().sum().sum()
+    print(f"Missing values after filling: {missing_count}")
+    
+    return df_filled
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'Name': ['Alice', 'Bob', 'Alice', 'Charlie', 'Bob'],
+        'Age': [25, 30, 25, 35, np.nan],
+        'Score': [85, 90, 85, 95, 88]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original dataset:")
+    print(df)
+    print("\n")
+    
+    cleaned_df = clean_dataset(df)
+    print("\nCleaned dataset:")
+    print(cleaned_df)
+    print("\n")
+    
+    filled_df = handle_missing_values(cleaned_df, strategy='mean')
+    print("\nDataset after handling missing values:")
+    print(filled_df)
