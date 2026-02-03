@@ -1,53 +1,34 @@
-import csv
-import sys
 
-def clean_csv(input_file, output_file, delimiter=',', quotechar='"'):
-    """
-    Clean a CSV file by removing rows with missing values in required columns.
-    """
-    try:
-        with open(input_file, 'r', newline='', encoding='utf-8') as infile:
-            reader = csv.reader(infile, delimiter=delimiter, quotechar=quotechar)
-            headers = next(reader)
-            
-            required_columns = [0, 1, 2]  # Example: first three columns are required
-            
-            cleaned_rows = [headers]
-            
-            for row_num, row in enumerate(reader, start=2):
-                if len(row) >= max(required_columns) + 1:
-                    missing = False
-                    for col_index in required_columns:
-                        if not row[col_index] or row[col_index].strip() == '':
-                            print(f"Warning: Missing value at row {row_num}, column {col_index}")
-                            missing = True
-                            break
-                    if not missing:
-                        cleaned_rows.append(row)
-                else:
-                    print(f"Warning: Row {row_num} has insufficient columns")
-        
-        with open(output_file, 'w', newline='', encoding='utf-8') as outfile:
-            writer = csv.writer(outfile, delimiter=delimiter, quotechar=quotechar, quoting=csv.QUOTE_MINIMAL)
-            writer.writerows(cleaned_rows)
-        
-        print(f"Cleaning complete. Cleaned data saved to {output_file}")
-        return True
-        
-    except FileNotFoundError:
-        print(f"Error: Input file '{input_file}' not found.")
-        return False
-    except Exception as e:
-        print(f"Error: {e}")
-        return False
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+def load_and_clean_data(filepath):
+    df = pd.read_csv(filepath)
+    
+    # Remove duplicate rows
+    df = df.drop_duplicates()
+    
+    # Handle missing values
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].median())
+    
+    # Remove outliers using z-score method
+    z_scores = np.abs(stats.zscore(df[numeric_cols]))
+    df = df[(z_scores < 3).all(axis=1)]
+    
+    # Normalize numeric columns
+    df[numeric_cols] = (df[numeric_cols] - df[numeric_cols].min()) / (df[numeric_cols].max() - df[numeric_cols].min())
+    
+    return df
+
+def save_cleaned_data(df, output_path):
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to {output_path}")
 
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        print("Usage: python data_cleaner.py <input_file> <output_file>")
-        sys.exit(1)
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
     
-    input_file = sys.argv[1]
-    output_file = sys.argv[2]
-    
-    success = clean_csv(input_file, output_file)
-    sys.exit(0 if success else 1)
+    cleaned_df = load_and_clean_data(input_file)
+    save_cleaned_data(cleaned_df, output_file)
