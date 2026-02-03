@@ -398,4 +398,104 @@ if __name__ == "__main__":
     print(cleaned)
     
     is_valid, message = validate_dataframe(cleaned, required_columns=['A', 'B'])
-    print(f"\nValidation: {is_valid} - {message}")
+    print(f"\nValidation: {is_valid} - {message}")import pandas as pd
+import numpy as np
+
+def clean_csv_data(filepath, fill_strategy='mean'):
+    """
+    Load and clean CSV data by handling missing values.
+    
+    Args:
+        filepath (str): Path to the CSV file.
+        fill_strategy (str): Strategy for filling missing values.
+            Options: 'mean', 'median', 'zero', 'drop'.
+    
+    Returns:
+        pandas.DataFrame: Cleaned DataFrame.
+    """
+    try:
+        df = pd.read_csv(filepath)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found: {filepath}")
+    
+    original_shape = df.shape
+    
+    if fill_strategy == 'drop':
+        df_cleaned = df.dropna()
+    else:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        
+        for col in numeric_cols:
+            if df[col].isnull().any():
+                if fill_strategy == 'mean':
+                    fill_value = df[col].mean()
+                elif fill_strategy == 'median':
+                    fill_value = df[col].median()
+                elif fill_strategy == 'zero':
+                    fill_value = 0
+                else:
+                    raise ValueError(f"Unknown fill strategy: {fill_strategy}")
+                
+                df[col] = df[col].fillna(fill_value)
+        
+        df_cleaned = df
+    
+    print(f"Original shape: {original_shape}")
+    print(f"Cleaned shape: {df_cleaned.shape}")
+    print(f"Missing values removed/filled using '{fill_strategy}' strategy")
+    
+    return df_cleaned
+
+def detect_outliers_iqr(df, column):
+    """
+    Detect outliers in a column using IQR method.
+    
+    Args:
+        df (pandas.DataFrame): Input DataFrame.
+        column (str): Column name to check for outliers.
+    
+    Returns:
+        pandas.DataFrame: DataFrame containing outlier rows.
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    outliers = df[(df[column] < lower_bound) | (df[column] > upper_bound)]
+    
+    return outliers
+
+def save_cleaned_data(df, output_path):
+    """
+    Save cleaned DataFrame to CSV.
+    
+    Args:
+        df (pandas.DataFrame): Cleaned DataFrame.
+        output_path (str): Path to save the cleaned CSV file.
+    """
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to: {output_path}")
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'A': [1, 2, np.nan, 4, 5],
+        'B': [np.nan, 2, 3, 4, 5],
+        'C': [1, 2, 3, 4, 5]
+    })
+    
+    sample_data.to_csv('sample_data.csv', index=False)
+    
+    cleaned_df = clean_csv_data('sample_data.csv', fill_strategy='mean')
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    
+    outliers = detect_outliers_iqr(cleaned_df, 'A')
+    print(f"\nOutliers in column 'A': {len(outliers)}")
+    
+    save_cleaned_data(cleaned_df, 'cleaned_sample_data.csv')
