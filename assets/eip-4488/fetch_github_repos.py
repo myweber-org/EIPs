@@ -20,4 +20,54 @@ def fetch_github_repos(username, page=1, per_page=10):
 
 if __name__ == "__main__":
     user = input("Enter GitHub username: ")
-    fetch_github_repos(user)
+    fetch_github_repos(user)import requests
+import sys
+
+def fetch_repositories(username, per_page=30):
+    """Fetch repositories for a given GitHub username with pagination."""
+    repos = []
+    page = 1
+    headers = {'Accept': 'application/vnd.github.v3+json'}
+
+    while True:
+        url = f"https://api.github.com/users/{username}/repos"
+        params = {'page': page, 'per_page': per_page}
+        try:
+            response = requests.get(url, headers=headers, params=params)
+            response.raise_for_status()
+            data = response.json()
+            if not data:
+                break
+            repos.extend(data)
+            page += 1
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching data: {e}", file=sys.stderr)
+            break
+
+    return repos
+
+def display_repositories(repos):
+    """Display repository information."""
+    if not repos:
+        print("No repositories found.")
+        return
+
+    print(f"Found {len(repos)} repositories:")
+    for repo in repos:
+        name = repo.get('name', 'N/A')
+        description = repo.get('description', 'No description')
+        stars = repo.get('stargazers_count', 0)
+        forks = repo.get('forks_count', 0)
+        print(f"- {name}")
+        print(f"  Description: {description}")
+        print(f"  Stars: {stars}, Forks: {forks}")
+        print()
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print("Usage: python fetch_github_repos.py <github_username>")
+        sys.exit(1)
+
+    username = sys.argv[1]
+    repositories = fetch_repositories(username)
+    display_repositories(repositories)
