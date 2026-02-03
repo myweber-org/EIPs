@@ -77,3 +77,91 @@ def validate_data(df, required_columns):
     }
     
     return validation_report
+import pandas as pd
+import numpy as np
+from typing import Optional
+
+def clean_csv_data(
+    input_path: str,
+    output_path: str,
+    missing_strategy: str = "drop",
+    fill_value: Optional[float] = None
+) -> pd.DataFrame:
+    """
+    Clean CSV data by handling missing values and removing duplicates.
+    
+    Parameters:
+    input_path: Path to input CSV file
+    output_path: Path to save cleaned CSV file
+    missing_strategy: Strategy for handling missing values ('drop', 'fill', 'mean')
+    fill_value: Value to use when missing_strategy is 'fill'
+    
+    Returns:
+    Cleaned DataFrame
+    """
+    
+    df = pd.read_csv(input_path)
+    
+    original_rows = len(df)
+    print(f"Original data: {original_rows} rows, {len(df.columns)} columns")
+    
+    df = df.drop_duplicates()
+    
+    if missing_strategy == "drop":
+        df = df.dropna()
+    elif missing_strategy == "fill":
+        if fill_value is None:
+            raise ValueError("fill_value must be provided when using 'fill' strategy")
+        df = df.fillna(fill_value)
+    elif missing_strategy == "mean":
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
+    
+    cleaned_rows = len(df)
+    print(f"Cleaned data: {cleaned_rows} rows, {len(df.columns)} columns")
+    print(f"Removed {original_rows - cleaned_rows} rows")
+    
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to: {output_path}")
+    
+    return df
+
+def validate_dataframe(df: pd.DataFrame) -> bool:
+    """
+    Validate DataFrame for common data quality issues.
+    
+    Returns:
+    True if data passes validation checks
+    """
+    if df.empty:
+        print("Warning: DataFrame is empty")
+        return False
+    
+    if df.isnull().sum().sum() > 0:
+        print("Warning: DataFrame contains missing values")
+        return False
+    
+    if df.duplicated().sum() > 0:
+        print("Warning: DataFrame contains duplicates")
+        return False
+    
+    print("Data validation passed")
+    return True
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'A': [1, 2, np.nan, 4, 5],
+        'B': [5, 6, 7, np.nan, 9],
+        'C': [10, 11, 12, 13, 14]
+    })
+    
+    sample_data.to_csv('sample_data.csv', index=False)
+    
+    cleaned_df = clean_csv_data(
+        'sample_data.csv',
+        'cleaned_sample_data.csv',
+        missing_strategy='mean'
+    )
+    
+    is_valid = validate_dataframe(cleaned_df)
+    print(f"Data is valid: {is_valid}")
