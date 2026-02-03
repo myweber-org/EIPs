@@ -727,4 +727,86 @@ if __name__ == "__main__":
     stats = calculate_summary_statistics(cleaned_df, 'values')
     print("\nSummary statistics:")
     for key, value in stats.items():
-        print(f"{key}: {value:.2f}")
+        print(f"{key}: {value:.2f}")import pandas as pd
+import numpy as np
+
+def clean_dataset(df, numeric_columns=None, remove_outliers=True, normalization_method='standard'):
+    """
+    Clean a dataset by handling missing values, removing outliers,
+    and normalizing numeric columns.
+    """
+    df_clean = df.copy()
+    
+    if numeric_columns is None:
+        numeric_columns = df_clean.select_dtypes(include=[np.number]).columns.tolist()
+    
+    for col in numeric_columns:
+        if col in df_clean.columns:
+            median_val = df_clean[col].median()
+            df_clean[col].fillna(median_val, inplace=True)
+    
+    if remove_outliers:
+        for col in numeric_columns:
+            if col in df_clean.columns:
+                Q1 = df_clean[col].quantile(0.25)
+                Q3 = df_clean[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - 1.5 * IQR
+                upper_bound = Q3 + 1.5 * IQR
+                df_clean = df_clean[(df_clean[col] >= lower_bound) & (df_clean[col] <= upper_bound)]
+    
+    if normalization_method == 'standard':
+        for col in numeric_columns:
+            if col in df_clean.columns:
+                mean_val = df_clean[col].mean()
+                std_val = df_clean[col].std()
+                if std_val > 0:
+                    df_clean[col] = (df_clean[col] - mean_val) / std_val
+    elif normalization_method == 'minmax':
+        for col in numeric_columns:
+            if col in df_clean.columns:
+                min_val = df_clean[col].min()
+                max_val = df_clean[col].max()
+                if max_val > min_val:
+                    df_clean[col] = (df_clean[col] - min_val) / (max_val - min_val)
+    
+    return df_clean
+
+def validate_data(df, required_columns=None, unique_constraints=None):
+    """
+    Validate dataset for required columns and unique constraints.
+    """
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    if unique_constraints:
+        for constraint in unique_constraints:
+            if constraint in df.columns:
+                duplicates = df[constraint].duplicated().sum()
+                if duplicates > 0:
+                    print(f"Warning: {duplicates} duplicate values found in column '{constraint}'")
+    
+    return True
+
+if __name__ == "__main__":
+    sample_data = {
+        'id': [1, 2, 3, 4, 5],
+        'value': [10.5, 20.3, None, 35.7, 100.2],
+        'category': ['A', 'B', 'A', 'C', 'B']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned_df = clean_dataset(df, numeric_columns=['value'], remove_outliers=True)
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    
+    try:
+        validate_data(cleaned_df, required_columns=['id', 'value'], unique_constraints=['id'])
+        print("Data validation passed.")
+    except ValueError as e:
+        print(f"Data validation failed: {e}")
