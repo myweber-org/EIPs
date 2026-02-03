@@ -412,3 +412,179 @@ def get_dataframe_stats(df):
         'numeric_stats': df.describe().to_dict() if df.select_dtypes(include=[np.number]).shape[1] > 0 else {}
     }
     return stats
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(dataframe, column, multiplier=1.5):
+    """
+    Remove outliers from a DataFrame column using the IQR method.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input DataFrame
+    column (str): Column name to process
+    multiplier (float): IQR multiplier for outlier detection
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = dataframe[column].quantile(0.25)
+    q3 = dataframe[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - multiplier * iqr
+    upper_bound = q3 + multiplier * iqr
+    
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
+                           (dataframe[column] <= upper_bound)]
+    
+    return filtered_df.copy()
+
+def normalize_minmax(dataframe, columns=None):
+    """
+    Normalize specified columns using Min-Max scaling.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input DataFrame
+    columns (list): List of column names to normalize. If None, normalize all numeric columns.
+    
+    Returns:
+    pd.DataFrame: DataFrame with normalized columns
+    """
+    df_copy = dataframe.copy()
+    
+    if columns is None:
+        numeric_cols = df_copy.select_dtypes(include=[np.number]).columns
+        columns = list(numeric_cols)
+    
+    for col in columns:
+        if col not in df_copy.columns:
+            continue
+            
+        if pd.api.types.is_numeric_dtype(df_copy[col]):
+            col_min = df_copy[col].min()
+            col_max = df_copy[col].max()
+            
+            if col_max != col_min:
+                df_copy[col] = (df_copy[col] - col_min) / (col_max - col_min)
+            else:
+                df_copy[col] = 0
+    
+    return df_copy
+
+def standardize_zscore(dataframe, columns=None):
+    """
+    Standardize specified columns using Z-score normalization.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input DataFrame
+    columns (list): List of column names to standardize. If None, standardize all numeric columns.
+    
+    Returns:
+    pd.DataFrame: DataFrame with standardized columns
+    """
+    df_copy = dataframe.copy()
+    
+    if columns is None:
+        numeric_cols = df_copy.select_dtypes(include=[np.number]).columns
+        columns = list(numeric_cols)
+    
+    for col in columns:
+        if col not in df_copy.columns:
+            continue
+            
+        if pd.api.types.is_numeric_dtype(df_copy[col]):
+            col_mean = df_copy[col].mean()
+            col_std = df_copy[col].std()
+            
+            if col_std > 0:
+                df_copy[col] = (df_copy[col] - col_mean) / col_std
+            else:
+                df_copy[col] = 0
+    
+    return df_copy
+
+def handle_missing_values(dataframe, strategy='mean', columns=None):
+    """
+    Handle missing values in specified columns.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input DataFrame
+    strategy (str): Strategy for imputation ('mean', 'median', 'mode', 'drop')
+    columns (list): List of column names to process. If None, process all columns.
+    
+    Returns:
+    pd.DataFrame: DataFrame with handled missing values
+    """
+    df_copy = dataframe.copy()
+    
+    if columns is None:
+        columns = df_copy.columns
+    
+    for col in columns:
+        if col not in df_copy.columns:
+            continue
+            
+        if df_copy[col].isnull().any():
+            if strategy == 'drop':
+                df_copy = df_copy.dropna(subset=[col])
+            elif strategy == 'mean' and pd.api.types.is_numeric_dtype(df_copy[col]):
+                df_copy[col].fillna(df_copy[col].mean(), inplace=True)
+            elif strategy == 'median' and pd.api.types.is_numeric_dtype(df_copy[col]):
+                df_copy[col].fillna(df_copy[col].median(), inplace=True)
+            elif strategy == 'mode':
+                mode_val = df_copy[col].mode()
+                if not mode_val.empty:
+                    df_copy[col].fillna(mode_val[0], inplace=True)
+    
+    return df_copy
+
+def validate_dataframe(dataframe, required_columns=None, numeric_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    dataframe (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of required column names
+    numeric_columns (list): List of columns that must be numeric
+    
+    Returns:
+    dict: Dictionary containing validation results
+    """
+    validation_results = {
+        'is_valid': True,
+        'errors': [],
+        'warnings': []
+    }
+    
+    if not isinstance(dataframe, pd.DataFrame):
+        validation_results['is_valid'] = False
+        validation_results['errors'].append('Input is not a pandas DataFrame')
+        return validation_results
+    
+    if dataframe.empty:
+        validation_results['warnings'].append('DataFrame is empty')
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in dataframe.columns]
+        if missing_columns:
+            validation_results['is_valid'] = False
+            validation_results['errors'].append(f'Missing required columns: {missing_columns}')
+    
+    if numeric_columns:
+        non_numeric_cols = []
+        for col in numeric_columns:
+            if col in dataframe.columns and not pd.api.types.is_numeric_dtype(dataframe[col]):
+                non_numeric_cols.append(col)
+        
+        if non_numeric_cols:
+            validation_results['warnings'].append(f'Columns expected to be numeric but are not: {non_numeric_cols}')
+    
+    missing_values = dataframe.isnull().sum().sum()
+    if missing_values > 0:
+        validation_results['warnings'].append(f'DataFrame contains {missing_values} missing values')
+    
+    return validation_results
