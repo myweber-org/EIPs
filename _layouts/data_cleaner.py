@@ -50,3 +50,71 @@ if __name__ == "__main__":
     print(cleaned_df)
     
     validation_result = validate_dataframe(cleaned_df)
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+def remove_outliers_iqr(df, columns=None, factor=1.5):
+    """
+    Remove outliers using the Interquartile Range method.
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_clean = df.copy()
+    for col in columns:
+        if col in df.columns:
+            Q1 = df[col].quantile(0.25)
+            Q3 = df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - factor * IQR
+            upper_bound = Q3 + factor * IQR
+            mask = (df[col] >= lower_bound) & (df[col] <= upper_bound)
+            df_clean = df_clean[mask]
+    
+    return df_clean.reset_index(drop=True)
+
+def normalize_minmax(df, columns=None):
+    """
+    Normalize data using Min-Max scaling.
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_normalized = df.copy()
+    for col in columns:
+        if col in df.columns:
+            min_val = df[col].min()
+            max_val = df[col].max()
+            if max_val > min_val:
+                df_normalized[col] = (df[col] - min_val) / (max_val - min_val)
+    
+    return df_normalized
+
+def clean_dataset(df, outlier_columns=None, normalize_columns=None, iqr_factor=1.5):
+    """
+    Main cleaning pipeline: remove outliers and normalize specified columns.
+    """
+    df_cleaned = remove_outliers_iqr(df, outlier_columns, iqr_factor)
+    df_cleaned = normalize_minmax(df_cleaned, normalize_columns)
+    return df_cleaned
+
+if __name__ == "__main__":
+    sample_data = {
+        'feature_a': [1, 2, 3, 4, 100, 6, 7, 8, 9, 10],
+        'feature_b': [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+        'category': ['A', 'B', 'A', 'B', 'A', 'B', 'A', 'B', 'A', 'B']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned_df = clean_dataset(
+        df, 
+        outlier_columns=['feature_a', 'feature_b'],
+        normalize_columns=['feature_a', 'feature_b']
+    )
+    
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
