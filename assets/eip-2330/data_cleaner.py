@@ -1,24 +1,13 @@
-
-import numpy as np
-
-def remove_outliers_iqr(data, column):
-    Q1 = data[column].quantile(0.25)
-    Q3 = data[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
-    return filtered_data
 import pandas as pd
 import numpy as np
 
 def remove_outliers_iqr(df, column):
     """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
+    Remove outliers from a DataFrame column using the IQR method.
     
     Parameters:
     df (pd.DataFrame): Input DataFrame
-    column (str): Column name to process
+    column (str): Column name to clean
     
     Returns:
     pd.DataFrame: DataFrame with outliers removed
@@ -37,10 +26,35 @@ def remove_outliers_iqr(df, column):
     
     return filtered_df.reset_index(drop=True)
 
+def calculate_basic_stats(df, column):
+    """
+    Calculate basic statistics for a column.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name
+    
+    Returns:
+    dict: Dictionary containing statistics
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    stats = {
+        'mean': df[column].mean(),
+        'median': df[column].median(),
+        'std': df[column].std(),
+        'min': df[column].min(),
+        'max': df[column].max(),
+        'count': df[column].count()
+    }
+    
+    return stats
+
 def clean_numeric_data(df, columns=None):
     """
     Clean numeric data by removing outliers from specified columns.
-    If no columns specified, processes all numeric columns.
+    If no columns specified, clean all numeric columns.
     
     Parameters:
     df (pd.DataFrame): Input DataFrame
@@ -55,82 +69,11 @@ def clean_numeric_data(df, columns=None):
     
     cleaned_df = df.copy()
     
-    for col in columns:
-        if col in cleaned_df.columns:
-            original_len = len(cleaned_df)
-            cleaned_df = remove_outliers_iqr(cleaned_df, col)
-            removed_count = original_len - len(cleaned_df)
-            print(f"Removed {removed_count} outliers from column '{col}'")
+    for column in columns:
+        if column in df.columns and pd.api.types.is_numeric_dtype(df[column]):
+            try:
+                cleaned_df = remove_outliers_iqr(cleaned_df, column)
+            except Exception as e:
+                print(f"Error cleaning column {column}: {e}")
     
     return cleaned_df
-
-def validate_dataframe(df, required_columns=None):
-    """
-    Validate DataFrame structure and content.
-    
-    Parameters:
-    df (pd.DataFrame): DataFrame to validate
-    required_columns (list): List of required column names
-    
-    Returns:
-    bool: True if validation passes
-    """
-    if not isinstance(df, pd.DataFrame):
-        raise TypeError("Input must be a pandas DataFrame")
-    
-    if df.empty:
-        raise ValueError("DataFrame is empty")
-    
-    if required_columns:
-        missing_cols = [col for col in required_columns if col not in df.columns]
-        if missing_cols:
-            raise ValueError(f"Missing required columns: {missing_cols}")
-    
-    return True
-
-if __name__ == "__main__":
-    sample_data = {
-        'id': range(1, 101),
-        'value': np.random.normal(100, 15, 100)
-    }
-    
-    sample_df = pd.DataFrame(sample_data)
-    print(f"Original DataFrame shape: {sample_df.shape}")
-    
-    cleaned_df = clean_numeric_data(sample_df, columns=['value'])
-    print(f"Cleaned DataFrame shape: {cleaned_df.shape}")
-    
-    try:
-        validate_dataframe(cleaned_df, required_columns=['id', 'value'])
-        print("Data validation passed")
-    except Exception as e:
-        print(f"Data validation failed: {e}")
-import numpy as np
-
-def remove_outliers_iqr(data, column):
-    """
-    Remove outliers from a specified column in a dataset using the IQR method.
-    
-    Parameters:
-    data (np.ndarray): The dataset.
-    column (int): Index of the column to process.
-    
-    Returns:
-    np.ndarray: Dataset with outliers removed from the specified column.
-    """
-    if not isinstance(data, np.ndarray):
-        raise TypeError("Input data must be a numpy array")
-    
-    if column >= data.shape[1] or column < 0:
-        raise IndexError("Column index out of bounds")
-    
-    col_data = data[:, column]
-    q1 = np.percentile(col_data, 25)
-    q3 = np.percentile(col_data, 75)
-    iqr = q3 - q1
-    
-    lower_bound = q1 - 1.5 * iqr
-    upper_bound = q3 + 1.5 * iqr
-    
-    mask = (col_data >= lower_bound) & (col_data <= upper_bound)
-    return data[mask]
