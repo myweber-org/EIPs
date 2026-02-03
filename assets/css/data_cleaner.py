@@ -366,3 +366,35 @@ if __name__ == "__main__":
     print(cleaned_df)
     print("\nValidation results after cleaning:")
     print(validate_dataset(cleaned_df))
+import pandas as pd
+import re
+
+def clean_dataset(df, column_names):
+    """
+    Clean a pandas DataFrame by removing duplicates and normalizing specified string columns.
+    """
+    # Remove duplicate rows
+    df_cleaned = df.drop_duplicates().reset_index(drop=True)
+    
+    # Normalize string columns: trim whitespace and convert to lowercase
+    for col in column_names:
+        if col in df_cleaned.columns and df_cleaned[col].dtype == 'object':
+            df_cleaned[col] = df_cleaned[col].apply(
+                lambda x: re.sub(r'\s+', ' ', str(x).strip()).lower() if pd.notnull(x) else x
+            )
+    
+    return df_cleaned
+
+def validate_email_column(df, email_column):
+    """
+    Validate email addresses in a specified column using a basic regex pattern.
+    Returns a DataFrame with a new boolean column indicating valid emails.
+    """
+    if email_column not in df.columns:
+        raise ValueError(f"Column '{email_column}' not found in DataFrame")
+    
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    df['email_valid'] = df[email_column].apply(
+        lambda x: bool(re.match(email_pattern, str(x))) if pd.notnull(x) else False
+    )
+    return df
