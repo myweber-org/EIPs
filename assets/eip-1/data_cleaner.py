@@ -407,3 +407,128 @@ def remove_outliers(df, column, method='iqr', threshold=1.5):
         raise ValueError("Method must be 'iqr' or 'zscore'")
     
     return df[mask]
+import pandas as pd
+import numpy as np
+
+def clean_csv_data(filepath, fill_method='mean', drop_threshold=0.5):
+    """
+    Load and clean CSV data by handling missing values.
+    
+    Args:
+        filepath: Path to CSV file
+        fill_method: Method for filling missing values ('mean', 'median', 'mode', 'zero')
+        drop_threshold: Drop columns with missing values above this threshold (0.0-1.0)
+    
+    Returns:
+        Cleaned DataFrame and cleaning report
+    """
+    try:
+        df = pd.read_csv(filepath)
+        original_shape = df.shape
+        
+        # Create cleaning report
+        report = {
+            'original_rows': original_shape[0],
+            'original_columns': original_shape[1],
+            'missing_values': df.isnull().sum().sum(),
+            'cleaning_method': fill_method
+        }
+        
+        # Drop columns with too many missing values
+        missing_percent = df.isnull().sum() / len(df)
+        columns_to_drop = missing_percent[missing_percent > drop_threshold].index
+        df = df.drop(columns=columns_to_drop)
+        report['dropped_columns'] = list(columns_to_drop)
+        
+        # Fill remaining missing values
+        if fill_method == 'mean':
+            df = df.fillna(df.mean(numeric_only=True))
+        elif fill_method == 'median':
+            df = df.fillna(df.median(numeric_only=True))
+        elif fill_method == 'mode':
+            df = df.fillna(df.mode().iloc[0])
+        elif fill_method == 'zero':
+            df = df.fillna(0)
+        else:
+            raise ValueError(f"Unknown fill method: {fill_method}")
+        
+        report['final_rows'] = df.shape[0]
+        report['final_columns'] = df.shape[1]
+        report['remaining_missing'] = df.isnull().sum().sum()
+        
+        return df, report
+        
+    except FileNotFoundError:
+        print(f"Error: File not found at {filepath}")
+        return None, None
+    except pd.errors.EmptyDataError:
+        print("Error: CSV file is empty")
+        return None, None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None, None
+
+def validate_dataframe(df, required_columns=None, min_rows=1):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df: DataFrame to validate
+        required_columns: List of required column names
+        min_rows: Minimum number of rows required
+    
+    Returns:
+        Boolean indicating validity and list of issues
+    """
+    issues = []
+    
+    if df is None:
+        issues.append("DataFrame is None")
+        return False, issues
+    
+    if df.empty:
+        issues.append("DataFrame is empty")
+        return False, issues
+    
+    if len(df) < min_rows:
+        issues.append(f"DataFrame has fewer than {min_rows} rows")
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            issues.append(f"Missing required columns: {missing_columns}")
+    
+    # Check for infinite values
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    if not numeric_cols.empty:
+        inf_count = np.isinf(df[numeric_cols]).sum().sum()
+        if inf_count > 0:
+            issues.append(f"Found {inf_count} infinite values in numeric columns")
+    
+    return len(issues) == 0, issues
+
+# Example usage
+if __name__ == "__main__":
+    # Test with sample data
+    test_data = pd.DataFrame({
+        'A': [1, 2, np.nan, 4, 5],
+        'B': [np.nan, 2, 3, np.nan, 5],
+        'C': [1, 1, 1, 1, 1]
+    })
+    
+    # Save test data
+    test_data.to_csv('test_data.csv', index=False)
+    
+    # Clean the data
+    cleaned_df, report = clean_csv_data('test_data.csv', fill_method='mean', drop_threshold=0.3)
+    
+    if cleaned_df is not None:
+        print("Data cleaning completed successfully")
+        print(f"Cleaning report: {report}")
+        print(f"Cleaned DataFrame shape: {cleaned_df.shape}")
+        
+        # Validate cleaned data
+        is_valid, issues = validate_dataframe(cleaned_df, min_rows=3)
+        print(f"Data validation: {'Passed' if is_valid else 'Failed'}")
+        if issues:
+            print(f"Validation issues: {issues}")
