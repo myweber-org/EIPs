@@ -209,4 +209,35 @@ def main():
         logger.error("Failed to retrieve weather data")
 
 if __name__ == "__main__":
-    main()
+    main()import requests
+import json
+import os
+
+def get_weather(city_name, api_key):
+    base_url = "http://api.openweathermap.org/data/2.5/weather?"
+    complete_url = f"{base_url}q={city_name}&appid={api_key}&units=metric"
+    response = requests.get(complete_url)
+    return response.json()
+
+def display_weather(data):
+    if data.get("cod") != 200:
+        print(f"Error: {data.get('message', 'Unknown error')}")
+        return
+
+    main = data["main"]
+    weather = data["weather"][0]
+    print(f"City: {data['name']}")
+    print(f"Temperature: {main['temp']}°C")
+    print(f"Weather: {weather['description']}")
+    print(f"Humidity: {main['humidity']}%")
+    print(f"Pressure: {main['pressure']} hPa")
+
+if __name__ == "__main__":
+    api_key = os.environ.get("OWM_API_KEY")
+    if not api_key:
+        print("Please set the OWM_API_KEY environment variable.")
+        exit(1)
+
+    city = input("Enter city name: ")
+    weather_data = get_weather(city, api_key)
+    display_weather(weather_data)
