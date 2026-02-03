@@ -262,3 +262,121 @@ def main():
 
 if __name__ == "__main__":
     main()
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column, factor=1.5):
+    """
+    Remove outliers using Interquartile Range method
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - factor * IQR
+    upper_bound = Q3 + factor * IQR
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    outliers_removed = len(data) - len(filtered_data)
+    
+    return filtered_data, outliers_removed
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using Min-Max scaling
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return data[column].apply(lambda x: 0.5)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def standardize_zscore(data, column):
+    """
+    Standardize data using Z-score normalization
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return data[column].apply(lambda x: 0)
+    
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
+
+def clean_dataset(df, numeric_columns=None, outlier_factor=1.5):
+    """
+    Comprehensive data cleaning pipeline
+    """
+    if numeric_columns is None:
+        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_df = df.copy()
+    outlier_report = {}
+    
+    for col in numeric_columns:
+        if col in df.columns:
+            # Remove outliers
+            cleaned_df, outliers_removed = remove_outliers_iqr(cleaned_df, col, outlier_factor)
+            outlier_report[col] = outliers_removed
+            
+            # Standardize the column
+            cleaned_df[f'{col}_standardized'] = standardize_zscore(cleaned_df, col)
+            
+            # Normalize the column
+            cleaned_df[f'{col}_normalized'] = normalize_minmax(cleaned_df, col)
+    
+    return cleaned_df, outlier_report
+
+def validate_data(df, required_columns, numeric_threshold=0.8):
+    """
+    Validate data quality and completeness
+    """
+    validation_results = {
+        'missing_values': df.isnull().sum().to_dict(),
+        'data_types': df.dtypes.to_dict(),
+        'numeric_ratio': {},
+        'required_columns_present': all(col in df.columns for col in required_columns)
+    }
+    
+    for col in df.columns:
+        if pd.api.types.is_numeric_dtype(df[col]):
+            numeric_count = df[col].notnull().sum()
+            total_count = len(df[col])
+            validation_results['numeric_ratio'][col] = numeric_count / total_count if total_count > 0 else 0
+    
+    return validation_results
+
+def generate_summary_statistics(df):
+    """
+    Generate comprehensive summary statistics
+    """
+    numeric_df = df.select_dtypes(include=[np.number])
+    
+    if numeric_df.empty:
+        return {}
+    
+    summary = {
+        'mean': numeric_df.mean().to_dict(),
+        'median': numeric_df.median().to_dict(),
+        'std': numeric_df.std().to_dict(),
+        'min': numeric_df.min().to_dict(),
+        'max': numeric_df.max().to_dict(),
+        'skewness': numeric_df.apply(lambda x: stats.skew(x.dropna())).to_dict(),
+        'kurtosis': numeric_df.apply(lambda x: stats.kurtosis(x.dropna())).to_dict()
+    }
+    
+    return summary
