@@ -246,3 +246,44 @@ def main():
 
 if __name__ == "__main__":
     main()
+import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    return filtered_df
+
+def clean_dataset(df, numeric_columns):
+    original_len = len(df)
+    for col in numeric_columns:
+        if col in df.columns:
+            df = remove_outliers_iqr(df, col)
+    cleaned_len = len(df)
+    removed_count = original_len - cleaned_len
+    print(f"Removed {removed_count} outliers from dataset")
+    return df.reset_index(drop=True)
+
+def validate_data(df, required_columns):
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        raise ValueError(f"Missing required columns: {missing_columns}")
+    return True
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'temperature': np.random.normal(25, 5, 1000),
+        'humidity': np.random.normal(60, 15, 1000),
+        'pressure': np.random.normal(1013, 10, 1000)
+    })
+    
+    required_cols = ['temperature', 'humidity', 'pressure']
+    validate_data(sample_data, required_cols)
+    
+    cleaned_data = clean_dataset(sample_data, required_cols)
+    print(f"Original shape: {sample_data.shape}")
+    print(f"Cleaned shape: {cleaned_data.shape}")
