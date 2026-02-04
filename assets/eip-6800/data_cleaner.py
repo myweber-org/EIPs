@@ -89,4 +89,89 @@ if __name__ == "__main__":
     stats = calculate_basic_stats(sample_data, 1)
     print("\nStatistics for column 1:")
     for key, value in stats.items():
-        print(f"{key}: {value:.2f}")
+        print(f"{key}: {value:.2f}")import pandas as pd
+import numpy as np
+
+def clean_csv_data(filepath, output_path=None):
+    """
+    Load a CSV file, clean missing values, and convert data types.
+    """
+    try:
+        df = pd.read_csv(filepath)
+        
+        # Handle missing values
+        for col in df.columns:
+            if df[col].dtype in ['int64', 'float64']:
+                df[col].fillna(df[col].median(), inplace=True)
+            elif df[col].dtype == 'object':
+                df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else 'Unknown', inplace=True)
+        
+        # Convert date columns if present
+        date_columns = [col for col in df.columns if 'date' in col.lower() or 'time' in col.lower()]
+        for col in date_columns:
+            try:
+                df[col] = pd.to_datetime(df[col], errors='coerce')
+            except:
+                pass
+        
+        # Remove duplicate rows
+        initial_rows = len(df)
+        df.drop_duplicates(inplace=True)
+        duplicates_removed = initial_rows - len(df)
+        
+        # Save cleaned data
+        if output_path:
+            df.to_csv(output_path, index=False)
+            print(f"Cleaned data saved to {output_path}")
+        
+        # Print summary
+        print(f"Data cleaning completed:")
+        print(f"  - Rows processed: {initial_rows}")
+        print(f"  - Duplicates removed: {duplicates_removed}")
+        print(f"  - Missing values handled")
+        
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: File {filepath} not found.")
+        return None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate dataframe structure and content.
+    """
+    if df is None or df.empty:
+        print("DataFrame is empty or None.")
+        return False
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            print(f"Missing required columns: {missing_cols}")
+            return False
+    
+    # Check for remaining null values
+    null_counts = df.isnull().sum()
+    if null_counts.sum() > 0:
+        print(f"Warning: DataFrame still contains {null_counts.sum()} null values.")
+        for col, count in null_counts[null_counts > 0].items():
+            print(f"  - {col}: {count} nulls")
+    
+    return True
+
+if __name__ == "__main__":
+    # Example usage
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    
+    cleaned_df = clean_csv_data(input_file, output_file)
+    
+    if cleaned_df is not None:
+        is_valid = validate_dataframe(cleaned_df)
+        if is_valid:
+            print("Data validation passed.")
+        else:
+            print("Data validation failed.")
