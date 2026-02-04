@@ -256,4 +256,63 @@ if __name__ == "__main__":
     for column, stats in validation['column_stats'].items():
         print(f"\n{column}:")
         for stat_name, stat_value in stats.items():
-            print(f"  {stat_name}: {stat_value}")
+            print(f"  {stat_name}: {stat_value}")import pandas as pd
+import numpy as np
+
+def clean_csv_data(filepath, fill_strategy='mean', columns_to_drop=None):
+    """
+    Load and clean a CSV file by handling missing values and optionally dropping columns.
+    
+    Args:
+        filepath (str): Path to the CSV file.
+        fill_strategy (str): Strategy for filling missing values ('mean', 'median', 'mode', or 'zero').
+        columns_to_drop (list): List of column names to drop from the dataset.
+    
+    Returns:
+        pandas.DataFrame: Cleaned DataFrame.
+    """
+    try:
+        df = pd.read_csv(filepath)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"The file at {filepath} was not found.")
+    
+    original_shape = df.shape
+    
+    if columns_to_drop:
+        df = df.drop(columns=columns_to_drop, errors='ignore')
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    
+    if fill_strategy == 'mean':
+        df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
+    elif fill_strategy == 'median':
+        df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].median())
+    elif fill_strategy == 'mode':
+        df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mode().iloc[0])
+    elif fill_strategy == 'zero':
+        df[numeric_cols] = df[numeric_cols].fillna(0)
+    else:
+        raise ValueError("fill_strategy must be 'mean', 'median', 'mode', or 'zero'")
+    
+    non_numeric_cols = df.select_dtypes(exclude=[np.number]).columns
+    df[non_numeric_cols] = df[non_numeric_cols].fillna('Unknown')
+    
+    print(f"Data cleaned. Original shape: {original_shape}, New shape: {df.shape}")
+    print(f"Missing values filled using '{fill_strategy}' strategy for numeric columns.")
+    
+    return df
+
+def save_cleaned_data(df, output_path):
+    """
+    Save the cleaned DataFrame to a new CSV file.
+    
+    Args:
+        df (pandas.DataFrame): Cleaned DataFrame.
+        output_path (str): Path to save the cleaned CSV file.
+    """
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to {output_path}")
+
+if __name__ == "__main__":
+    cleaned_df = clean_csv_data('sample_data.csv', fill_strategy='median', columns_to_drop=['id'])
+    save_cleaned_data(cleaned_df, 'cleaned_sample_data.csv')
