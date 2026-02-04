@@ -287,3 +287,65 @@ if __name__ == "__main__":
     cleaned_data = clean_dataset(sample_data, required_cols)
     print(f"Original shape: {sample_data.shape}")
     print(f"Cleaned shape: {cleaned_data.shape}")
+import pandas as pd
+import numpy as np
+from typing import List, Optional
+
+def clean_dataset(df: pd.DataFrame, 
+                  drop_duplicates: bool = True,
+                  columns_to_standardize: Optional[List[str]] = None,
+                  date_columns: Optional[List[str]] = None) -> pd.DataFrame:
+    """
+    Clean a pandas DataFrame by handling duplicates, standardizing text,
+    and parsing dates.
+    """
+    df_clean = df.copy()
+    
+    if drop_duplicates:
+        initial_rows = len(df_clean)
+        df_clean = df_clean.drop_duplicates()
+        removed = initial_rows - len(df_clean)
+        print(f"Removed {removed} duplicate rows")
+    
+    if columns_to_standardize:
+        for col in columns_to_standardize:
+            if col in df_clean.columns:
+                df_clean[col] = df_clean[col].astype(str).str.strip().str.lower()
+                df_clean[col] = df_clean[col].replace({'nan': np.nan, 'none': np.nan})
+    
+    if date_columns:
+        for col in date_columns:
+            if col in df_clean.columns:
+                df_clean[col] = pd.to_datetime(df_clean[col], errors='coerce')
+    
+    df_clean = df_clean.reset_index(drop=True)
+    return df_clean
+
+def validate_data(df: pd.DataFrame, 
+                  required_columns: List[str]) -> bool:
+    """
+    Validate that required columns exist and have no null values.
+    """
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        print(f"Missing required columns: {missing_columns}")
+        return False
+    
+    null_counts = df[required_columns].isnull().sum()
+    if null_counts.any():
+        print("Null values found in required columns:")
+        print(null_counts[null_counts > 0])
+        return False
+    
+    return True
+
+def sample_data(df: pd.DataFrame, 
+                sample_size: int = 5,
+                random_state: int = 42) -> pd.DataFrame:
+    """
+    Return a random sample from the DataFrame.
+    """
+    if len(df) <= sample_size:
+        return df
+    
+    return df.sample(n=sample_size, random_state=random_state)
