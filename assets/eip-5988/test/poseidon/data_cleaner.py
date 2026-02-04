@@ -349,3 +349,158 @@ def sample_data(df: pd.DataFrame,
         return df
     
     return df.sample(n=sample_size, random_state=random_state)
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+def remove_outliers_iqr(df, columns=None, threshold=1.5):
+    """
+    Remove outliers using the Interquartile Range method.
+    
+    Parameters:
+    df (pd.DataFrame): Input dataframe
+    columns (list): List of columns to process, None for all numeric columns
+    threshold (float): Multiplier for IQR
+    
+    Returns:
+    pd.DataFrame: Dataframe with outliers removed
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_clean = df.copy()
+    for col in columns:
+        Q1 = df_clean[col].quantile(0.25)
+        Q3 = df_clean[col].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - threshold * IQR
+        upper_bound = Q3 + threshold * IQR
+        
+        mask = (df_clean[col] >= lower_bound) & (df_clean[col] <= upper_bound)
+        df_clean = df_clean[mask]
+    
+    return df_clean.reset_index(drop=True)
+
+def normalize_data(df, columns=None, method='zscore'):
+    """
+    Normalize data using specified method.
+    
+    Parameters:
+    df (pd.DataFrame): Input dataframe
+    columns (list): List of columns to normalize, None for all numeric columns
+    method (str): Normalization method ('zscore', 'minmax', 'robust')
+    
+    Returns:
+    pd.DataFrame: Dataframe with normalized columns
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_norm = df.copy()
+    
+    for col in columns:
+        if method == 'zscore':
+            df_norm[col] = stats.zscore(df_norm[col])
+        elif method == 'minmax':
+            min_val = df_norm[col].min()
+            max_val = df_norm[col].max()
+            df_norm[col] = (df_norm[col] - min_val) / (max_val - min_val)
+        elif method == 'robust':
+            median = df_norm[col].median()
+            iqr = stats.iqr(df_norm[col])
+            df_norm[col] = (df_norm[col] - median) / iqr
+        else:
+            raise ValueError(f"Unknown normalization method: {method}")
+    
+    return df_norm
+
+def clean_dataset(df, outlier_columns=None, norm_columns=None, 
+                  outlier_threshold=1.5, norm_method='zscore'):
+    """
+    Complete data cleaning pipeline.
+    
+    Parameters:
+    df (pd.DataFrame): Input dataframe
+    outlier_columns (list): Columns for outlier removal
+    norm_columns (list): Columns for normalization
+    outlier_threshold (float): IQR threshold for outlier detection
+    norm_method (str): Normalization method
+    
+    Returns:
+    pd.DataFrame: Cleaned and normalized dataframe
+    """
+    # Remove outliers
+    df_clean = remove_outliers_iqr(df, outlier_columns, outlier_threshold)
+    
+    # Normalize data
+    df_final = normalize_data(df_clean, norm_columns, norm_method)
+    
+    return df_final
+
+def validate_data(df, check_missing=True, check_inf=True):
+    """
+    Validate data quality.
+    
+    Parameters:
+    df (pd.DataFrame): Dataframe to validate
+    check_missing (bool): Check for missing values
+    check_inf (bool): Check for infinite values
+    
+    Returns:
+    dict: Validation results
+    """
+    results = {}
+    
+    if check_missing:
+        missing = df.isnull().sum()
+        results['missing_values'] = missing[missing > 0].to_dict()
+        results['total_missing'] = missing.sum()
+    
+    if check_inf:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        inf_counts = {}
+        for col in numeric_cols:
+            inf_count = np.isinf(df[col]).sum()
+            if inf_count > 0:
+                inf_counts[col] = inf_count
+        results['infinite_values'] = inf_counts
+    
+    results['shape'] = df.shape
+    results['dtypes'] = df.dtypes.to_dict()
+    
+    return results
+
+# Example usage
+if __name__ == "__main__":
+    # Create sample data
+    np.random.seed(42)
+    sample_data = {
+        'feature_a': np.random.normal(100, 15, 1000),
+        'feature_b': np.random.exponential(50, 1000),
+        'feature_c': np.random.uniform(0, 1, 1000),
+        'category': np.random.choice(['A', 'B', 'C'], 1000)
+    }
+    
+    # Add some outliers
+    sample_data['feature_a'][:5] = [500, -200, 1000, 800, -300]
+    
+    df = pd.DataFrame(sample_data)
+    
+    print("Original data shape:", df.shape)
+    print("\nData validation:")
+    print(validate_data(df))
+    
+    # Clean the data
+    cleaned_df = clean_dataset(
+        df, 
+        outlier_columns=['feature_a', 'feature_b'],
+        norm_columns=['feature_a', 'feature_b', 'feature_c'],
+        norm_method='zscore'
+    )
+    
+    print("\nCleaned data shape:", cleaned_df.shape)
+    print("\nCleaned data validation:")
+    print(validate_data(cleaned_df))
+    
+    print("\nFirst 5 rows of cleaned data:")
+    print(cleaned_df.head())
