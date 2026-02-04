@@ -320,4 +320,102 @@ def validate_email_column(df, email_column):
     
     print(f"Email validation: {valid_count}/{total_count} valid emails")
     
-    return validation_results
+    return validation_resultsimport numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a DataFrame column using the Interquartile Range method.
+    
+    Args:
+        df: pandas DataFrame
+        column: Column name to process
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df
+
+def clean_numeric_data(df, columns=None):
+    """
+    Clean numeric data by removing outliers from specified columns.
+    
+    Args:
+        df: pandas DataFrame
+        columns: List of column names to clean. If None, uses all numeric columns.
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_df = df.copy()
+    
+    for col in columns:
+        if col in cleaned_df.columns and pd.api.types.is_numeric_dtype(cleaned_df[col]):
+            original_count = len(cleaned_df)
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+            removed_count = original_count - len(cleaned_df)
+            
+            if removed_count > 0:
+                print(f"Removed {removed_count} outliers from column '{col}'")
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df: pandas DataFrame to validate
+        required_columns: List of required column names
+    
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "DataFrame is valid"
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'temperature': [22, 23, 24, 25, 26, 100, 27, 28, 29, -10],
+        'humidity': [45, 46, 47, 48, 49, 50, 51, 52, 53, 54],
+        'pressure': [1013, 1012, 1014, 1015, 1016, 1017, 1018, 1019, 1020, 1021]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print(f"Original shape: {df.shape}")
+    
+    cleaned_df = clean_numeric_data(df, columns=['temperature'])
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    print(f"Cleaned shape: {cleaned_df.shape}")
+    
+    is_valid, message = validate_dataframe(cleaned_df, required_columns=['temperature', 'humidity'])
+    print(f"\nValidation: {message}")
