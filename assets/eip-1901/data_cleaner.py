@@ -577,4 +577,101 @@ if __name__ == "__main__":
     result = clean_dataset(sample_data, numeric_cols)
     print(f"Original shape: {sample_data.shape}")
     print(f"Cleaned shape: {result.shape}")
-    print(f"Removed {len(sample_data) - len(result)} outliers")
+    print(f"Removed {len(sample_data) - len(result)} outliers")import pandas as pd
+import numpy as np
+
+def clean_dataframe(df, drop_na=True, rename_columns=True):
+    """
+    Clean a pandas DataFrame by handling null values and standardizing column names.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    drop_na (bool): If True, drop rows with any null values.
+    rename_columns (bool): If True, rename columns to lowercase with underscores.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    df_clean = df.copy()
+    
+    if drop_na:
+        df_clean = df_clean.dropna()
+    
+    if rename_columns:
+        df_clean.columns = (
+            df_clean.columns
+            .str.lower()
+            .str.replace(r'[^a-z0-9]+', '_', regex=True)
+            .str.strip('_')
+        )
+    
+    return df_clean
+
+def validate_numeric_columns(df, columns):
+    """
+    Validate that specified columns contain only numeric values.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    columns (list): List of column names to validate.
+    
+    Returns:
+    dict: Dictionary with column names as keys and validation results as values.
+    """
+    validation_results = {}
+    
+    for col in columns:
+        if col in df.columns:
+            non_numeric = df[col].apply(lambda x: not isinstance(x, (int, float, np.number)))
+            count_non_numeric = non_numeric.sum()
+            validation_results[col] = {
+                'is_valid': count_non_numeric == 0,
+                'non_numeric_count': int(count_non_numeric)
+            }
+        else:
+            validation_results[col] = {
+                'is_valid': False,
+                'error': 'Column not found'
+            }
+    
+    return validation_results
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    subset (list): Columns to consider for identifying duplicates.
+    keep (str): Which duplicates to keep ('first', 'last', False).
+    
+    Returns:
+    pd.DataFrame: DataFrame with duplicates removed.
+    """
+    return df.drop_duplicates(subset=subset, keep=keep)
+
+def convert_date_columns(df, date_columns, format=None):
+    """
+    Convert specified columns to datetime format.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    date_columns (list): List of column names to convert.
+    format (str): Optional datetime format string.
+    
+    Returns:
+    pd.DataFrame: DataFrame with converted date columns.
+    """
+    df_converted = df.copy()
+    
+    for col in date_columns:
+        if col in df_converted.columns:
+            try:
+                if format:
+                    df_converted[col] = pd.to_datetime(df_converted[col], format=format, errors='coerce')
+                else:
+                    df_converted[col] = pd.to_datetime(df_converted[col], errors='coerce')
+            except Exception as e:
+                print(f"Error converting column {col}: {e}")
+    
+    return df_converted
