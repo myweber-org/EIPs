@@ -89,4 +89,64 @@ def normalize_column(df, column, method='minmax'):
     else:
         raise ValueError("Method must be 'minmax' or 'standard'")
     
-    return normalized_df
+    return normalized_dfimport pandas as pd
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Args:
+        df: pandas DataFrame
+        subset: column label or sequence of labels to consider for identifying duplicates
+        keep: determines which duplicates to keep ('first', 'last', or False)
+    
+    Returns:
+        DataFrame with duplicates removed
+    """
+    if df.empty:
+        return df
+    
+    return df.drop_duplicates(subset=subset, keep=keep, inplace=False)
+
+def clean_numeric_column(df, column_name):
+    """
+    Clean a numeric column by removing non-numeric values and converting to float.
+    
+    Args:
+        df: pandas DataFrame
+        column_name: name of the column to clean
+    
+    Returns:
+        DataFrame with cleaned column
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    
+    df_clean = df.copy()
+    df_clean[column_name] = pd.to_numeric(df_clean[column_name], errors='coerce')
+    
+    return df_clean
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df: pandas DataFrame to validate
+        required_columns: list of column names that must be present
+    
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "DataFrame is valid"
