@@ -93,3 +93,111 @@ def main():
 
 if __name__ == "__main__":
     main()
+import pandas as pd
+import numpy as np
+from datetime import datetime
+
+def load_data(filepath):
+    """Load data from CSV file."""
+    try:
+        df = pd.read_csv(filepath)
+        print(f"Loaded {len(df)} records from {filepath}")
+        return df
+    except FileNotFoundError:
+        print(f"Error: File {filepath} not found")
+        return pd.DataFrame()
+
+def remove_duplicates(df, subset=None):
+    """Remove duplicate rows from DataFrame."""
+    initial_count = len(df)
+    df_clean = df.drop_duplicates(subset=subset, keep='first')
+    removed = initial_count - len(df_clean)
+    print(f"Removed {removed} duplicate records")
+    return df_clean
+
+def standardize_dates(df, date_columns):
+    """Standardize date formats in specified columns."""
+    for col in date_columns:
+        if col in df.columns:
+            df[col] = pd.to_datetime(df[col], errors='coerce')
+            print(f"Standardized date format for column: {col}")
+    return df
+
+def fill_missing_values(df, strategy='mean'):
+    """Fill missing values using specified strategy."""
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    
+    for col in numeric_cols:
+        missing_count = df[col].isnull().sum()
+        if missing_count > 0:
+            if strategy == 'mean':
+                fill_value = df[col].mean()
+            elif strategy == 'median':
+                fill_value = df[col].median()
+            elif strategy == 'zero':
+                fill_value = 0
+            else:
+                fill_value = df[col].mode()[0] if not df[col].mode().empty else 0
+            
+            df[col].fillna(fill_value, inplace=True)
+            print(f"Filled {missing_count} missing values in {col} using {strategy} strategy")
+    
+    return df
+
+def clean_column_names(df):
+    """Clean column names by removing whitespace and standardizing format."""
+    df.columns = df.columns.str.strip().str.lower().str.replace(' ', '_')
+    print("Standardized column names")
+    return df
+
+def validate_data(df):
+    """Perform basic data validation checks."""
+    validation_results = {
+        'total_records': len(df),
+        'columns_with_missing': df.isnull().any().sum(),
+        'numeric_columns': len(df.select_dtypes(include=[np.number]).columns),
+        'date_columns': len(df.select_dtypes(include=['datetime64']).columns),
+        'duplicate_rows': df.duplicated().sum()
+    }
+    
+    print("\nData Validation Results:")
+    for key, value in validation_results.items():
+        print(f"{key.replace('_', ' ').title()}: {value}")
+    
+    return validation_results
+
+def save_cleaned_data(df, output_path):
+    """Save cleaned DataFrame to CSV file."""
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to {output_path}")
+
+def main():
+    """Main function to execute data cleaning pipeline."""
+    input_file = 'raw_data.csv'
+    output_file = 'cleaned_data.csv'
+    
+    print("Starting data cleaning process...")
+    
+    # Load raw data
+    df = load_data(input_file)
+    
+    if df.empty:
+        print("No data to process. Exiting.")
+        return
+    
+    # Data cleaning steps
+    df = clean_column_names(df)
+    df = remove_duplicates(df)
+    df = standardize_dates(df, ['date', 'timestamp', 'created_at'])
+    df = fill_missing_values(df, strategy='mean')
+    
+    # Validate cleaned data
+    validation_results = validate_data(df)
+    
+    # Save cleaned data
+    save_cleaned_data(df, output_file)
+    
+    print("\nData cleaning completed successfully!")
+
+if __name__ == "__main__":
+    main()
