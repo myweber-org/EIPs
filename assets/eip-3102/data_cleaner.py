@@ -179,4 +179,83 @@ def load_and_clean_csv(filepath: str, cleaning_steps: Optional[Dict] = None) -> 
         if 'remove_outliers' in cleaning_steps:
             cleaner.remove_outliers(**cleaning_steps['remove_outliers'])
     
-    return cleaner.get_cleaned_data()
+    return cleaner.get_cleaned_data()import pandas as pd
+import re
+
+def clean_text_column(df, column_name):
+    """
+    Clean a text column by removing extra whitespace, converting to lowercase,
+    and removing special characters.
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    
+    df[column_name] = df[column_name].astype(str)
+    df[column_name] = df[column_name].str.strip()
+    df[column_name] = df[column_name].str.lower()
+    df[column_name] = df[column_name].apply(lambda x: re.sub(r'[^a-z0-9\s]', '', x))
+    
+    return df
+
+def remove_duplicate_rows(df, subset=None):
+    """
+    Remove duplicate rows from the DataFrame.
+    If subset is provided, only consider those columns for identifying duplicates.
+    """
+    initial_count = len(df)
+    df = df.drop_duplicates(subset=subset, keep='first')
+    removed_count = initial_count - len(df)
+    print(f"Removed {removed_count} duplicate rows")
+    return df
+
+def normalize_numeric_column(df, column_name):
+    """
+    Normalize a numeric column to have values between 0 and 1.
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    
+    if not pd.api.types.is_numeric_dtype(df[column_name]):
+        raise ValueError(f"Column '{column_name}' is not numeric")
+    
+    col_min = df[column_name].min()
+    col_max = df[column_name].max()
+    
+    if col_max == col_min:
+        df[column_name] = 0.5
+    else:
+        df[column_name] = (df[column_name] - col_min) / (col_max - col_min)
+    
+    return df
+
+def main():
+    # Example usage
+    data = {
+        'id': [1, 2, 3, 4, 5, 5],
+        'name': ['  John Doe  ', 'Jane SMITH', 'Bob@Johnson', 'alice-williams', 'John Doe', 'Test User'],
+        'age': [25, 30, 35, 40, 25, 50],
+        'score': [85, 92, 78, 88, 85, 95]
+    }
+    
+    df = pd.DataFrame(data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50)
+    
+    # Clean text column
+    df = clean_text_column(df, 'name')
+    print("\nAfter cleaning 'name' column:")
+    print(df)
+    
+    # Remove duplicates
+    df = remove_duplicate_rows(df, subset=['id', 'name'])
+    print("\nAfter removing duplicates:")
+    print(df)
+    
+    # Normalize numeric column
+    df = normalize_numeric_column(df, 'score')
+    print("\nAfter normalizing 'score' column:")
+    print(df)
+
+if __name__ == "__main__":
+    main()
