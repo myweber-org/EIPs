@@ -174,4 +174,97 @@ if __name__ == "__main__":
         if is_valid:
             print("Data validation passed.")
         else:
-            print("Data validation failed.")
+            print("Data validation failed.")import numpy as np
+import pandas as pd
+from scipy import stats
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_duplicates(self):
+        self.df = self.df.drop_duplicates()
+        return self
+        
+    def handle_missing(self, strategy='mean', fill_value=None):
+        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+        
+        if strategy == 'mean':
+            self.df[numeric_cols] = self.df[numeric_cols].fillna(self.df[numeric_cols].mean())
+        elif strategy == 'median':
+            self.df[numeric_cols] = self.df[numeric_cols].fillna(self.df[numeric_cols].median())
+        elif strategy == 'mode':
+            self.df[numeric_cols] = self.df[numeric_cols].fillna(self.df[numeric_cols].mode().iloc[0])
+        elif strategy == 'custom' and fill_value is not None:
+            self.df[numeric_cols] = self.df[numeric_cols].fillna(fill_value)
+            
+        return self
+        
+    def detect_outliers_zscore(self, threshold=3):
+        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+        z_scores = np.abs(stats.zscore(self.df[numeric_cols]))
+        outlier_mask = (z_scores > threshold).any(axis=1)
+        return outlier_mask
+        
+    def remove_outliers(self, method='zscore', threshold=3):
+        if method == 'zscore':
+            outlier_mask = self.detect_outliers_zscore(threshold)
+            self.df = self.df[~outlier_mask]
+        return self
+        
+    def normalize_data(self, method='minmax'):
+        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+        
+        if method == 'minmax':
+            self.df[numeric_cols] = (self.df[numeric_cols] - self.df[numeric_cols].min()) / \
+                                   (self.df[numeric_cols].max() - self.df[numeric_cols].min())
+        elif method == 'standard':
+            self.df[numeric_cols] = (self.df[numeric_cols] - self.df[numeric_cols].mean()) / \
+                                   self.df[numeric_cols].std()
+        return self
+        
+    def get_cleaned_data(self):
+        return self.df
+        
+    def get_summary(self):
+        cleaned_shape = self.df.shape
+        rows_removed = self.original_shape[0] - cleaned_shape[0]
+        cols_removed = self.original_shape[1] - cleaned_shape[1]
+        
+        summary = {
+            'original_rows': self.original_shape[0],
+            'original_cols': self.original_shape[1],
+            'cleaned_rows': cleaned_shape[0],
+            'cleaned_cols': cleaned_shape[1],
+            'rows_removed': rows_removed,
+            'cols_removed': cols_removed,
+            'missing_values': self.df.isnull().sum().sum()
+        }
+        return summary
+
+def example_usage():
+    np.random.seed(42)
+    data = {
+        'A': np.random.randn(100),
+        'B': np.random.rand(100) * 100,
+        'C': np.random.randint(1, 50, 100)
+    }
+    df = pd.DataFrame(data)
+    
+    cleaner = DataCleaner(df)
+    cleaned_df = (cleaner
+                 .remove_duplicates()
+                 .handle_missing(strategy='mean')
+                 .remove_outliers(threshold=2.5)
+                 .normalize_data(method='minmax')
+                 .get_cleaned_data())
+    
+    print(f"Original shape: {cleaner.original_shape}")
+    print(f"Cleaned shape: {cleaned_df.shape}")
+    print(cleaner.get_summary())
+    
+    return cleaned_df
+
+if __name__ == "__main__":
+    example_usage()
