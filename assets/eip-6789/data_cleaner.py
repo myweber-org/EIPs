@@ -212,4 +212,33 @@ def handle_missing_values(df, strategy='mean', columns=None):
             elif strategy == 'mode':
                 df_processed[col] = df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else None)
     
-    return df_processed.reset_index(drop=True)
+    return df_processed.reset_index(drop=True)import pandas as pd
+
+def clean_dataframe(df):
+    """
+    Remove rows with null values and standardize column names.
+    """
+    # Drop rows with any null values
+    df_cleaned = df.dropna()
+    
+    # Standardize column names: lowercase and replace spaces with underscores
+    df_cleaned.columns = df_cleaned.columns.str.lower().str.replace(' ', '_')
+    
+    return df_cleaned
+
+def main():
+    # Example usage
+    data = {'Name': ['Alice', 'Bob', None, 'David'],
+            'Age': [25, 30, 35, None],
+            'City Name': ['NYC', 'LA', 'Chicago', 'Boston']}
+    
+    df = pd.DataFrame(data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned_df = clean_dataframe(df)
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+
+if __name__ == "__main__":
+    main()
