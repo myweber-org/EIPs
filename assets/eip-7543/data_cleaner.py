@@ -47,3 +47,15 @@ if __name__ == "__main__":
     print(f"Original shape: {sample_data.shape}")
     print(f"Cleaned shape: {result.shape}")
     print(result.head())
+def clean_data(data_list):
+    """
+    Filter out dictionaries that contain None values or empty strings in any key.
+    Returns a new list containing only dictionaries with all non-empty values.
+    """
+    cleaned = []
+    for item in data_list:
+        if isinstance(item, dict):
+            # Check if any value is None or empty string
+            if all(value is not None and value != "" for value in item.values()):
+                cleaned.append(item)
+    return cleaned
