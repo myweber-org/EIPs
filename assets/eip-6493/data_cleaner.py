@@ -45,4 +45,47 @@ def clean_dataset(input_path, output_path):
     return df
 
 if __name__ == "__main__":
-    clean_dataset('raw_data.csv', 'cleaned_data.csv')
+    clean_dataset('raw_data.csv', 'cleaned_data.csv')import csv
+import sys
+
+def clean_csv(input_file, output_file):
+    """
+    Clean CSV file by removing rows with missing values
+    and trimming whitespace from all fields.
+    """
+    try:
+        with open(input_file, 'r', newline='') as infile:
+            reader = csv.reader(infile)
+            headers = next(reader)
+            
+            cleaned_rows = []
+            for row in reader:
+                # Skip rows with empty cells
+                if any(cell.strip() == '' for cell in row):
+                    continue
+                
+                # Trim whitespace from all cells
+                cleaned_row = [cell.strip() for cell in row]
+                cleaned_rows.append(cleaned_row)
+        
+        with open(output_file, 'w', newline='') as outfile:
+            writer = csv.writer(outfile)
+            writer.writerow(headers)
+            writer.writerows(cleaned_rows)
+        
+        print(f"Cleaned data saved to {output_file}")
+        print(f"Removed {len(cleaned_rows)} valid rows")
+        
+    except FileNotFoundError:
+        print(f"Error: Input file '{input_file}' not found")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error processing file: {e}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("Usage: python data_cleaner.py <input_file> <output_file>")
+        sys.exit(1)
+    
+    clean_csv(sys.argv[1], sys.argv[2])
