@@ -261,3 +261,118 @@ def remove_outliers(df, column, method='iqr', threshold=1.5):
         raise ValueError("Method must be 'iqr' or 'zscore'")
     
     return df[mask]
+import pandas as pd
+import numpy as np
+
+def clean_csv_data(file_path, output_path=None, fill_strategy='mean'):
+    """
+    Clean CSV data by handling missing values and removing duplicates.
+    
+    Args:
+        file_path (str): Path to input CSV file
+        output_path (str, optional): Path for cleaned output CSV
+        fill_strategy (str): Strategy for filling missing values ('mean', 'median', 'mode', 'zero')
+    
+    Returns:
+        pandas.DataFrame: Cleaned dataframe
+    """
+    try:
+        df = pd.read_csv(file_path)
+        
+        # Remove duplicate rows
+        initial_rows = len(df)
+        df = df.drop_duplicates()
+        duplicates_removed = initial_rows - len(df)
+        
+        # Handle missing values
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        
+        if fill_strategy == 'mean':
+            for col in numeric_cols:
+                df[col].fillna(df[col].mean(), inplace=True)
+        elif fill_strategy == 'median':
+            for col in numeric_cols:
+                df[col].fillna(df[col].median(), inplace=True)
+        elif fill_strategy == 'mode':
+            for col in numeric_cols:
+                df[col].fillna(df[col].mode()[0], inplace=True)
+        elif fill_strategy == 'zero':
+            df.fillna(0, inplace=True)
+        
+        # Fill non-numeric columns with placeholder
+        non_numeric_cols = df.select_dtypes(exclude=[np.number]).columns
+        for col in non_numeric_cols:
+            df[col].fillna('Unknown', inplace=True)
+        
+        # Save cleaned data if output path provided
+        if output_path:
+            df.to_csv(output_path, index=False)
+        
+        # Print cleaning summary
+        print(f"Data cleaning completed:")
+        print(f"  - Removed {duplicates_removed} duplicate rows")
+        print(f"  - Filled missing values using '{fill_strategy}' strategy")
+        print(f"  - Final dataset shape: {df.shape}")
+        
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: File '{file_path}' not found.")
+        return None
+    except pd.errors.EmptyDataError:
+        print("Error: The CSV file is empty.")
+        return None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate dataframe structure and content.
+    
+    Args:
+        df (pandas.DataFrame): Dataframe to validate
+        required_columns (list): List of required column names
+    
+    Returns:
+        bool: True if validation passes, False otherwise
+    """
+    if df is None or df.empty:
+        print("Validation failed: Dataframe is empty or None")
+        return False
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            print(f"Validation failed: Missing required columns: {missing_cols}")
+            return False
+    
+    # Check for infinite values
+    numeric_df = df.select_dtypes(include=[np.number])
+    if not numeric_df.empty:
+        inf_count = np.isinf(numeric_df).sum().sum()
+        if inf_count > 0:
+            print(f"Warning: Found {inf_count} infinite values in numeric columns")
+    
+    print("Data validation passed")
+    return True
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'id': [1, 2, 3, 4, 5, 5],
+        'value': [10.5, None, 15.2, 20.1, None, 10.5],
+        'category': ['A', 'B', None, 'A', 'C', 'A'],
+        'score': [85, 92, None, 78, None, 85]
+    }
+    
+    # Create test dataframe
+    test_df = pd.DataFrame(sample_data)
+    test_df.to_csv('test_data.csv', index=False)
+    
+    # Clean the data
+    cleaned_df = clean_csv_data('test_data.csv', 'cleaned_data.csv', 'mean')
+    
+    # Validate cleaned data
+    if cleaned_df is not None:
+        validate_dataframe(cleaned_df, ['id', 'value', 'category', 'score'])
