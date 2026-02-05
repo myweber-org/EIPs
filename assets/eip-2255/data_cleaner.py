@@ -201,3 +201,86 @@ def get_data_summary(df):
         }
     
     return summary
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, id_column='id'):
+    """
+    Clean a pandas DataFrame by removing duplicates and standardizing column names.
+    """
+    if df.empty:
+        return df
+    
+    original_shape = df.shape
+    
+    df_cleaned = df.copy()
+    
+    df_cleaned.columns = df_cleaned.columns.str.lower().str.replace(' ', '_')
+    
+    if id_column in df_cleaned.columns:
+        df_cleaned = df_cleaned.drop_duplicates(subset=[id_column])
+    else:
+        df_cleaned = df_cleaned.drop_duplicates()
+    
+    df_cleaned = df_cleaned.reset_index(drop=True)
+    
+    print(f"Original shape: {original_shape}")
+    print(f"Cleaned shape: {df_cleaned.shape}")
+    print(f"Duplicates removed: {original_shape[0] - df_cleaned.shape[0]}")
+    
+    return df_cleaned
+
+def standardize_numeric_columns(df, numeric_columns=None):
+    """
+    Standardize numeric columns by filling NaN values with column mean.
+    """
+    if numeric_columns is None:
+        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    df_standardized = df.copy()
+    
+    for col in numeric_columns:
+        if col in df_standardized.columns:
+            col_mean = df_standardized[col].mean()
+            df_standardized[col] = df_standardized[col].fillna(col_mean)
+    
+    return df_standardized
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and required columns.
+    """
+    if required_columns is None:
+        required_columns = []
+    
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    
+    if missing_columns:
+        raise ValueError(f"Missing required columns: {missing_columns}")
+    
+    if df.isnull().all().any():
+        print("Warning: Some columns contain only null values")
+    
+    return True
+
+if __name__ == "__main__":
+    sample_data = {
+        'ID': [1, 2, 2, 3, 4],
+        'Name': ['Alice', 'Bob', 'Bob', 'Charlie', 'David'],
+        'Age': [25, 30, 30, 35, None],
+        'Score': [85.5, 92.0, 92.0, 78.5, 88.0]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n")
+    
+    cleaned_df = clean_dataset(df, id_column='id')
+    print("Cleaned DataFrame:")
+    print(cleaned_df)
+    print("\n")
+    
+    standardized_df = standardize_numeric_columns(cleaned_df)
+    print("Standardized DataFrame:")
+    print(standardized_df)
