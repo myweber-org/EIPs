@@ -140,4 +140,75 @@ def generate_summary(dataframe):
         'numeric_columns': list(dataframe.select_dtypes(include=[np.number]).columns),
         'missing_values': dataframe.isnull().sum().to_dict()
     }
-    return summary
+    return summaryimport pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    """
+    df_clean = df.copy()
+    
+    if drop_duplicates:
+        initial_rows = df_clean.shape[0]
+        df_clean = df_clean.drop_duplicates()
+        removed = initial_rows - df_clean.shape[0]
+        print(f"Removed {removed} duplicate rows.")
+    
+    if fill_missing:
+        numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            if df_clean[col].isnull().any():
+                if fill_missing == 'mean':
+                    fill_value = df_clean[col].mean()
+                elif fill_missing == 'median':
+                    fill_value = df_clean[col].median()
+                elif fill_missing == 'zero':
+                    fill_value = 0
+                else:
+                    fill_value = fill_missing
+                
+                df_clean[col] = df_clean[col].fillna(fill_value)
+                print(f"Filled missing values in column '{col}' with {fill_value}.")
+    
+    categorical_cols = df_clean.select_dtypes(include=['object']).columns
+    for col in categorical_cols:
+        if df_clean[col].isnull().any():
+            df_clean[col] = df_clean[col].fillna('Unknown')
+            print(f"Filled missing values in categorical column '{col}' with 'Unknown'.")
+    
+    print(f"Cleaning complete. Final dataset shape: {df_clean.shape}")
+    return df_clean
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame.")
+    
+    if df.empty:
+        raise ValueError("DataFrame is empty.")
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    return True
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, 2, 3, None, 5],
+        'B': [10.5, None, 10.5, 15.2, 18.1, 20.0],
+        'C': ['apple', 'banana', 'apple', None, 'orange', 'grape'],
+        'D': [100, 200, 300, 400, 500, 600]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nCleaning DataFrame...")
+    cleaned_df = clean_dataset(df, drop_duplicates=True, fill_missing='median')
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
