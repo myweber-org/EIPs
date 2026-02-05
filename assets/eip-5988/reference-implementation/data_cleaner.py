@@ -304,3 +304,76 @@ if __name__ == "__main__":
     print(f"Original shape: {df.shape}")
     print(f"Cleaned shape: {result_df.shape}")
     print(result_df.head())
+import pandas as pd
+
+def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    drop_duplicates (bool): Whether to drop duplicate rows. Default is True.
+    fill_missing (str): Method to fill missing values. 
+                        Options: 'mean', 'median', 'mode', or 'drop'. Default is 'mean'.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    df_clean = df.copy()
+    
+    if drop_duplicates:
+        df_clean = df_clean.drop_duplicates()
+    
+    if fill_missing == 'drop':
+        df_clean = df_clean.dropna()
+    elif fill_missing in ['mean', 'median', 'mode']:
+        for column in df_clean.select_dtypes(include=['number']).columns:
+            if fill_missing == 'mean':
+                df_clean[column].fillna(df_clean[column].mean(), inplace=True)
+            elif fill_missing == 'median':
+                df_clean[column].fillna(df_clean[column].median(), inplace=True)
+            elif fill_missing == 'mode':
+                df_clean[column].fillna(df_clean[column].mode()[0], inplace=True)
+    
+    return df_clean
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate a DataFrame for required columns and data types.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+    required_columns (list): List of required column names.
+    
+    Returns:
+    bool: True if validation passes, False otherwise.
+    """
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            print(f"Missing required columns: {missing_columns}")
+            return False
+    
+    if df.empty:
+        print("DataFrame is empty")
+        return False
+    
+    return True
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, 2, 4, None],
+        'B': [5, None, 7, 8, 9],
+        'C': ['x', 'y', 'y', 'z', 'x']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned_df = clean_dataset(df, fill_missing='median')
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    
+    is_valid = validate_dataframe(cleaned_df, required_columns=['A', 'B', 'C'])
+    print(f"\nData validation passed: {is_valid}")
