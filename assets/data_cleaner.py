@@ -711,4 +711,68 @@ def clean_numeric_columns(df, columns):
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce')
     
-    return df
+    return dfimport pandas as pd
+import numpy as np
+
+def clean_dataset(df, column_to_check_duplicates='id', fill_missing_strategy='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    """
+    # Create a copy to avoid modifying the original DataFrame
+    df_clean = df.copy()
+
+    # Remove duplicate rows based on a specified column
+    if column_to_check_duplicates in df_clean.columns:
+        initial_rows = len(df_clean)
+        df_clean = df_clean.drop_duplicates(subset=column_to_check_duplicates, keep='first')
+        removed_duplicates = initial_rows - len(df_clean)
+        print(f"Removed {removed_duplicates} duplicate rows based on column '{column_to_check_duplicates}'.")
+    else:
+        print(f"Warning: Column '{column_to_check_duplicates}' not found. Skipping duplicate removal.")
+
+    # Handle missing values
+    numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
+    categorical_cols = df_clean.select_dtypes(include=['object']).columns
+
+    for col in df_clean.columns:
+        if df_clean[col].isnull().sum() > 0:
+            if col in numeric_cols:
+                if fill_missing_strategy == 'mean':
+                    fill_value = df_clean[col].mean()
+                elif fill_missing_strategy == 'median':
+                    fill_value = df_clean[col].median()
+                elif fill_missing_strategy == 'zero':
+                    fill_value = 0
+                else:
+                    fill_value = df_clean[col].mean()  # default to mean
+                df_clean[col].fillna(fill_value, inplace=True)
+                print(f"Filled missing values in numeric column '{col}' with {fill_missing_strategy} value: {fill_value:.2f}")
+            elif col in categorical_cols:
+                # For categorical columns, fill with the most frequent value (mode)
+                mode_value = df_clean[col].mode()[0] if not df_clean[col].mode().empty else 'Unknown'
+                df_clean[col].fillna(mode_value, inplace=True)
+                print(f"Filled missing values in categorical column '{col}' with mode: '{mode_value}'")
+            else:
+                # For other dtypes, fill with a placeholder
+                df_clean[col].fillna('MISSING', inplace=True)
+                print(f"Filled missing values in column '{col}' with placeholder 'MISSING'")
+
+    print(f"Data cleaning complete. Final dataset shape: {df_clean.shape}")
+    return df_clean
+
+# Example usage (commented out)
+# if __name__ == "__main__":
+#     # Create a sample DataFrame with duplicates and missing values
+#     data = {
+#         'id': [1, 2, 2, 3, 4, 5, 5],
+#         'name': ['Alice', 'Bob', 'Bob', 'Charlie', None, 'Eve', 'Eve'],
+#         'age': [25, 30, 30, None, 40, 35, 35],
+#         'score': [85.5, 90.0, 90.0, 78.5, 92.0, None, 88.0]
+#     }
+#     df = pd.DataFrame(data)
+#     print("Original DataFrame:")
+#     print(df)
+#     print("\nCleaning dataset...")
+#     cleaned_df = clean_dataset(df, column_to_check_duplicates='id', fill_missing_strategy='mean')
+#     print("\nCleaned DataFrame:")
+#     print(cleaned_df)
