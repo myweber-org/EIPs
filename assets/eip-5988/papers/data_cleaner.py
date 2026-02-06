@@ -1,53 +1,74 @@
 
+import numpy as np
 import pandas as pd
-import re
+from scipy import stats
 
-def clean_dataframe(df, column_mapping=None, drop_duplicates=True, normalize_text=True):
-    """
-    Clean a pandas DataFrame by removing duplicates and normalizing text columns.
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_outliers_iqr(self, columns=None, threshold=1.5):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+        
+        df_clean = self.df.copy()
+        for col in columns:
+            if col in df_clean.columns:
+                Q1 = df_clean[col].quantile(0.25)
+                Q3 = df_clean[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - threshold * IQR
+                upper_bound = Q3 + threshold * IQR
+                df_clean = df_clean[(df_clean[col] >= lower_bound) & (df_clean[col] <= upper_bound)]
+        
+        self.df = df_clean
+        return self
     
-    Args:
-        df: pandas DataFrame to clean
-        column_mapping: dictionary to rename columns
-        drop_duplicates: whether to remove duplicate rows
-        normalize_text: whether to normalize text columns
+    def normalize_data(self, method='minmax', columns=None):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+        
+        df_norm = self.df.copy()
+        for col in columns:
+            if col in df_norm.columns:
+                if method == 'minmax':
+                    min_val = df_norm[col].min()
+                    max_val = df_norm[col].max()
+                    if max_val != min_val:
+                        df_norm[col] = (df_norm[col] - min_val) / (max_val - min_val)
+                elif method == 'zscore':
+                    mean_val = df_norm[col].mean()
+                    std_val = df_norm[col].std()
+                    if std_val > 0:
+                        df_norm[col] = (df_norm[col] - mean_val) / std_val
+        
+        self.df = df_norm
+        return self
     
-    Returns:
-        Cleaned pandas DataFrame
-    """
-    cleaned_df = df.copy()
+    def handle_missing_values(self, strategy='mean', columns=None):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+        
+        df_filled = self.df.copy()
+        for col in columns:
+            if col in df_filled.columns and df_filled[col].isnull().any():
+                if strategy == 'mean':
+                    fill_value = df_filled[col].mean()
+                elif strategy == 'median':
+                    fill_value = df_filled[col].median()
+                elif strategy == 'mode':
+                    fill_value = df_filled[col].mode()[0]
+                else:
+                    fill_value = 0
+                
+                df_filled[col] = df_filled[col].fillna(fill_value)
+        
+        self.df = df_filled
+        return self
     
-    if column_mapping:
-        cleaned_df = cleaned_df.rename(columns=column_mapping)
+    def get_cleaned_data(self):
+        return self.df
     
-    if drop_duplicates:
-        cleaned_df = cleaned_df.drop_duplicates()
-    
-    if normalize_text:
-        for col in cleaned_df.select_dtypes(include=['object']).columns:
-            cleaned_df[col] = cleaned_df[col].apply(_normalize_string)
-    
-    return cleaned_df
-
-def _normalize_string(text):
-    """
-    Normalize a string by converting to lowercase, removing extra whitespace,
-    and stripping special characters.
-    """
-    if pd.isna(text):
-        return text
-    
-    text = str(text)
-    text = text.lower()
-    text = re.sub(r'\s+', ' ', text)
-    text = text.strip()
-    text = re.sub(r'[^\w\s-]', '', text)
-    
-    return text
-
-def validate_email(email):
-    """
-    Validate email format using regex pattern.
-    """
-    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    return bool(re.match(pattern, str(email))) if pd.notna(email) else False
+    def get_removed_count(self):
+        return self.original_shape[0] - self.df.shape[0]
