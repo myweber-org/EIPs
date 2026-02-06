@@ -775,4 +775,109 @@ def clean_dataset(df, column_to_check_duplicates='id', fill_missing_strategy='me
 #     print("\nCleaning dataset...")
 #     cleaned_df = clean_dataset(df, column_to_check_duplicates='id', fill_missing_strategy='mean')
 #     print("\nCleaned DataFrame:")
-#     print(cleaned_df)
+#     print(cleaned_df)import pandas as pd
+import numpy as np
+from typing import Union, List, Dict, Any
+
+def remove_duplicates(df: pd.DataFrame, subset: Union[List[str], None] = None) -> pd.DataFrame:
+    """
+    Remove duplicate rows from DataFrame.
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def convert_column_types(df: pd.DataFrame, 
+                         type_mapping: Dict[str, str]) -> pd.DataFrame:
+    """
+    Convert columns to specified data types.
+    """
+    df_copy = df.copy()
+    for column, dtype in type_mapping.items():
+        if column in df_copy.columns:
+            try:
+                if dtype == 'datetime':
+                    df_copy[column] = pd.to_datetime(df_copy[column])
+                elif dtype == 'numeric':
+                    df_copy[column] = pd.to_numeric(df_copy[column], errors='coerce')
+                elif dtype == 'category':
+                    df_copy[column] = df_copy[column].astype('category')
+                else:
+                    df_copy[column] = df_copy[column].astype(dtype)
+            except Exception as e:
+                print(f"Error converting column {column} to {dtype}: {e}")
+    return df_copy
+
+def handle_missing_values(df: pd.DataFrame, 
+                         strategy: str = 'drop',
+                         fill_value: Any = None) -> pd.DataFrame:
+    """
+    Handle missing values in DataFrame.
+    """
+    if strategy == 'drop':
+        return df.dropna()
+    elif strategy == 'fill':
+        if fill_value is not None:
+            return df.fillna(fill_value)
+        else:
+            numeric_cols = df.select_dtypes(include=[np.number]).columns
+            df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
+            return df
+    else:
+        return df
+
+def clean_dataframe(df: pd.DataFrame,
+                   deduplicate: bool = True,
+                   type_conversions: Dict[str, str] = None,
+                   missing_strategy: str = 'drop') -> pd.DataFrame:
+    """
+    Main function to clean DataFrame with multiple operations.
+    """
+    cleaned_df = df.copy()
+    
+    if deduplicate:
+        cleaned_df = remove_duplicates(cleaned_df)
+    
+    if type_conversions:
+        cleaned_df = convert_column_types(cleaned_df, type_conversions)
+    
+    cleaned_df = handle_missing_values(cleaned_df, strategy=missing_strategy)
+    
+    return cleaned_df
+
+def validate_dataframe(df: pd.DataFrame) -> Dict[str, Any]:
+    """
+    Validate DataFrame and return summary statistics.
+    """
+    validation_results = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_values': df.isnull().sum().to_dict(),
+        'data_types': df.dtypes.astype(str).to_dict(),
+        'duplicate_rows': df.duplicated().sum()
+    }
+    return validation_results
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'id': [1, 2, 2, 3, 4],
+        'name': ['Alice', 'Bob', 'Bob', 'Charlie', None],
+        'age': [25, 30, 30, None, 35],
+        'score': ['85', '90', '90', '95', '100']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nValidation Results:")
+    print(validate_dataframe(df))
+    
+    type_map = {'score': 'numeric', 'age': 'numeric'}
+    cleaned = clean_dataframe(df, 
+                             deduplicate=True,
+                             type_conversions=type_map,
+                             missing_strategy='fill')
+    
+    print("\nCleaned DataFrame:")
+    print(cleaned)
+    print("\nCleaned Validation Results:")
+    print(validate_dataframe(cleaned))
