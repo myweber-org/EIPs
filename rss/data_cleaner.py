@@ -315,4 +315,73 @@ def test_remove_outliers():
     print(f"Cleaned 2D data:\n{result_2d}")
 
 if __name__ == "__main__":
-    test_remove_outliers()
+    test_remove_outliers()import pandas as pd
+
+def clean_dataset(df, drop_duplicates=True, fill_na_method=None, fill_value=None):
+    """
+    Clean a pandas DataFrame by handling missing values and optionally removing duplicates.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    drop_duplicates (bool): If True, remove duplicate rows.
+    fill_na_method (str): Method to fill missing values ('ffill', 'bfill', or None).
+    fill_value: Value to fill missing values if fill_na_method is None but fill_value is provided.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    # Handle missing values
+    if fill_na_method in ['ffill', 'bfill']:
+        cleaned_df = cleaned_df.fillna(method=fill_na_method)
+    elif fill_value is not None:
+        cleaned_df = cleaned_df.fillna(fill_value)
+    
+    # Remove duplicates
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    # Reset index after cleaning
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    return cleaned_df
+
+def validate_dataset(df, required_columns=None):
+    """
+    Validate dataset for required columns and basic integrity.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+    required_columns (list): List of column names that must be present.
+    
+    Returns:
+    tuple: (is_valid, error_message)
+    """
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "Dataset is valid"
+
+# Example usage (commented out for production)
+# if __name__ == "__main__":
+#     sample_data = {
+#         'A': [1, 2, None, 4, 4],
+#         'B': [5, None, 7, 8, 8],
+#         'C': [9, 10, 11, None, 11]
+#     }
+#     df = pd.DataFrame(sample_data)
+#     print("Original DataFrame:")
+#     print(df)
+#     
+#     cleaned = clean_dataset(df, fill_value=0)
+#     print("\nCleaned DataFrame:")
+#     print(cleaned)
+#     
+#     is_valid, message = validate_dataset(cleaned, required_columns=['A', 'B'])
+#     print(f"\nValidation: {is_valid}, Message: {message}")
