@@ -270,4 +270,49 @@ if __name__ == "__main__":
     print(cleaned)
     
     is_valid = validate_dataframe(cleaned, required_columns=['A', 'B', 'C'])
-    print(f"\nDataFrame validation: {is_valid}")
+    print(f"\nDataFrame validation: {is_valid}")import numpy as np
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specified column using the Interquartile Range method.
+    
+    Parameters:
+    data (list or np.array): Input data
+    column (int): Column index for 2D data, or None for 1D data
+    
+    Returns:
+    np.array: Data with outliers removed
+    """
+    if column is not None:
+        column_data = data[:, column]
+    else:
+        column_data = np.array(data)
+    
+    q1 = np.percentile(column_data, 25)
+    q3 = np.percentile(column_data, 75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - 1.5 * iqr
+    upper_bound = q3 + 1.5 * iqr
+    
+    if column is not None:
+        mask = (data[:, column] >= lower_bound) & (data[:, column] <= upper_bound)
+        return data[mask]
+    else:
+        mask = (column_data >= lower_bound) & (column_data <= upper_bound)
+        return column_data[mask]
+
+def test_remove_outliers():
+    """Test function for outlier removal"""
+    test_data = np.array([1, 2, 3, 4, 5, 100])
+    result = remove_outliers_iqr(test_data, None)
+    print(f"Original data: {test_data}")
+    print(f"Cleaned data: {result}")
+    
+    test_2d = np.array([[1, 10], [2, 20], [3, 30], [4, 200]])
+    result_2d = remove_outliers_iqr(test_2d, 1)
+    print(f"\n2D data:\n{test_2d}")
+    print(f"Cleaned 2D data:\n{result_2d}")
+
+if __name__ == "__main__":
+    test_remove_outliers()
