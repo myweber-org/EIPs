@@ -332,3 +332,136 @@ if __name__ == "__main__":
         print(f"Cleaned data shape: {cleaned_data.shape}")
         print("First few rows of cleaned data:")
         print(cleaned_data.head())
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+def normalize_data(df, columns, method='zscore'):
+    """
+    Normalize specified columns in DataFrame.
+    
+    Args:
+        df: pandas DataFrame
+        columns: list of column names to normalize
+        method: normalization method ('zscore', 'minmax', 'robust')
+    
+    Returns:
+        DataFrame with normalized columns
+    """
+    df_normalized = df.copy()
+    
+    for col in columns:
+        if col not in df.columns:
+            continue
+            
+        if method == 'zscore':
+            df_normalized[col] = (df[col] - df[col].mean()) / df[col].std()
+        elif method == 'minmax':
+            df_normalized[col] = (df[col] - df[col].min()) / (df[col].max() - df[col].min())
+        elif method == 'robust':
+            median = df[col].median()
+            iqr = df[col].quantile(0.75) - df[col].quantile(0.25)
+            df_normalized[col] = (df[col] - median) / iqr
+    
+    return df_normalized
+
+def remove_outliers(df, columns, method='iqr', threshold=1.5):
+    """
+    Remove outliers from specified columns.
+    
+    Args:
+        df: pandas DataFrame
+        columns: list of column names to process
+        method: outlier detection method ('iqr', 'zscore')
+        threshold: threshold for outlier detection
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    df_clean = df.copy()
+    
+    for col in columns:
+        if col not in df.columns:
+            continue
+            
+        if method == 'iqr':
+            Q1 = df[col].quantile(0.25)
+            Q3 = df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - threshold * IQR
+            upper_bound = Q3 + threshold * IQR
+            mask = (df[col] >= lower_bound) & (df[col] <= upper_bound)
+            df_clean = df_clean[mask]
+            
+        elif method == 'zscore':
+            z_scores = np.abs(stats.zscore(df[col].dropna()))
+            mask = z_scores < threshold
+            df_clean = df_clean[mask]
+    
+    return df_clean.reset_index(drop=True)
+
+def handle_missing_values(df, columns, strategy='mean'):
+    """
+    Handle missing values in specified columns.
+    
+    Args:
+        df: pandas DataFrame
+        columns: list of column names to process
+        strategy: imputation strategy ('mean', 'median', 'mode', 'drop')
+    
+    Returns:
+        DataFrame with handled missing values
+    """
+    df_processed = df.copy()
+    
+    for col in columns:
+        if col not in df.columns:
+            continue
+            
+        if strategy == 'mean':
+            df_processed[col].fillna(df[col].mean(), inplace=True)
+        elif strategy == 'median':
+            df_processed[col].fillna(df[col].median(), inplace=True)
+        elif strategy == 'mode':
+            df_processed[col].fillna(df[col].mode()[0], inplace=True)
+        elif strategy == 'drop':
+            df_processed = df_processed.dropna(subset=[col])
+    
+    return df_processed
+
+def clean_dataset(df, config):
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Args:
+        df: pandas DataFrame
+        config: dictionary with cleaning configuration
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    df_clean = df.copy()
+    
+    if 'missing_values' in config:
+        df_clean = handle_missing_values(
+            df_clean,
+            config['missing_values'].get('columns', []),
+            config['missing_values'].get('strategy', 'mean')
+        )
+    
+    if 'normalize' in config:
+        df_clean = normalize_data(
+            df_clean,
+            config['normalize'].get('columns', []),
+            config['normalize'].get('method', 'zscore')
+        )
+    
+    if 'outliers' in config:
+        df_clean = remove_outliers(
+            df_clean,
+            config['outliers'].get('columns', []),
+            config['outliers'].get('method', 'iqr'),
+            config['outliers'].get('threshold', 1.5)
+        )
+    
+    return df_clean
