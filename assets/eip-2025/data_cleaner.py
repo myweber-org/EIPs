@@ -477,3 +477,95 @@ def validate_data(df, required_columns):
     if missing_columns:
         raise ValueError(f"Missing required columns: {missing_columns}")
     return True
+import numpy as np
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specified column using the IQR method.
+    
+    Parameters:
+    data (list or np.array): Input data
+    column (int): Column index if data is 2D
+    
+    Returns:
+    np.array: Data with outliers removed
+    """
+    if isinstance(data, list):
+        data = np.array(data)
+    
+    if data.ndim == 2:
+        column_data = data[:, column]
+    else:
+        column_data = data
+    
+    q1 = np.percentile(column_data, 25)
+    q3 = np.percentile(column_data, 75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - 1.5 * iqr
+    upper_bound = q3 + 1.5 * iqr
+    
+    if data.ndim == 2:
+        mask = (column_data >= lower_bound) & (column_data <= upper_bound)
+        return data[mask]
+    else:
+        return column_data[(column_data >= lower_bound) & (column_data <= upper_bound)]
+
+def calculate_statistics(data):
+    """
+    Calculate basic statistics for the data.
+    
+    Parameters:
+    data (np.array): Input data
+    
+    Returns:
+    dict: Dictionary containing mean, median, std
+    """
+    return {
+        'mean': np.mean(data),
+        'median': np.median(data),
+        'std': np.std(data),
+        'min': np.min(data),
+        'max': np.max(data)
+    }
+
+def normalize_data(data, method='minmax'):
+    """
+    Normalize data using specified method.
+    
+    Parameters:
+    data (np.array): Input data
+    method (str): Normalization method ('minmax' or 'zscore')
+    
+    Returns:
+    np.array: Normalized data
+    """
+    if method == 'minmax':
+        return (data - np.min(data)) / (np.max(data) - np.min(data))
+    elif method == 'zscore':
+        return (data - np.mean(data)) / np.std(data)
+    else:
+        raise ValueError("Method must be 'minmax' or 'zscore'")
+
+def process_dataset(data, column=0, normalize=True):
+    """
+    Complete data processing pipeline.
+    
+    Parameters:
+    data: Input dataset
+    column: Column to process (if 2D data)
+    normalize: Whether to normalize the data
+    
+    Returns:
+    tuple: (cleaned_data, statistics)
+    """
+    cleaned = remove_outliers_iqr(data, column)
+    stats = calculate_statistics(cleaned)
+    
+    if normalize:
+        if cleaned.ndim == 2:
+            cleaned[:, column] = normalize_data(cleaned[:, column])
+        else:
+            cleaned = normalize_data(cleaned)
+    
+    return cleaned, stats
