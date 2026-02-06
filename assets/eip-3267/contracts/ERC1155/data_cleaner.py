@@ -148,4 +148,112 @@ def validate_dataframe(df, required_columns=None):
         if missing_columns:
             return False, f"Missing required columns: {missing_columns}"
     
-    return True, "DataFrame is valid"
+    return True, "DataFrame is valid"import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(data, column, factor=1.5):
+    """
+    Remove outliers using the Interquartile Range method.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to process
+        factor: IQR multiplier (default: 1.5)
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - factor * iqr
+    upper_bound = q3 + factor * iqr
+    
+    return data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using Min-Max scaling.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to normalize
+    
+    Returns:
+        DataFrame with normalized column
+    """
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val - min_val == 0:
+        return data
+    
+    data[column] = (data[column] - min_val) / (max_val - min_val)
+    return data
+
+def clean_dataset(df, numeric_columns, outlier_factor=1.5):
+    """
+    Clean dataset by removing outliers and normalizing numeric columns.
+    
+    Args:
+        df: pandas DataFrame
+        numeric_columns: list of numeric column names
+        outlier_factor: IQR factor for outlier detection
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col, outlier_factor)
+            cleaned_df = normalize_minmax(cleaned_df, col)
+    
+    return cleaned_df.reset_index(drop=True)
+
+def calculate_statistics(df, numeric_columns):
+    """
+    Calculate basic statistics for numeric columns.
+    
+    Args:
+        df: pandas DataFrame
+        numeric_columns: list of numeric column names
+    
+    Returns:
+        Dictionary with statistics for each column
+    """
+    stats = {}
+    
+    for col in numeric_columns:
+        if col in df.columns:
+            stats[col] = {
+                'mean': df[col].mean(),
+                'median': df[col].median(),
+                'std': df[col].std(),
+                'min': df[col].min(),
+                'max': df[col].max(),
+                'count': df[col].count()
+            }
+    
+    return stats
+
+if __name__ == "__main__":
+    sample_data = {
+        'feature_a': np.random.normal(100, 15, 1000),
+        'feature_b': np.random.exponential(50, 1000),
+        'category': np.random.choice(['A', 'B', 'C'], 1000)
+    }
+    
+    df = pd.DataFrame(sample_data)
+    numeric_cols = ['feature_a', 'feature_b']
+    
+    print("Original dataset shape:", df.shape)
+    print("\nOriginal statistics:")
+    print(calculate_statistics(df, numeric_cols))
+    
+    cleaned_df = clean_dataset(df, numeric_cols)
+    
+    print("\nCleaned dataset shape:", cleaned_df.shape)
+    print("\nCleaned statistics:")
+    print(calculate_statistics(cleaned_df, numeric_cols))
