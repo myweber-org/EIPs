@@ -197,4 +197,45 @@ if __name__ == "__main__":
     cleaned = clean_dataset(sample_data, ['A', 'B', 'C'])
     print(f"Original shape: {sample_data.shape}")
     print(f"Cleaned shape: {cleaned.shape}")
-    print(f"Rows removed: {len(sample_data) - len(cleaned)}")
+    print(f"Rows removed: {len(sample_data) - len(cleaned)}")import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+def normalize_minmax(df, column):
+    min_val = df[column].min()
+    max_val = df[column].max()
+    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
+    return df
+
+def clean_dataset(input_path, output_path):
+    try:
+        df = pd.read_csv(input_path)
+        print(f"Original shape: {df.shape}")
+        
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        
+        for col in numeric_cols:
+            df = remove_outliers_iqr(df, col)
+        
+        print(f"After outlier removal: {df.shape}")
+        
+        for col in numeric_cols:
+            df = normalize_minmax(df, col)
+        
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to: {output_path}")
+        return True
+        
+    except Exception as e:
+        print(f"Error during cleaning: {str(e)}")
+        return False
+
+if __name__ == "__main__":
+    clean_dataset('raw_data.csv', 'cleaned_data.csv')
