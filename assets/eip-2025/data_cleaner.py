@@ -37,3 +37,114 @@ def clean_dataset(input_file, output_file):
 
 if __name__ == "__main__":
     clean_dataset('raw_data.csv', 'cleaned_data.csv')
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(df, columns=None, factor=1.5):
+    """
+    Remove outliers using IQR method
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_clean = df.copy()
+    for col in columns:
+        if col in df.columns:
+            Q1 = df[col].quantile(0.25)
+            Q3 = df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - factor * IQR
+            upper_bound = Q3 + factor * IQR
+            mask = (df[col] >= lower_bound) & (df[col] <= upper_bound)
+            df_clean = df_clean[mask]
+    
+    return df_clean.reset_index(drop=True)
+
+def normalize_minmax(df, columns=None):
+    """
+    Normalize data using min-max scaling
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_normalized = df.copy()
+    for col in columns:
+        if col in df.columns:
+            min_val = df[col].min()
+            max_val = df[col].max()
+            if max_val != min_val:
+                df_normalized[col] = (df[col] - min_val) / (max_val - min_val)
+    
+    return df_normalized
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from dataframe
+    """
+    return df.drop_duplicates(subset=subset, keep=keep).reset_index(drop=True)
+
+def fill_missing_values(df, strategy='mean', columns=None):
+    """
+    Fill missing values using specified strategy
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_filled = df.copy()
+    for col in columns:
+        if col in df.columns and df[col].isnull().any():
+            if strategy == 'mean':
+                fill_value = df[col].mean()
+            elif strategy == 'median':
+                fill_value = df[col].median()
+            elif strategy == 'mode':
+                fill_value = df[col].mode()[0]
+            elif strategy == 'zero':
+                fill_value = 0
+            else:
+                fill_value = df[col].mean()
+            
+            df_filled[col] = df[col].fillna(fill_value)
+    
+    return df_filled
+
+def clean_dataset(df, outlier_removal=True, normalization=True, 
+                  duplicate_removal=True, missing_value_fill=True):
+    """
+    Comprehensive data cleaning pipeline
+    """
+    df_clean = df.copy()
+    
+    if duplicate_removal:
+        df_clean = remove_duplicates(df_clean)
+    
+    if missing_value_fill:
+        df_clean = fill_missing_values(df_clean)
+    
+    if outlier_removal:
+        df_clean = remove_outliers_iqr(df_clean)
+    
+    if normalization:
+        df_clean = normalize_minmax(df_clean)
+    
+    return df_clean
+
+def validate_dataframe(df):
+    """
+    Validate dataframe structure and content
+    """
+    validation_report = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_values': df.isnull().sum().sum(),
+        'duplicate_rows': df.duplicated().sum(),
+        'numeric_columns': list(df.select_dtypes(include=[np.number]).columns),
+        'categorical_columns': list(df.select_dtypes(include=['object']).columns)
+    }
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    if len(numeric_cols) > 0:
+        validation_report['numeric_stats'] = df[numeric_cols].describe().to_dict()
+    
+    return validation_report
