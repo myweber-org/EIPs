@@ -423,4 +423,99 @@ if __name__ == "__main__":
     
     print("\nCleaned dataset shape:", cleaned_df.shape)
     print("\nCleaned summary for column A:")
-    print(calculate_summary_stats(cleaned_df, 'A'))
+    print(calculate_summary_stats(cleaned_df, 'A'))import pandas as pd
+import numpy as np
+from scipy import stats
+
+def clean_dataset(df, numeric_columns=None, method='median', z_threshold=3):
+    """
+    Clean dataset by handling missing values and removing outliers.
+    
+    Parameters:
+    df (pd.DataFrame): Input dataframe
+    numeric_columns (list): List of numeric column names to process
+    method (str): Imputation method ('mean', 'median', 'mode')
+    z_threshold (float): Z-score threshold for outlier detection
+    
+    Returns:
+    pd.DataFrame: Cleaned dataframe
+    """
+    df_clean = df.copy()
+    
+    if numeric_columns is None:
+        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    for col in numeric_columns:
+        if col not in df.columns:
+            continue
+            
+        col_data = df_clean[col]
+        
+        if method == 'mean':
+            fill_value = col_data.mean()
+        elif method == 'median':
+            fill_value = col_data.median()
+        elif method == 'mode':
+            fill_value = col_data.mode()[0] if not col_data.mode().empty else np.nan
+        else:
+            fill_value = col_data.median()
+        
+        df_clean[col] = col_data.fillna(fill_value)
+        
+        z_scores = np.abs(stats.zscore(df_clean[col]))
+        outlier_indices = np.where(z_scores > z_threshold)[0]
+        
+        if len(outlier_indices) > 0:
+            non_outlier_values = df_clean[col][z_scores <= z_threshold]
+            if len(non_outlier_values) > 0:
+                replacement_value = non_outlier_values.median()
+                df_clean.loc[outlier_indices, col] = replacement_value
+    
+    return df_clean
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate dataframe structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): Dataframe to validate
+    required_columns (list): List of required column names
+    
+    Returns:
+    tuple: (is_valid, error_message)
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "DataFrame is valid"
+
+def get_summary_statistics(df):
+    """
+    Generate comprehensive summary statistics for numeric columns.
+    
+    Parameters:
+    df (pd.DataFrame): Input dataframe
+    
+    Returns:
+    pd.DataFrame: Summary statistics
+    """
+    numeric_df = df.select_dtypes(include=[np.number])
+    
+    if numeric_df.empty:
+        return pd.DataFrame()
+    
+    summary = numeric_df.describe().T
+    summary['missing'] = numeric_df.isnull().sum()
+    summary['missing_pct'] = (summary['missing'] / len(df)) * 100
+    summary['skewness'] = numeric_df.skew()
+    summary['kurtosis'] = numeric_df.kurtosis()
+    
+    return summary
