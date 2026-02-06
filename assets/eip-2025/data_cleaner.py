@@ -191,4 +191,47 @@ if __name__ == "__main__":
     
     cleaned = clean_dataset(sample_data, numeric_cols)
     print(f"Cleaned shape: {cleaned.shape}")
-    print(f"Cleaned stats:\n{cleaned[numeric_cols].describe()}")
+    print(f"Cleaned stats:\n{cleaned[numeric_cols].describe()}")import pandas as pd
+import numpy as np
+import sys
+
+def clean_csv_data(input_file, output_file):
+    try:
+        df = pd.read_csv(input_file)
+        
+        df = df.drop_duplicates()
+        
+        df = df.dropna(thresh=len(df.columns) * 0.7)
+        
+        numeric_columns = df.select_dtypes(include=[np.number]).columns
+        for col in numeric_columns:
+            df[col] = df[col].fillna(df[col].median())
+        
+        categorical_columns = df.select_dtypes(include=['object']).columns
+        for col in categorical_columns:
+            df[col] = df[col].fillna('Unknown')
+        
+        df.to_csv(output_file, index=False)
+        print(f"Data cleaned successfully. Output saved to {output_file}")
+        
+        return True
+        
+    except FileNotFoundError:
+        print(f"Error: Input file '{input_file}' not found.")
+        return False
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return False
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("Usage: python data_cleaner.py <input_file> <output_file>")
+        sys.exit(1)
+    
+    input_file = sys.argv[1]
+    output_file = sys.argv[2]
+    
+    success = clean_csv_data(input_file, output_file)
+    
+    if not success:
+        sys.exit(1)
