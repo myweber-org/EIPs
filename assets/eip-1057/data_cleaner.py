@@ -231,4 +231,90 @@ if __name__ == "__main__":
     # Normalize
     df_normalized = normalize_column(df_no_outliers, 'values', method='minmax')
     print("\nAfter normalization:")
-    print(df_normalized)
+    print(df_normalized)import numpy as np
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specified column using the Interquartile Range method.
+    
+    Parameters:
+    data (list or array-like): The dataset containing the column to clean.
+    column (int or str): The index or name of the column to process.
+    
+    Returns:
+    tuple: (cleaned_data, removed_indices)
+    """
+    if isinstance(data, list):
+        data = np.array(data)
+    
+    column_data = data[:, column] if data.ndim > 1 else data
+    
+    q1 = np.percentile(column_data, 25)
+    q3 = np.percentile(column_data, 75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - 1.5 * iqr
+    upper_bound = q3 + 1.5 * iqr
+    
+    mask = (column_data >= lower_bound) & (column_data <= upper_bound)
+    removed_indices = np.where(~mask)[0]
+    
+    if data.ndim > 1:
+        cleaned_data = data[mask]
+    else:
+        cleaned_data = data[mask]
+    
+    return cleaned_data, removed_indices
+
+def validate_data_range(data, min_val=None, max_val=None):
+    """
+    Validate that all values in data are within specified range.
+    
+    Parameters:
+    data (array-like): Data to validate.
+    min_val (float): Minimum allowed value.
+    max_val (float): Maximum allowed value.
+    
+    Returns:
+    bool: True if all values are within range, False otherwise.
+    """
+    data_array = np.array(data)
+    
+    if min_val is not None:
+        if np.any(data_array < min_val):
+            return False
+    
+    if max_val is not None:
+        if np.any(data_array > max_val):
+            return False
+    
+    return True
+
+def example_usage():
+    # Example dataset with outliers
+    sample_data = np.array([
+        [1, 150],
+        [2, 160],
+        [3, 155],
+        [4, 1000],  # Outlier
+        [5, 158],
+        [6, 162],
+        [7, -50],   # Outlier
+        [8, 165]
+    ])
+    
+    print("Original data:")
+    print(sample_data)
+    
+    cleaned_data, removed = remove_outliers_iqr(sample_data, column=1)
+    
+    print(f"\nRemoved indices: {removed}")
+    print("\nCleaned data:")
+    print(cleaned_data)
+    
+    # Validate the cleaned data
+    is_valid = validate_data_range(cleaned_data[:, 1], min_val=0, max_val=200)
+    print(f"\nData validation: {'Pass' if is_valid else 'Fail'}")
+
+if __name__ == "__main__":
+    example_usage()
