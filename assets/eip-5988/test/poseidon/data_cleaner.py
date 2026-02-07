@@ -1189,4 +1189,127 @@ if __name__ == "__main__":
     
     print(f"Original dataset shape: {df.shape}")
     cleaned_df = clean_dataset(df)
-    print(f"Cleaned dataset shape: {cleaned_df.shape}")
+    print(f"Cleaned dataset shape: {cleaned_df.shape}")import pandas as pd
+import numpy as np
+
+def clean_csv_data(filepath, missing_strategy='mean', columns_to_drop=None):
+    """
+    Load and clean CSV data by handling missing values and removing specified columns.
+    
+    Args:
+        filepath: Path to the CSV file
+        missing_strategy: Strategy for handling missing values ('mean', 'median', 'drop', 'zero')
+        columns_to_drop: List of column names to remove from dataset
+    
+    Returns:
+        Cleaned pandas DataFrame
+    """
+    try:
+        df = pd.read_csv(filepath)
+        
+        if columns_to_drop:
+            df = df.drop(columns=columns_to_drop, errors='ignore')
+        
+        if missing_strategy == 'mean':
+            df = df.fillna(df.mean(numeric_only=True))
+        elif missing_strategy == 'median':
+            df = df.fillna(df.median(numeric_only=True))
+        elif missing_strategy == 'zero':
+            df = df.fillna(0)
+        elif missing_strategy == 'drop':
+            df = df.dropna()
+        else:
+            raise ValueError(f"Unsupported missing strategy: {missing_strategy}")
+        
+        df = df.reset_index(drop=True)
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: File not found at {filepath}")
+        return None
+    except pd.errors.EmptyDataError:
+        print("Error: The file is empty")
+        return None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None
+
+def detect_outliers_iqr(df, column, threshold=1.5):
+    """
+    Detect outliers using the Interquartile Range method.
+    
+    Args:
+        df: Input DataFrame
+        column: Column name to analyze
+        threshold: IQR multiplier for outlier detection
+    
+    Returns:
+        Boolean mask indicating outliers
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - threshold * IQR
+    upper_bound = Q3 + threshold * IQR
+    
+    outliers = (df[column] < lower_bound) | (df[column] > upper_bound)
+    return outliers
+
+def normalize_column(df, column, method='minmax'):
+    """
+    Normalize a column using specified method.
+    
+    Args:
+        df: Input DataFrame
+        column: Column name to normalize
+        method: Normalization method ('minmax' or 'zscore')
+    
+    Returns:
+        DataFrame with normalized column
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    df_copy = df.copy()
+    
+    if method == 'minmax':
+        min_val = df_copy[column].min()
+        max_val = df_copy[column].max()
+        if max_val != min_val:
+            df_copy[column] = (df_copy[column] - min_val) / (max_val - min_val)
+    
+    elif method == 'zscore':
+        mean_val = df_copy[column].mean()
+        std_val = df_copy[column].std()
+        if std_val != 0:
+            df_copy[column] = (df_copy[column] - mean_val) / std_val
+    
+    else:
+        raise ValueError(f"Unsupported normalization method: {method}")
+    
+    return df_copy
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'A': [1, 2, np.nan, 4, 5],
+        'B': [10, 20, 30, np.nan, 50],
+        'C': [100, 200, 300, 400, 500]
+    })
+    
+    sample_data.to_csv('sample_data.csv', index=False)
+    
+    cleaned = clean_csv_data('sample_data.csv', missing_strategy='mean', columns_to_drop=['C'])
+    print("Cleaned data:")
+    print(cleaned)
+    
+    if cleaned is not None:
+        outliers = detect_outliers_iqr(cleaned, 'A')
+        print(f"\nOutliers in column A: {outliers.sum()}")
+        
+        normalized = normalize_column(cleaned, 'B', method='minmax')
+        print("\nNormalized column B:")
+        print(normalized['B'])
