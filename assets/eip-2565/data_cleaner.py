@@ -533,3 +533,57 @@ if __name__ == "__main__":
     print("\nCleaned data summary:")
     cleaned_summary = get_data_summary(cleaned)
     print(f"Shape: {cleaned_summary['shape']}")
+import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    removed_count = len(df) - len(filtered_df)
+    
+    return filtered_df, removed_count
+
+def clean_dataset(file_path, output_path):
+    try:
+        df = pd.read_csv(file_path)
+        original_rows = len(df)
+        
+        numeric_columns = df.select_dtypes(include=[np.number]).columns
+        
+        for col in numeric_columns:
+            df, removed = remove_outliers_iqr(df, col)
+            print(f"Removed {removed} outliers from column: {col}")
+        
+        df.to_csv(output_path, index=False)
+        final_rows = len(df)
+        
+        print(f"Original rows: {original_rows}")
+        print(f"Final rows: {final_rows}")
+        print(f"Total rows removed: {original_rows - final_rows}")
+        print(f"Cleaned data saved to: {output_path}")
+        
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: File not found at {file_path}")
+        return None
+    except Exception as e:
+        print(f"Error during cleaning: {str(e)}")
+        return None
+
+if __name__ == "__main__":
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    
+    cleaned_data = clean_dataset(input_file, output_file)
+    
+    if cleaned_data is not None:
+        print("Data cleaning completed successfully")
+        print(f"Data shape: {cleaned_data.shape}")
+        print("First 5 rows of cleaned data:")
+        print(cleaned_data.head())
