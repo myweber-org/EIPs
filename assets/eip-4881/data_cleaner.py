@@ -104,3 +104,143 @@ if __name__ == "__main__":
     print("\nSummary statistics:")
     for key, value in stats.items():
         print(f"{key}: {value:.2f}")
+import pandas as pd
+import numpy as np
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    subset (list, optional): Columns to consider for duplicates
+    keep (str): Which duplicates to keep - 'first', 'last', or False
+    
+    Returns:
+    pd.DataFrame: DataFrame with duplicates removed
+    """
+    if df.empty:
+        return df
+    
+    if subset is None:
+        subset = df.columns.tolist()
+    
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+    
+    removed_count = len(df) - len(cleaned_df)
+    print(f"Removed {removed_count} duplicate rows")
+    
+    return cleaned_df.reset_index(drop=True)
+
+def clean_missing_values(df, strategy='mean', columns=None):
+    """
+    Handle missing values in DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    strategy (str): 'mean', 'median', 'mode', or 'drop'
+    columns (list, optional): Specific columns to clean
+    
+    Returns:
+    pd.DataFrame: DataFrame with handled missing values
+    """
+    if df.empty:
+        return df
+    
+    df_clean = df.copy()
+    
+    if columns is None:
+        columns = df_clean.columns
+    
+    for col in columns:
+        if col in df_clean.columns and df_clean[col].dtype in [np.float64, np.int64]:
+            if strategy == 'mean':
+                fill_value = df_clean[col].mean()
+            elif strategy == 'median':
+                fill_value = df_clean[col].median()
+            elif strategy == 'mode':
+                fill_value = df_clean[col].mode()[0] if not df_clean[col].mode().empty else 0
+            elif strategy == 'drop':
+                df_clean = df_clean.dropna(subset=[col])
+                continue
+            else:
+                fill_value = 0
+            
+            df_clean[col] = df_clean[col].fillna(fill_value)
+    
+    return df_clean
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list, optional): List of required column names
+    
+    Returns:
+    tuple: (is_valid, error_message)
+    """
+    if df is None:
+        return False, "DataFrame is None"
+    
+    if not isinstance(df, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "DataFrame is valid"
+
+def normalize_column(df, column_name):
+    """
+    Normalize a numeric column to range [0, 1].
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column_name (str): Column to normalize
+    
+    Returns:
+    pd.DataFrame: DataFrame with normalized column
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    
+    if not pd.api.types.is_numeric_dtype(df[column_name]):
+        raise ValueError(f"Column '{column_name}' is not numeric")
+    
+    df_normalized = df.copy()
+    col_min = df_normalized[column_name].min()
+    col_max = df_normalized[column_name].max()
+    
+    if col_max == col_min:
+        df_normalized[column_name] = 0.5
+    else:
+        df_normalized[column_name] = (df_normalized[column_name] - col_min) / (col_max - col_min)
+    
+    return df_normalized
+
+def sample_data(df, n_samples=1000, random_state=42):
+    """
+    Sample rows from DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    n_samples (int): Number of samples to return
+    random_state (int): Random seed for reproducibility
+    
+    Returns:
+    pd.DataFrame: Sampled DataFrame
+    """
+    if df.empty:
+        return df
+    
+    if n_samples >= len(df):
+        return df.copy()
+    
+    return df.sample(n=min(n_samples, len(df)), random_state=random_state)
