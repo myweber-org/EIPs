@@ -67,3 +67,63 @@ def main():
 
 if __name__ == "__main__":
     main()
+import os
+import sys
+
+def batch_rename_files(directory, prefix, extension):
+    """
+    Rename all files in a directory with sequential numbering.
+    
+    Args:
+        directory (str): Path to the directory containing files
+        prefix (str): Prefix for the renamed files
+        extension (str): File extension to filter (e.g., 'jpg', 'png')
+    """
+    try:
+        if not os.path.isdir(directory):
+            print(f"Error: Directory '{directory}' does not exist.")
+            return False
+        
+        files = [f for f in os.listdir(directory) 
+                if f.lower().endswith(f'.{extension.lower()}')]
+        
+        if not files:
+            print(f"No files with extension '{extension}' found in '{directory}'.")
+            return False
+        
+        files.sort()
+        
+        for index, filename in enumerate(files, start=1):
+            old_path = os.path.join(directory, filename)
+            new_name = f"{prefix}_{index:03d}.{extension}"
+            new_path = os.path.join(directory, new_name)
+            
+            try:
+                os.rename(old_path, new_path)
+                print(f"Renamed: {filename} -> {new_name}")
+            except OSError as e:
+                print(f"Error renaming {filename}: {e}")
+                return False
+        
+        print(f"Successfully renamed {len(files)} files.")
+        return True
+        
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        return False
+
+def main():
+    if len(sys.argv) != 4:
+        print("Usage: python file_renamer.py <directory> <prefix> <extension>")
+        print("Example: python file_renamer.py ./images photo jpg")
+        sys.exit(1)
+    
+    directory = sys.argv[1]
+    prefix = sys.argv[2]
+    extension = sys.argv[3]
+    
+    success = batch_rename_files(directory, prefix, extension)
+    sys.exit(0 if success else 1)
+
+if __name__ == "__main__":
+    main()
