@@ -79,3 +79,111 @@ if __name__ == "__main__":
     
     is_valid, message = validate_dataframe(cleaned, required_columns=['A', 'B'])
     print(f"\nValidation: {message}")
+import pandas as pd
+import numpy as np
+from typing import List, Optional
+
+def remove_duplicates(df: pd.DataFrame, subset: Optional[List[str]] = None) -> pd.DataFrame:
+    """
+    Remove duplicate rows from DataFrame.
+    
+    Args:
+        df: Input DataFrame
+        subset: Columns to consider for identifying duplicates
+    
+    Returns:
+        DataFrame with duplicates removed
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def handle_missing_values(df: pd.DataFrame, strategy: str = 'drop', fill_value: Optional[float] = None) -> pd.DataFrame:
+    """
+    Handle missing values in DataFrame.
+    
+    Args:
+        df: Input DataFrame
+        strategy: 'drop' to remove rows, 'fill' to fill values
+        fill_value: Value to fill when strategy is 'fill'
+    
+    Returns:
+        DataFrame with handled missing values
+    """
+    if strategy == 'drop':
+        return df.dropna()
+    elif strategy == 'fill':
+        if fill_value is not None:
+            return df.fillna(fill_value)
+        else:
+            return df.fillna(df.mean())
+    else:
+        raise ValueError("Strategy must be 'drop' or 'fill'")
+
+def clean_column_names(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Standardize column names to lowercase with underscores.
+    
+    Args:
+        df: Input DataFrame
+    
+    Returns:
+        DataFrame with cleaned column names
+    """
+    df.columns = df.columns.str.lower().str.replace(' ', '_')
+    return df
+
+def validate_dataframe(df: pd.DataFrame, required_columns: List[str]) -> bool:
+    """
+    Validate DataFrame has required columns.
+    
+    Args:
+        df: DataFrame to validate
+        required_columns: List of required column names
+    
+    Returns:
+        Boolean indicating if all required columns are present
+    """
+    return all(col in df.columns for col in required_columns)
+
+def clean_data_pipeline(df: pd.DataFrame, 
+                       required_cols: List[str],
+                       dedupe_cols: Optional[List[str]] = None) -> pd.DataFrame:
+    """
+    Complete data cleaning pipeline.
+    
+    Args:
+        df: Raw input DataFrame
+        required_cols: Required columns for validation
+        dedupe_cols: Columns for duplicate removal
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    if not validate_dataframe(df, required_cols):
+        raise ValueError(f"DataFrame missing required columns: {required_cols}")
+    
+    df_clean = df.copy()
+    df_clean = clean_column_names(df_clean)
+    df_clean = remove_duplicates(df_clean, dedupe_cols)
+    df_clean = handle_missing_values(df_clean, strategy='fill')
+    
+    return df_clean
+
+if __name__ == "__main__":
+    sample_data = {
+        'ID': [1, 2, 2, 3, 4],
+        'Name': ['Alice', 'Bob', 'Bob', 'Charlie', None],
+        'Value': [10.5, 20.3, 20.3, None, 40.7]
+    }
+    
+    df_sample = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df_sample)
+    
+    cleaned_df = clean_data_pipeline(
+        df_sample, 
+        required_cols=['ID', 'Name', 'Value'],
+        dedupe_cols=['ID', 'Name']
+    )
+    
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
