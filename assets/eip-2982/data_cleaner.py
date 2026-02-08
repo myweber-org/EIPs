@@ -140,3 +140,105 @@ def clean_dataset(df, numeric_columns, outlier_method='iqr', normalize_method='m
             cleaned_df[col] = normalize_zscore(cleaned_df, col)
     
     return cleaned_df.reset_index(drop=True)
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Args:
+        df: pandas DataFrame to clean
+        drop_duplicates: If True, remove duplicate rows
+        fill_missing: Strategy for filling missing values ('mean', 'median', 'mode', or 'drop')
+    
+    Returns:
+        Cleaned pandas DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        initial_rows = len(cleaned_df)
+        cleaned_df = cleaned_df.drop_duplicates()
+        removed = initial_rows - len(cleaned_df)
+        print(f"Removed {removed} duplicate rows")
+    
+    if fill_missing == 'drop':
+        cleaned_df = cleaned_df.dropna()
+        print("Dropped rows with missing values")
+    elif fill_missing in ['mean', 'median', 'mode']:
+        for column in cleaned_df.select_dtypes(include=[np.number]).columns:
+            if cleaned_df[column].isnull().any():
+                if fill_missing == 'mean':
+                    fill_value = cleaned_df[column].mean()
+                elif fill_missing == 'median':
+                    fill_value = cleaned_df[column].median()
+                else:
+                    fill_value = cleaned_df[column].mode()[0]
+                cleaned_df[column].fillna(fill_value, inplace=True)
+                print(f"Filled missing values in {column} with {fill_missing}: {fill_value}")
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None, min_rows=1):
+    """
+    Validate basic DataFrame structure and content.
+    
+    Args:
+        df: DataFrame to validate
+        required_columns: List of column names that must be present
+        min_rows: Minimum number of rows required
+    
+    Returns:
+        Boolean indicating if validation passed
+    """
+    if not isinstance(df, pd.DataFrame):
+        print("Error: Input is not a pandas DataFrame")
+        return False
+    
+    if len(df) < min_rows:
+        print(f"Error: DataFrame has less than {min_rows} rows")
+        return False
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            print(f"Error: Missing required columns: {missing_columns}")
+            return False
+    
+    return True
+
+def remove_outliers_iqr(df, columns=None, multiplier=1.5):
+    """
+    Remove outliers using the Interquartile Range (IQR) method.
+    
+    Args:
+        df: DataFrame to process
+        columns: List of columns to check for outliers (None for all numeric columns)
+        multiplier: IQR multiplier for outlier detection
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    filtered_df = df.copy()
+    initial_count = len(filtered_df)
+    
+    for column in columns:
+        if column in filtered_df.columns:
+            Q1 = filtered_df[column].quantile(0.25)
+            Q3 = filtered_df[column].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - multiplier * IQR
+            upper_bound = Q3 + multiplier * IQR
+            
+            mask = (filtered_df[column] >= lower_bound) & (filtered_df[column] <= upper_bound)
+            filtered_df = filtered_df[mask]
+    
+    removed_count = initial_count - len(filtered_df)
+    if removed_count > 0:
+        print(f"Removed {removed_count} outliers using IQR method")
+    
+    return filtered_df
