@@ -122,3 +122,11 @@ if __name__ == "__main__":
         print(f"\nStatistics for {col}:")
         for key, value in stats.items():
             print(f"  {key}: {value:.4f}")
+def remove_duplicates(seq):
+    seen = set()
+    result = []
+    for item in seq:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
