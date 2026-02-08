@@ -207,3 +207,53 @@ if __name__ == "__main__":
     stats = calculate_statistics(cleaned)
     for col, values in stats.items():
         print(f"{col}: {values}")
+import pandas as pd
+import sys
+
+def remove_duplicates(input_file, output_file=None):
+    """
+    Remove duplicate rows from a CSV file.
+    
+    Args:
+        input_file (str): Path to the input CSV file
+        output_file (str, optional): Path to save cleaned CSV. 
+                                   If None, overwrites input file.
+    """
+    try:
+        df = pd.read_csv(input_file)
+        initial_count = len(df)
+        
+        df_cleaned = df.drop_duplicates()
+        final_count = len(df_cleaned)
+        
+        if output_file is None:
+            output_file = input_file
+            
+        df_cleaned.to_csv(output_file, index=False)
+        
+        duplicates_removed = initial_count - final_count
+        print(f"Successfully removed {duplicates_removed} duplicate rows.")
+        print(f"Original: {initial_count} rows, Cleaned: {final_count} rows.")
+        print(f"Saved to: {output_file}")
+        
+        return duplicates_removed
+        
+    except FileNotFoundError:
+        print(f"Error: File '{input_file}' not found.")
+        return None
+    except pd.errors.EmptyDataError:
+        print(f"Error: File '{input_file}' is empty.")
+        return None
+    except Exception as e:
+        print(f"Error processing file: {str(e)}")
+        return None
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Usage: python data_cleaner.py <input_file> [output_file]")
+        sys.exit(1)
+    
+    input_file = sys.argv[1]
+    output_file = sys.argv[2] if len(sys.argv) > 2 else None
+    
+    remove_duplicates(input_file, output_file)
