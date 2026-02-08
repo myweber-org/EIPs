@@ -1019,3 +1019,135 @@ if __name__ == "__main__":
     print(f"Cleaned rows: {summary['cleaned_rows']}")
     print(f"Rows removed: {summary['rows_removed']}")
     print(f"Missing values remaining: {summary['missing_values']}")
+import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a DataFrame column using the Interquartile Range method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to process
+    
+    Returns:
+        pd.DataFrame: DataFrame with outliers removed
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df.reset_index(drop=True)
+
+def calculate_summary_statistics(df):
+    """
+    Calculate summary statistics for numeric columns.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+    
+    Returns:
+        pd.DataFrame: Summary statistics
+    """
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    
+    if len(numeric_cols) == 0:
+        return pd.DataFrame()
+    
+    stats = df[numeric_cols].agg(['count', 'mean', 'std', 'min', 'max'])
+    
+    return stats.T
+
+def clean_missing_values(df, strategy='mean'):
+    """
+    Handle missing values in numeric columns.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        strategy (str): Strategy for imputation ('mean', 'median', 'drop')
+    
+    Returns:
+        pd.DataFrame: DataFrame with handled missing values
+    """
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    
+    if strategy == 'drop':
+        return df.dropna(subset=numeric_cols)
+    
+    for col in numeric_cols:
+        if df[col].isnull().any():
+            if strategy == 'mean':
+                fill_value = df[col].mean()
+            elif strategy == 'median':
+                fill_value = df[col].median()
+            else:
+                raise ValueError(f"Unsupported strategy: {strategy}")
+            
+            df[col] = df[col].fillna(fill_value)
+    
+    return df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+        required_columns (list): List of required column names
+    
+    Returns:
+        dict: Validation results
+    """
+    validation_results = {
+        'is_valid': True,
+        'errors': [],
+        'warnings': []
+    }
+    
+    if not isinstance(df, pd.DataFrame):
+        validation_results['is_valid'] = False
+        validation_results['errors'].append('Input is not a pandas DataFrame')
+        return validation_results
+    
+    if df.empty:
+        validation_results['warnings'].append('DataFrame is empty')
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            validation_results['is_valid'] = False
+            validation_results['errors'].append(f'Missing required columns: {missing_cols}')
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        if df[col].isnull().sum() > 0:
+            validation_results['warnings'].append(f'Column {col} has {df[col].isnull().sum()} missing values')
+    
+    return validation_results
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, 3, 4, 5, 100],
+        'B': [10, 20, 30, 40, 50, 60],
+        'C': [1.1, 2.2, 3.3, 4.4, 5.5, 6.6]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned_df = remove_outliers_iqr(df, 'A')
+    print("\nDataFrame after removing outliers from column 'A':")
+    print(cleaned_df)
+    
+    stats = calculate_summary_statistics(cleaned_df)
+    print("\nSummary statistics:")
+    print(stats)
