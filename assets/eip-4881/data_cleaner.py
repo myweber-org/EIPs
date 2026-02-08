@@ -150,3 +150,108 @@ if __name__ == "__main__":
     normalized = normalize_data(cleaned, method='minmax')
     print("Normalized Data:")
     print(normalized)
+import pandas as pd
+import numpy as np
+from typing import List, Optional
+
+class DataCleaner:
+    def __init__(self, df: pd.DataFrame):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_duplicates(self, subset: Optional[List[str]] = None) -> pd.DataFrame:
+        initial_count = len(self.df)
+        self.df = self.df.drop_duplicates(subset=subset, keep='first')
+        removed = initial_count - len(self.df)
+        print(f"Removed {removed} duplicate rows")
+        return self.df
+    
+    def normalize_text_columns(self, columns: List[str]) -> pd.DataFrame:
+        for col in columns:
+            if col in self.df.columns and self.df[col].dtype == 'object':
+                self.df[col] = self.df[col].str.strip().str.lower()
+        print(f"Normalized text in columns: {columns}")
+        return self.df
+    
+    def fill_missing_values(self, strategy: str = 'mean', columns: Optional[List[str]] = None) -> pd.DataFrame:
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns.tolist()
+        
+        for col in columns:
+            if col in self.df.columns:
+                if strategy == 'mean' and pd.api.types.is_numeric_dtype(self.df[col]):
+                    self.df[col].fillna(self.df[col].mean(), inplace=True)
+                elif strategy == 'median' and pd.api.types.is_numeric_dtype(self.df[col]):
+                    self.df[col].fillna(self.df[col].median(), inplace=True)
+                elif strategy == 'mode':
+                    self.df[col].fillna(self.df[col].mode()[0] if not self.df[col].mode().empty else None, inplace=True)
+                elif strategy == 'ffill':
+                    self.df[col].fillna(method='ffill', inplace=True)
+        
+        print(f"Filled missing values using {strategy} strategy")
+        return self.df
+    
+    def remove_outliers_iqr(self, columns: List[str], multiplier: float = 1.5) -> pd.DataFrame:
+        initial_count = len(self.df)
+        
+        for col in columns:
+            if col in self.df.columns and pd.api.types.is_numeric_dtype(self.df[col]):
+                Q1 = self.df[col].quantile(0.25)
+                Q3 = self.df[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - multiplier * IQR
+                upper_bound = Q3 + multiplier * IQR
+                
+                self.df = self.df[(self.df[col] >= lower_bound) & (self.df[col] <= upper_bound)]
+        
+        removed = initial_count - len(self.df)
+        print(f"Removed {removed} outliers using IQR method")
+        return self.df
+    
+    def get_cleaning_report(self) -> dict:
+        final_shape = self.df.shape
+        return {
+            'original_rows': self.original_shape[0],
+            'original_columns': self.original_shape[1],
+            'final_rows': final_shape[0],
+            'final_columns': final_shape[1],
+            'rows_removed': self.original_shape[0] - final_shape[0],
+            'columns_removed': self.original_shape[1] - final_shape[1]
+        }
+
+def clean_dataset(file_path: str, output_path: Optional[str] = None) -> pd.DataFrame:
+    df = pd.read_csv(file_path)
+    cleaner = DataCleaner(df)
+    
+    cleaner.remove_duplicates()
+    cleaner.normalize_text_columns(['name', 'category', 'description'])
+    cleaner.fill_missing_values(strategy='mean')
+    cleaner.remove_outliers_iqr(['price', 'quantity'])
+    
+    report = cleaner.get_cleaning_report()
+    print("Cleaning Report:", report)
+    
+    if output_path:
+        cleaner.df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to {output_path}")
+    
+    return cleaner.df
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'name': ['Product A', 'Product A', 'Product B', 'Product C', None],
+        'category': ['ELECTRONICS', 'electronics', 'CLOTHING', 'Home', 'electronics'],
+        'price': [100, 100, 50, 200, 1000],
+        'quantity': [10, 10, 5, None, 100],
+        'description': ['Good product ', 'good product', None, 'Nice item', 'Excellent']
+    })
+    
+    cleaner = DataCleaner(sample_data)
+    cleaned_df = cleaner.remove_duplicates()
+    cleaned_df = cleaner.normalize_text_columns(['name', 'category', 'description'])
+    cleaned_df = cleaner.fill_missing_values(strategy='mean')
+    
+    print("Original data shape:", sample_data.shape)
+    print("Cleaned data shape:", cleaned_df.shape)
+    print("Cleaned data:")
+    print(cleaned_df)
