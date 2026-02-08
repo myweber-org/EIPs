@@ -1151,3 +1151,49 @@ if __name__ == "__main__":
     stats = calculate_summary_statistics(cleaned_df)
     print("\nSummary statistics:")
     print(stats)
+import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+def clean_dataset(df, numeric_columns):
+    original_shape = df.shape
+    cleaned_df = df.copy()
+    
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+    
+    removed_count = original_shape[0] - cleaned_df.shape[0]
+    print(f"Removed {removed_count} outliers from dataset")
+    print(f"Original shape: {original_shape}, Cleaned shape: {cleaned_df.shape}")
+    
+    return cleaned_df
+
+def main():
+    data = {
+        'id': range(1, 101),
+        'value': np.concatenate([
+            np.random.normal(100, 10, 90),
+            np.random.normal(300, 50, 10)
+        ]),
+        'category': np.random.choice(['A', 'B', 'C'], 100)
+    }
+    
+    df = pd.DataFrame(data)
+    print("Original dataset:")
+    print(df.describe())
+    
+    cleaned_df = clean_dataset(df, ['value'])
+    
+    print("\nCleaned dataset:")
+    print(cleaned_df.describe())
+
+if __name__ == "__main__":
+    main()
