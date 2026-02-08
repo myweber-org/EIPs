@@ -71,3 +71,69 @@ if __name__ == "__main__":
     print("\nSummary Statistics:")
     for key, value in stats.items():
         print(f"{key}: {value:.2f}")
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.numeric_columns = df.select_dtypes(include=[np.number]).columns
+        
+    def remove_outliers_iqr(self, columns=None, threshold=1.5):
+        if columns is None:
+            columns = self.numeric_columns
+            
+        clean_df = self.df.copy()
+        for col in columns:
+            if col in self.numeric_columns:
+                Q1 = clean_df[col].quantile(0.25)
+                Q3 = clean_df[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - threshold * IQR
+                upper_bound = Q3 + threshold * IQR
+                clean_df = clean_df[(clean_df[col] >= lower_bound) & (clean_df[col] <= upper_bound)]
+        return clean_df
+    
+    def impute_missing_values(self, strategy='median', custom_values=None):
+        imputed_df = self.df.copy()
+        
+        if custom_values:
+            for col, value in custom_values.items():
+                if col in imputed_df.columns:
+                    imputed_df[col].fillna(value, inplace=True)
+        
+        for col in self.numeric_columns:
+            if imputed_df[col].isnull().any():
+                if strategy == 'mean':
+                    imputed_df[col].fillna(imputed_df[col].mean(), inplace=True)
+                elif strategy == 'median':
+                    imputed_df[col].fillna(imputed_df[col].median(), inplace=True)
+                elif strategy == 'mode':
+                    imputed_df[col].fillna(imputed_df[col].mode()[0], inplace=True)
+        
+        return imputed_df
+    
+    def detect_skewed_columns(self, threshold=0.5):
+        skewed_cols = []
+        for col in self.numeric_columns:
+            skewness = stats.skew(self.df[col].dropna())
+            if abs(skewness) > threshold:
+                skewed_cols.append((col, skewness))
+        return skewed_cols
+    
+    def log_transform_skewed(self, skewed_cols):
+        transformed_df = self.df.copy()
+        for col, _ in skewed_cols:
+            if col in self.numeric_columns:
+                transformed_df[col] = np.log1p(transformed_df[col])
+        return transformed_df
+    
+    def get_summary(self):
+        summary = {
+            'original_shape': self.df.shape,
+            'missing_values': self.df.isnull().sum().to_dict(),
+            'numeric_columns': list(self.numeric_columns),
+            'data_types': self.df.dtypes.to_dict()
+        }
+        return summary
