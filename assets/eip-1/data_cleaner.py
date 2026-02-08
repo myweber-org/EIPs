@@ -107,4 +107,103 @@ if __name__ == "__main__":
         is_valid = validate_dataframe(cleaned_df, required_columns=['A', 'B', 'C'])
         print(f"Data validation result: {is_valid}")
         print("Cleaned data preview:")
-        print(cleaned_df.head())
+        print(cleaned_df.head())import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a pandas Series using the IQR method.
+    Returns a cleaned Series with outliers set to NaN.
+    """
+    if not isinstance(data, pd.Series):
+        raise TypeError("Input data must be a pandas Series")
+    
+    Q1 = data.quantile(0.25)
+    Q3 = data.quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    cleaned_data = data.copy()
+    cleaned_data[(cleaned_data < lower_bound) | (cleaned_data > upper_bound)] = np.nan
+    return cleaned_data
+
+def normalize_minmax(data):
+    """
+    Normalize data to [0, 1] range using min-max scaling.
+    Handles NaN values by ignoring them in calculations.
+    """
+    if not isinstance(data, pd.Series):
+        raise TypeError("Input data must be a pandas Series")
+    
+    min_val = data.min(skipna=True)
+    max_val = data.max(skipna=True)
+    
+    if max_val == min_val:
+        return pd.Series([0.5] * len(data), index=data.index)
+    
+    normalized = (data - min_val) / (max_val - min_val)
+    return normalized
+
+def clean_dataframe(df, numeric_columns=None):
+    """
+    Clean a DataFrame by removing outliers and normalizing numeric columns.
+    If numeric_columns is None, automatically selects numeric columns.
+    Returns a new cleaned DataFrame.
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    cleaned_df = df.copy()
+    
+    if numeric_columns is None:
+        numeric_columns = cleaned_df.select_dtypes(include=[np.number]).columns
+    
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            # Remove outliers
+            cleaned_df[col] = remove_outliers_iqr(cleaned_df[col], col)
+            # Normalize remaining values
+            cleaned_df[col] = normalize_minmax(cleaned_df[col])
+    
+    return cleaned_df
+
+def calculate_statistics(df):
+    """
+    Calculate basic statistics for numeric columns in DataFrame.
+    Returns a dictionary with mean, median, std for each column.
+    """
+    stats = {}
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    
+    for col in numeric_cols:
+        col_data = df[col].dropna()
+        if len(col_data) > 0:
+            stats[col] = {
+                'mean': float(col_data.mean()),
+                'median': float(col_data.median()),
+                'std': float(col_data.std()),
+                'count': int(len(col_data)),
+                'missing': int(df[col].isna().sum())
+            }
+    
+    return stats
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'A': [1, 2, 3, 4, 100, 6, 7, 8, 9, 10],
+        'B': [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+        'C': ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nCleaned DataFrame:")
+    cleaned = clean_dataframe(df, numeric_columns=['A', 'B'])
+    print(cleaned)
+    print("\nStatistics:")
+    stats = calculate_statistics(cleaned)
+    for col, values in stats.items():
+        print(f"{col}: {values}")
