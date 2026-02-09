@@ -256,3 +256,11 @@ def clean_dataset(data, numeric_columns=None, outlier_multiplier=1.5,
                 cleaned_data = standardize_zscore(cleaned_data, col)
     
     return cleaned_data
+def remove_duplicates_preserve_order(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
