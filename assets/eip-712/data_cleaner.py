@@ -1,122 +1,95 @@
-import re
+
 import pandas as pd
 
-def normalize_string(text):
-    if not isinstance(text, str):
-        return text
-    text = text.strip().lower()
-    text = re.sub(r'\s+', ' ', text)
-    return text
-
-def remove_duplicates(df, column):
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    df_clean = df.drop_duplicates(subset=[column], keep='first')
-    return df_clean
-
-def fill_missing_values(df, column, fill_value):
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    df_filled = df.copy()
-    df_filled[column] = df_filled[column].fillna(fill_value)
-    return df_filled
-
-def validate_email(email):
-    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    return bool(re.match(pattern, email)) if isinstance(email, str) else False
-
-def clean_dataframe(df, string_columns=None):
-    df_clean = df.copy()
-    if string_columns is None:
-        string_columns = df_clean.select_dtypes(include=['object']).columns
-    for col in string_columns:
-        if col in df_clean.columns:
-            df_clean[col] = df_clean[col].apply(normalize_string)
-    return df_clean
-import pandas as pd
-import numpy as np
-
-def remove_outliers_iqr(df, column):
+def clean_dataset(df, drop_duplicates=True, fill_missing=True, fill_value=0):
     """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to process
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        drop_duplicates (bool): Whether to drop duplicate rows.
+        fill_missing (bool): Whether to fill missing values.
+        fill_value: Value to use for filling missing data.
     
     Returns:
-    pd.DataFrame: DataFrame with outliers removed
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    if fill_missing:
+        cleaned_df = cleaned_df.fillna(fill_value)
+    
+    return cleaned_df
+
+def remove_outliers_iqr(df, column, multiplier=1.5):
+    """
+    Remove outliers from a specific column using the IQR method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        column (str): Column name to process.
+        multiplier (float): IQR multiplier for outlier detection.
+    
+    Returns:
+        pd.DataFrame: DataFrame with outliers removed.
     """
     if column not in df.columns:
         raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
+    q1 = df[column].quantile(0.25)
+    q3 = df[column].quantile(0.75)
+    iqr = q3 - q1
     
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
+    lower_bound = q1 - multiplier * iqr
+    upper_bound = q3 + multiplier * iqr
     
     filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
     
     return filtered_df
 
-def clean_numeric_data(df, columns=None):
+def normalize_column(df, column):
     """
-    Clean numeric data by removing outliers from specified columns.
-    If no columns specified, clean all numeric columns.
+    Normalize a column to range [0, 1] using min-max scaling.
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    columns (list): List of column names to clean
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        column (str): Column name to normalize.
     
     Returns:
-    pd.DataFrame: Cleaned DataFrame
+        pd.DataFrame: DataFrame with normalized column.
     """
-    if columns is None:
-        numeric_cols = df.select_dtypes(include=[np.number]).columns
-        columns = list(numeric_cols)
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    cleaned_df = df.copy()
+    normalized_df = df.copy()
+    min_val = normalized_df[column].min()
+    max_val = normalized_df[column].max()
     
-    for col in columns:
-        if col in cleaned_df.columns:
-            original_count = len(cleaned_df)
-            cleaned_df = remove_outliers_iqr(cleaned_df, col)
-            removed_count = original_count - len(cleaned_df)
-            print(f"Removed {removed_count} outliers from column '{col}'")
-    
-    return cleaned_df
-
-def save_cleaned_data(df, input_path, suffix="_cleaned"):
-    """
-    Save cleaned DataFrame to a new CSV file.
-    
-    Parameters:
-    df (pd.DataFrame): Cleaned DataFrame
-    input_path (str): Original file path
-    suffix (str): Suffix to add to filename
-    
-    Returns:
-    str: Path to saved file
-    """
-    if input_path.endswith('.csv'):
-        output_path = input_path.replace('.csv', f'{suffix}.csv')
+    if max_val != min_val:
+        normalized_df[column] = (normalized_df[column] - min_val) / (max_val - min_val)
     else:
-        output_path = f"{input_path}{suffix}.csv"
+        normalized_df[column] = 0
     
-    df.to_csv(output_path, index=False)
-    print(f"Cleaned data saved to: {output_path}")
-    
-    return output_path
+    return normalized_df
 
 if __name__ == "__main__":
-    sample_data = pd.DataFrame({
-        'A': np.random.normal(100, 15, 1000),
-        'B': np.random.exponential(50, 1000),
-        'C': np.random.uniform(0, 1, 1000)
-    })
+    sample_data = {
+        'A': [1, 2, 2, 4, 5, None, 7, 8, 9, 100],
+        'B': [10, 20, 20, 40, 50, 60, 70, 80, 90, 1000]
+    }
     
-    print("Original data shape:", sample_data.shape)
-    cleaned_data = clean_numeric_data(sample_data)
-    print("Cleaned data shape:", cleaned_data.shape)
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nCleaned DataFrame:")
+    cleaned = clean_dataset(df)
+    print(cleaned)
+    print("\nDataFrame without outliers in column B:")
+    no_outliers = remove_outliers_iqr(cleaned, 'B')
+    print(no_outliers)
+    print("\nDataFrame with normalized column A:")
+    normalized = normalize_column(no_outliers, 'A')
+    print(normalized)
