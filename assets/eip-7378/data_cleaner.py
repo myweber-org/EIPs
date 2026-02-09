@@ -263,4 +263,91 @@ def clean_dataset(df, columns_to_clean):
             stats['outliers_removed'] = removed_count
             statistics[column] = stats
     
-    return cleaned_df, statistics
+    return cleaned_df, statisticsimport pandas as pd
+import numpy as np
+from typing import Optional
+
+def remove_duplicates(df: pd.DataFrame, subset: Optional[list] = None) -> pd.DataFrame:
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Args:
+        df: Input DataFrame
+        subset: List of column names to consider for identifying duplicates
+    
+    Returns:
+        DataFrame with duplicates removed
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def handle_missing_values(df: pd.DataFrame, strategy: str = 'drop', fill_value: Optional[float] = None) -> pd.DataFrame:
+    """
+    Handle missing values in a DataFrame.
+    
+    Args:
+        df: Input DataFrame
+        strategy: One of 'drop', 'fill', or 'interpolate'
+        fill_value: Value to use when strategy is 'fill'
+    
+    Returns:
+        DataFrame with missing values handled
+    """
+    if strategy == 'drop':
+        return df.dropna()
+    elif strategy == 'fill':
+        if fill_value is not None:
+            return df.fillna(fill_value)
+        else:
+            return df.fillna(df.mean())
+    elif strategy == 'interpolate':
+        return df.interpolate()
+    else:
+        raise ValueError(f"Unknown strategy: {strategy}")
+
+def normalize_columns(df: pd.DataFrame, columns: list) -> pd.DataFrame:
+    """
+    Normalize specified columns to range [0, 1].
+    
+    Args:
+        df: Input DataFrame
+        columns: List of column names to normalize
+    
+    Returns:
+        DataFrame with normalized columns
+    """
+    result = df.copy()
+    for col in columns:
+        if col in result.columns:
+            col_min = result[col].min()
+            col_max = result[col].max()
+            if col_max != col_min:
+                result[col] = (result[col] - col_min) / (col_max - col_min)
+    return result
+
+def clean_dataframe(df: pd.DataFrame, 
+                    remove_dups: bool = True,
+                    missing_strategy: str = 'fill',
+                    normalize_cols: Optional[list] = None) -> pd.DataFrame:
+    """
+    Apply a complete cleaning pipeline to a DataFrame.
+    
+    Args:
+        df: Input DataFrame
+        remove_dups: Whether to remove duplicates
+        missing_strategy: Strategy for handling missing values
+        normalize_cols: List of columns to normalize
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    if remove_dups:
+        cleaned_df = remove_duplicates(cleaned_df)
+    
+    cleaned_df = handle_missing_values(cleaned_df, strategy=missing_strategy)
+    
+    if normalize_cols:
+        cleaned_df = normalize_columns(cleaned_df, normalize_cols)
+    
+    return cleaned_df
