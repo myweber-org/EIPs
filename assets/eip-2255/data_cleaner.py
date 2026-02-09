@@ -120,3 +120,58 @@ if __name__ == "__main__":
             print(f"{key}: {value}")
     
     print("\nValidation Result:", validate_dataframe(cleaned, min_rows=3))
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column):
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+
+def normalize_minmax(data, column):
+    min_val = data[column].min()
+    max_val = data[column].max()
+    data[column + '_normalized'] = (data[column] - min_val) / (max_val - min_val)
+    return data
+
+def clean_dataset(df, numeric_columns):
+    cleaned_df = df.copy()
+    
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+            cleaned_df = normalize_minmax(cleaned_df, col)
+    
+    cleaned_df = cleaned_df.dropna()
+    return cleaned_df
+
+def calculate_statistics(df):
+    stats_dict = {}
+    for col in df.select_dtypes(include=[np.number]).columns:
+        stats_dict[col] = {
+            'mean': df[col].mean(),
+            'std': df[col].std(),
+            'median': df[col].median(),
+            'skewness': stats.skew(df[col].dropna()),
+            'kurtosis': stats.kurtosis(df[col].dropna())
+        }
+    return stats_dict
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'feature1': np.random.normal(100, 15, 1000),
+        'feature2': np.random.exponential(50, 1000),
+        'feature3': np.random.uniform(0, 200, 1000)
+    })
+    
+    numeric_cols = ['feature1', 'feature2', 'feature3']
+    cleaned_data = clean_dataset(sample_data, numeric_cols)
+    statistics = calculate_statistics(cleaned_data)
+    
+    print(f"Original shape: {sample_data.shape}")
+    print(f"Cleaned shape: {cleaned_data.shape}")
+    print(f"Statistics summary: {statistics}")
