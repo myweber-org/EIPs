@@ -390,4 +390,107 @@ def validate_data(data, required_columns=None, check_missing=True, check_duplica
         duplicate_rows = data.duplicated().sum()
         validation_report['duplicate_rows'] = duplicate_rows
     
-    return validation_report
+    return validation_reportimport numpy as np
+import pandas as pd
+from scipy import stats
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.numeric_columns = df.select_dtypes(include=[np.number]).columns
+        
+    def remove_outliers_iqr(self, columns=None, threshold=1.5):
+        if columns is None:
+            columns = self.numeric_columns
+            
+        clean_df = self.df.copy()
+        for col in columns:
+            if col in self.numeric_columns:
+                Q1 = clean_df[col].quantile(0.25)
+                Q3 = clean_df[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - threshold * IQR
+                upper_bound = Q3 + threshold * IQR
+                
+                mask = (clean_df[col] >= lower_bound) & (clean_df[col] <= upper_bound)
+                clean_df = clean_df[mask]
+                
+        return clean_df.reset_index(drop=True)
+    
+    def impute_missing_values(self, strategy='median', fill_value=None):
+        imputed_df = self.df.copy()
+        
+        for col in self.numeric_columns:
+            if imputed_df[col].isnull().any():
+                if strategy == 'mean':
+                    imputed_df[col].fillna(imputed_df[col].mean(), inplace=True)
+                elif strategy == 'median':
+                    imputed_df[col].fillna(imputed_df[col].median(), inplace=True)
+                elif strategy == 'mode':
+                    imputed_df[col].fillna(imputed_df[col].mode()[0], inplace=True)
+                elif strategy == 'constant' and fill_value is not None:
+                    imputed_df[col].fillna(fill_value, inplace=True)
+                    
+        return imputed_df
+    
+    def detect_anomalies_zscore(self, threshold=3):
+        anomalies = {}
+        for col in self.numeric_columns:
+            z_scores = np.abs(stats.zscore(self.df[col].dropna()))
+            anomaly_indices = np.where(z_scores > threshold)[0]
+            if len(anomaly_indices) > 0:
+                anomalies[col] = {
+                    'indices': anomaly_indices.tolist(),
+                    'values': self.df[col].iloc[anomaly_indices].tolist(),
+                    'count': len(anomaly_indices)
+                }
+        return anomalies
+    
+    def get_summary(self):
+        summary = {
+            'total_rows': len(self.df),
+            'total_columns': len(self.df.columns),
+            'missing_values': self.df.isnull().sum().to_dict(),
+            'numeric_columns': list(self.numeric_columns),
+            'data_types': self.df.dtypes.to_dict()
+        }
+        return summary
+
+def create_sample_data():
+    np.random.seed(42)
+    dates = pd.date_range('2023-01-01', periods=100, freq='D')
+    data = {
+        'date': dates,
+        'temperature': np.random.normal(25, 5, 100),
+        'humidity': np.random.normal(60, 15, 100),
+        'pressure': np.random.normal(1013, 10, 100)
+    }
+    
+    df = pd.DataFrame(data)
+    
+    df.loc[10:15, 'temperature'] = np.nan
+    df.loc[95, 'humidity'] = 150
+    df.loc[96, 'pressure'] = 2000
+    
+    return df
+
+if __name__ == "__main__":
+    sample_df = create_sample_data()
+    cleaner = DataCleaner(sample_df)
+    
+    print("Data Summary:")
+    summary = cleaner.get_summary()
+    for key, value in summary.items():
+        print(f"{key}: {value}")
+    
+    print("\nDetected Anomalies:")
+    anomalies = cleaner.detect_anomalies_zscore()
+    for col, details in anomalies.items():
+        print(f"{col}: {details['count']} anomalies")
+    
+    cleaned_df = cleaner.remove_outliers_iqr()
+    imputed_df = cleaner.impute_missing_values(strategy='median')
+    
+    print(f"\nOriginal shape: {sample_df.shape}")
+    print(f"Cleaned shape: {cleaned_df.shape}")
+    print(f"Imputed shape: {imputed_df.shape}")
