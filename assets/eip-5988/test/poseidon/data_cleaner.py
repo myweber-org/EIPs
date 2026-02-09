@@ -1688,3 +1688,50 @@ def get_summary_statistics(df):
     }
     
     return pd.DataFrame(stats)
+import pandas as pd
+import numpy as np
+from datetime import datetime
+
+def clean_dataset(input_file, output_file):
+    df = pd.read_csv(input_file)
+    
+    df = df.drop_duplicates()
+    
+    df = df.dropna(subset=['email', 'phone'])
+    
+    df['name'] = df['name'].str.title()
+    
+    df['email'] = df['email'].str.lower()
+    
+    df['phone'] = df['phone'].astype(str).str.replace(r'\D', '', regex=True)
+    
+    def standardize_date(date_str):
+        try:
+            for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%m-%d-%Y', '%Y/%m/%d'):
+                try:
+                    return datetime.strptime(date_str, fmt).strftime('%Y-%m-%d')
+                except ValueError:
+                    continue
+            return np.nan
+        except:
+            return np.nan
+    
+    if 'date' in df.columns:
+        df['date'] = df['date'].apply(standardize_date)
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        q1 = df[col].quantile(0.25)
+        q3 = df[col].quantile(0.75)
+        iqr = q3 - q1
+        lower_bound = q1 - 1.5 * iqr
+        upper_bound = q3 + 1.5 * iqr
+        df[col] = np.where(df[col] < lower_bound, lower_bound, df[col])
+        df[col] = np.where(df[col] > upper_bound, upper_bound, df[col])
+    
+    df.to_csv(output_file, index=False)
+    print(f"Cleaned data saved to {output_file}")
+    print(f"Original rows: {len(pd.read_csv(input_file))}, Cleaned rows: {len(df)}")
+
+if __name__ == "__main__":
+    clean_dataset('raw_data.csv', 'cleaned_data.csv')
