@@ -246,4 +246,150 @@ if __name__ == "__main__":
     print(cleaned_df)
     
     is_valid, msg = validate_dataframe(cleaned_df, required_columns=['A', 'B'])
-    print(f"\nValidation: {msg}")
+    print(f"\nValidation: {msg}")import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column, threshold=1.5):
+    """
+    Remove outliers using IQR method.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    column (str): Column name to process
+    threshold (float): IQR multiplier
+    
+    Returns:
+    pd.DataFrame: Dataframe with outliers removed
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    
+    return data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using min-max scaling.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    column (str): Column name to normalize
+    
+    Returns:
+    pd.Series: Normalized values
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return pd.Series([0.5] * len(data), index=data.index)
+    
+    return (data[column] - min_val) / (max_val - min_val)
+
+def standardize_zscore(data, column):
+    """
+    Standardize data using z-score normalization.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    column (str): Column name to standardize
+    
+    Returns:
+    pd.Series: Standardized values
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return pd.Series([0] * len(data), index=data.index)
+    
+    return (data[column] - mean_val) / std_val
+
+def handle_missing_values(data, strategy='mean', columns=None):
+    """
+    Handle missing values in specified columns.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    strategy (str): Imputation strategy ('mean', 'median', 'mode', 'drop')
+    columns (list): List of columns to process, None for all numeric columns
+    
+    Returns:
+    pd.DataFrame: Dataframe with missing values handled
+    """
+    if columns is None:
+        columns = data.select_dtypes(include=[np.number]).columns
+    
+    result = data.copy()
+    
+    for col in columns:
+        if col not in result.columns:
+            continue
+            
+        if strategy == 'mean':
+            fill_value = result[col].mean()
+        elif strategy == 'median':
+            fill_value = result[col].median()
+        elif strategy == 'mode':
+            fill_value = result[col].mode()[0] if not result[col].mode().empty else 0
+        elif strategy == 'drop':
+            result = result.dropna(subset=[col])
+            continue
+        else:
+            raise ValueError(f"Unknown strategy: {strategy}")
+        
+        result[col] = result[col].fillna(fill_value)
+    
+    return result
+
+def detect_skewness(data, column, threshold=0.5):
+    """
+    Detect skewness in data column.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    column (str): Column name to check
+    threshold (float): Absolute skewness threshold
+    
+    Returns:
+    tuple: (skewness_value, is_skewed)
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    skewness = stats.skew(data[column].dropna())
+    is_skewed = abs(skewness) > threshold
+    
+    return skewness, is_skewed
+
+def log_transform(data, column):
+    """
+    Apply log transformation to reduce skewness.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    column (str): Column name to transform
+    
+    Returns:
+    pd.Series: Log-transformed values
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    # Add small constant to handle zero or negative values
+    min_val = data[column].min()
+    constant = 1 - min_val if min_val <= 0 else 0
+    
+    return np.log(data[column] + constant)
