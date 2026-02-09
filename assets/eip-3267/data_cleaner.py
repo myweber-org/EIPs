@@ -263,4 +263,89 @@ def validate_dataset(df, required_columns=None, min_rows=1):
 #     
 #     # Validate the cleaned data
 #     is_valid, message = validate_dataset(cleaned, required_columns=['A', 'B', 'C'])
-#     print(f"\nValidation: {is_valid} - {message}")
+#     print(f"\nValidation: {is_valid} - {message}")import pandas as pd
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    subset (list, optional): Column labels to consider for duplicates.
+    keep (str, optional): Which duplicates to keep.
+    
+    Returns:
+    pd.DataFrame: DataFrame with duplicates removed.
+    """
+    if df.empty:
+        return df
+    
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+    return cleaned_df
+
+def clean_numeric_columns(df, columns):
+    """
+    Clean numeric columns by removing non-numeric characters.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    columns (list): List of column names to clean.
+    
+    Returns:
+    pd.DataFrame: DataFrame with cleaned numeric columns.
+    """
+    for col in columns:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col].astype(str).str.replace(r'[^\d.-]', '', regex=True), errors='coerce')
+    return df
+
+def validate_dataframe(df, required_columns):
+    """
+    Validate DataFrame structure and required columns.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    required_columns (list): List of required column names.
+    
+    Returns:
+    bool: True if validation passes, False otherwise.
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False
+    
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    
+    if missing_columns:
+        print(f"Missing required columns: {missing_columns}")
+        return False
+    
+    return True
+
+def main():
+    # Example usage
+    data = {
+        'id': [1, 2, 2, 3, 4],
+        'name': ['Alice', 'Bob', 'Bob', 'Charlie', 'David'],
+        'value': ['$100', '200', '200', '300', '400USD']
+    }
+    
+    df = pd.DataFrame(data)
+    print("Original DataFrame:")
+    print(df)
+    
+    # Remove duplicates
+    df_clean = remove_duplicates(df, subset=['id', 'name'])
+    print("\nAfter removing duplicates:")
+    print(df_clean)
+    
+    # Clean numeric column
+    df_clean = clean_numeric_columns(df_clean, ['value'])
+    print("\nAfter cleaning numeric column:")
+    print(df_clean)
+    
+    # Validate DataFrame
+    is_valid = validate_dataframe(df_clean, ['id', 'name', 'value'])
+    print(f"\nDataFrame validation result: {is_valid}")
+
+if __name__ == "__main__":
+    main()
