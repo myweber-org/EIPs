@@ -1808,3 +1808,84 @@ if __name__ == "__main__":
     print("\nCleaned DataFrame shape:", cleaned_df.shape)
     print("\nCleaned statistics:")
     print(calculate_summary_statistics(cleaned_df, 'value'))
+def remove_duplicates(input_list):
+    """
+    Remove duplicate elements from a list while preserving order.
+    
+    Args:
+        input_list: A list containing elements (must be hashable)
+    
+    Returns:
+        A new list with duplicates removed
+    """
+    seen = set()
+    result = []
+    
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    
+    return result
+
+def clean_numeric_data(values, default=0):
+    """
+    Clean numeric data by converting non-numeric values to a default.
+    
+    Args:
+        values: List of values to clean
+        default: Default value for non-numeric entries
+    
+    Returns:
+        List of cleaned numeric values
+    """
+    cleaned = []
+    
+    for value in values:
+        try:
+            cleaned.append(float(value))
+        except (ValueError, TypeError):
+            cleaned.append(default)
+    
+    return cleaned
+
+def validate_email_format(email):
+    """
+    Basic email format validation.
+    
+    Args:
+        email: String to validate as email
+    
+    Returns:
+        Boolean indicating if email format is valid
+    """
+    if not isinstance(email, str):
+        return False
+    
+    if '@' not in email:
+        return False
+    
+    local_part, domain = email.split('@', 1)
+    
+    if not local_part or not domain:
+        return False
+    
+    if '.' not in domain:
+        return False
+    
+    return True
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = [1, 2, 2, 3, 4, 4, 5]
+    cleaned = remove_duplicates(sample_data)
+    print(f"Original: {sample_data}")
+    print(f"Cleaned: {cleaned}")
+    
+    mixed_data = [1, "2", "three", 4.0, None]
+    numeric_cleaned = clean_numeric_data(mixed_data)
+    print(f"Numeric cleaned: {numeric_cleaned}")
+    
+    test_emails = ["test@example.com", "invalid", "user@domain"]
+    for email in test_emails:
+        print(f"{email}: {validate_email_format(email)}")
