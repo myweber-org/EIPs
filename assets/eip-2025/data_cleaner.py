@@ -77,3 +77,94 @@ def save_cleaned_data(df, output_path, format='csv'):
         df.to_json(output_path, orient='records')
     else:
         raise ValueError(f"Unsupported format: {format}")
+import pandas as pd
+import numpy as np
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    subset (list, optional): Column labels to consider for duplicates.
+    keep (str, optional): 'first', 'last', or False to drop all duplicates.
+    
+    Returns:
+    pd.DataFrame: DataFrame with duplicates removed.
+    """
+    if df.empty:
+        return df
+    
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+    return cleaned_df
+
+def clean_missing_values(df, strategy='drop', fill_value=None):
+    """
+    Handle missing values in DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    strategy (str): 'drop' to remove rows, 'fill' to replace values.
+    fill_value: Value to use when strategy is 'fill'.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    if df.empty:
+        return df
+    
+    if strategy == 'drop':
+        cleaned_df = df.dropna()
+    elif strategy == 'fill':
+        cleaned_df = df.fillna(fill_value)
+    else:
+        raise ValueError("Strategy must be 'drop' or 'fill'")
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+    required_columns (list): List of required column names.
+    
+    Returns:
+    bool: True if validation passes, False otherwise.
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False
+    
+    if df.empty:
+        return False
+    
+    if required_columns:
+        missing_columns = set(required_columns) - set(df.columns)
+        if missing_columns:
+            return False
+    
+    return True
+
+def normalize_column(df, column_name):
+    """
+    Normalize a column to have zero mean and unit variance.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    column_name (str): Name of column to normalize.
+    
+    Returns:
+    pd.DataFrame: DataFrame with normalized column.
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    
+    df_copy = df.copy()
+    mean_val = df_copy[column_name].mean()
+    std_val = df_copy[column_name].std()
+    
+    if std_val > 0:
+        df_copy[column_name] = (df_copy[column_name] - mean_val) / std_val
+    
+    return df_copy
