@@ -124,3 +124,48 @@ if __name__ == "__main__":
             min_rows=3
         )
         print(f"Data validation: {'PASSED' if is_valid else 'FAILED'}")
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+def remove_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+def normalize_minmax(df, column):
+    min_val = df[column].min()
+    max_val = df[column].max()
+    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
+    return df
+
+def clean_dataset(file_path, numeric_columns):
+    df = pd.read_csv(file_path)
+    
+    for col in numeric_columns:
+        if col in df.columns:
+            df = remove_outliers_iqr(df, col)
+            df = normalize_minmax(df, col)
+    
+    df = df.dropna()
+    return df
+
+def main():
+    data = pd.DataFrame({
+        'feature_a': np.random.normal(100, 15, 1000),
+        'feature_b': np.random.exponential(50, 1000),
+        'category': np.random.choice(['A', 'B', 'C'], 1000)
+    })
+    
+    data.loc[np.random.choice(1000, 50), 'feature_a'] = np.random.uniform(500, 1000, 50)
+    
+    cleaned = clean_dataset('sample_data.csv', ['feature_a', 'feature_b'])
+    cleaned.to_csv('cleaned_data.csv', index=False)
+    print(f"Original shape: {data.shape}")
+    print(f"Cleaned shape: {cleaned.shape}")
+
+if __name__ == "__main__":
+    main()
