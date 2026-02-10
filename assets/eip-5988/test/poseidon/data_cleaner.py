@@ -1897,3 +1897,5 @@ if __name__ == "__main__":
     
     is_valid = validate_dataset(cleaned, required_columns=['A', 'B', 'C'])
     print(f"\nDataset is valid: {is_valid}")
+def filter_none_values(input_list):
+    return [item for item in input_list if item is not None]
