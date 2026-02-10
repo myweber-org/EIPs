@@ -108,3 +108,82 @@ if __name__ == "__main__":
     cleaned_df = clean_dataset(df, missing_strategy='mean', outlier_method='iqr')
     print("\nCleaned DataFrame:")
     print(cleaned_df)
+import numpy as np
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specified column using the Interquartile Range method.
+    
+    Args:
+        data (list or np.array): Input data array
+        column (int): Column index to process (for 2D arrays)
+        
+    Returns:
+        np.array: Data with outliers removed
+    """
+    if isinstance(data, list):
+        data = np.array(data)
+    
+    # Handle 2D arrays
+    if data.ndim == 2:
+        column_data = data[:, column]
+    else:
+        column_data = data
+    
+    # Calculate IQR
+    q1 = np.percentile(column_data, 25)
+    q3 = np.percentile(column_data, 75)
+    iqr = q3 - q1
+    
+    # Define outlier bounds
+    lower_bound = q1 - 1.5 * iqr
+    upper_bound = q3 + 1.5 * iqr
+    
+    # Filter data
+    if data.ndim == 2:
+        mask = (data[:, column] >= lower_bound) & (data[:, column] <= upper_bound)
+        filtered_data = data[mask]
+    else:
+        mask = (data >= lower_bound) & (data <= upper_bound)
+        filtered_data = data[mask]
+    
+    return filtered_data
+
+def calculate_statistics(data):
+    """
+    Calculate basic statistics for the data.
+    
+    Args:
+        data (np.array): Input data array
+        
+    Returns:
+        dict: Dictionary containing mean, median, std, min, max
+    """
+    if isinstance(data, list):
+        data = np.array(data)
+    
+    stats = {
+        'mean': np.mean(data),
+        'median': np.median(data),
+        'std': np.std(data),
+        'min': np.min(data),
+        'max': np.max(data)
+    }
+    
+    return stats
+
+# Example usage
+if __name__ == "__main__":
+    # Create sample data with outliers
+    np.random.seed(42)
+    normal_data = np.random.normal(100, 15, 95)
+    outlier_data = np.array([200, 210, 220, 230, 240])
+    sample_data = np.concatenate([normal_data, outlier_data])
+    
+    print("Original data shape:", sample_data.shape)
+    print("Original statistics:", calculate_statistics(sample_data))
+    
+    # Remove outliers
+    cleaned_data = remove_outliers_iqr(sample_data, 0)
+    print("\nCleaned data shape:", cleaned_data.shape)
+    print("Cleaned statistics:", calculate_statistics(cleaned_data))
