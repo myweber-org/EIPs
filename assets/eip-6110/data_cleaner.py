@@ -227,3 +227,11 @@ def validate_data(data, required_columns, numeric_check=True):
         return False, "Dataset is empty"
     
     return True, "Dataset is valid"
+def remove_duplicates(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
