@@ -494,3 +494,152 @@ if __name__ == "__main__":
     print(f"\nOriginal shape: {sample_df.shape}")
     print(f"Cleaned shape: {cleaned_df.shape}")
     print(f"Imputed shape: {imputed_df.shape}")
+import pandas as pd
+
+def clean_dataset(df, drop_duplicates=True, fillna_method=None):
+    """
+    Clean a pandas DataFrame by handling missing values and duplicates.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean
+        drop_duplicates (bool): Whether to drop duplicate rows
+        fillna_method (str or None): Method to fill missing values:
+            None: Drop rows with any missing values
+            'mean': Fill with column mean (numeric only)
+            'median': Fill with column median (numeric only)
+            'mode': Fill with most frequent value
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    # Handle missing values
+    if fillna_method is None:
+        cleaned_df = cleaned_df.dropna()
+    elif fillna_method == 'mean':
+        cleaned_df = cleaned_df.fillna(cleaned_df.mean(numeric_only=True))
+    elif fillna_method == 'median':
+        cleaned_df = cleaned_df.fillna(cleaned_df.median(numeric_only=True))
+    elif fillna_method == 'mode':
+        for col in cleaned_df.columns:
+            if cleaned_df[col].dtype == 'object':
+                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mode()[0] if not cleaned_df[col].mode().empty else 'Unknown')
+            else:
+                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mode()[0] if not cleaned_df[col].mode().empty else 0)
+    
+    # Remove duplicates
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    # Reset index after cleaning
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+        required_columns (list): List of column names that must be present
+    
+    Returns:
+        dict: Validation results with keys:
+            'is_valid': Boolean indicating if validation passed
+            'message': Description of validation result
+            'missing_columns': List of missing required columns
+            'row_count': Number of rows
+            'column_count': Number of columns
+    """
+    result = {
+        'is_valid': True,
+        'message': 'Validation passed',
+        'missing_columns': [],
+        'row_count': len(df),
+        'column_count': len(df.columns)
+    }
+    
+    # Check for required columns
+    if required_columns:
+        missing = [col for col in required_columns if col not in df.columns]
+        if missing:
+            result['is_valid'] = False
+            result['missing_columns'] = missing
+            result['message'] = f'Missing required columns: {missing}'
+    
+    # Check for empty DataFrame
+    if df.empty:
+        result['is_valid'] = False
+        result['message'] = 'DataFrame is empty'
+    
+    return result
+
+def get_data_summary(df):
+    """
+    Generate summary statistics for a DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+    
+    Returns:
+        dict: Summary statistics
+    """
+    summary = {
+        'shape': df.shape,
+        'dtypes': df.dtypes.to_dict(),
+        'missing_values': df.isnull().sum().to_dict(),
+        'unique_values': {col: df[col].nunique() for col in df.columns},
+        'numeric_stats': {}
+    }
+    
+    # Add numeric column statistics
+    numeric_cols = df.select_dtypes(include=['int64', 'float64']).columns
+    for col in numeric_cols:
+        summary['numeric_stats'][col] = {
+            'mean': df[col].mean(),
+            'median': df[col].median(),
+            'std': df[col].std(),
+            'min': df[col].min(),
+            'max': df[col].max()
+        }
+    
+    return summary
+
+# Example usage
+if __name__ == "__main__":
+    # Create sample data
+    sample_data = {
+        'id': [1, 2, 3, 4, 5, 5],
+        'name': ['Alice', 'Bob', None, 'David', 'Eve', 'Eve'],
+        'age': [25, 30, 35, None, 28, 28],
+        'score': [85.5, 92.0, 78.5, 88.0, 95.5, 95.5]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    # Clean the data
+    cleaned = clean_dataset(df, fillna_method='mean')
+    print("Cleaned DataFrame:")
+    print(cleaned)
+    print("\n" + "="*50 + "\n")
+    
+    # Validate the data
+    validation = validate_dataframe(cleaned, required_columns=['id', 'name', 'age', 'score'])
+    print("Validation Results:")
+    for key, value in validation.items():
+        print(f"{key}: {value}")
+    print("\n" + "="*50 + "\n")
+    
+    # Get summary statistics
+    summary = get_data_summary(cleaned)
+    print("Data Summary:")
+    print(f"Shape: {summary['shape']}")
+    print(f"Missing Values: {summary['missing_values']}")
+    print("\nNumeric Statistics:")
+    for col, stats in summary['numeric_stats'].items():
+        print(f"{col}: {stats}")
