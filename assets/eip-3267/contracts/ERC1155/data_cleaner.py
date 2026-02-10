@@ -410,4 +410,82 @@ def validate_dataframe(df, required_columns=None):
         if missing_columns:
             return False, f"Missing required columns: {missing_columns}"
     
-    return True, "DataFrame is valid"
+    return True, "DataFrame is valid"import csv
+import re
+
+def clean_numeric_string(value):
+    """Remove non-numeric characters from a string and convert to integer."""
+    if not value:
+        return None
+    cleaned = re.sub(r'[^\d.-]', '', str(value))
+    try:
+        return int(float(cleaned))
+    except ValueError:
+        return None
+
+def clean_csv_file(input_path, output_path):
+    """Read a CSV file, clean numeric columns, and write to a new file."""
+    with open(input_path, 'r', newline='', encoding='utf-8') as infile:
+        reader = csv.DictReader(infile)
+        fieldnames = reader.fieldnames
+        
+        rows = []
+        for row in reader:
+            cleaned_row = {}
+            for key, value in row.items():
+                if any(term in key.lower() for term in ['id', 'count', 'number', 'amount']):
+                    cleaned_row[key] = clean_numeric_string(value)
+                else:
+                    cleaned_row[key] = value.strip() if value else None
+            rows.append(cleaned_row)
+    
+    with open(output_path, 'w', newline='', encoding='utf-8') as outfile:
+        writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+def get_csv_stats(file_path):
+    """Calculate basic statistics for numeric columns in a CSV file."""
+    stats = {}
+    with open(file_path, 'r', newline='', encoding='utf-8') as file:
+        reader = csv.DictReader(file)
+        numeric_fields = []
+        
+        for row in reader:
+            for key, value in row.items():
+                if key not in stats:
+                    try:
+                        num = float(value)
+                        stats[key] = {'sum': 0, 'count': 0, 'min': float('inf'), 'max': float('-inf')}
+                        numeric_fields.append(key)
+                    except (ValueError, TypeError):
+                        stats[key] = {'type': 'string'}
+        
+        file.seek(0)
+        next(reader)
+        
+        for row in reader:
+            for field in numeric_fields:
+                try:
+                    num = float(row[field])
+                    stats[field]['sum'] += num
+                    stats[field]['count'] += 1
+                    stats[field]['min'] = min(stats[field]['min'], num)
+                    stats[field]['max'] = max(stats[field]['max'], num)
+                except (ValueError, TypeError):
+                    continue
+    
+    for field in numeric_fields:
+        if stats[field]['count'] > 0:
+            stats[field]['average'] = stats[field]['sum'] / stats[field]['count']
+    
+    return {k: v for k, v in stats.items() if 'type' not in v}
+
+if __name__ == "__main__":
+    sample_data = "sample.csv"
+    cleaned_data = "cleaned_sample.csv"
+    clean_csv_file(sample_data, cleaned_data)
+    statistics = get_csv_stats(cleaned_data)
+    print("Data cleaning completed. Statistics:")
+    for column, values in statistics.items():
+        print(f"{column}: {values}")
