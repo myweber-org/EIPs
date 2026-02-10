@@ -452,3 +452,82 @@ def validate_data(data, required_columns=None, allow_nan=False):
         raise ValueError("Dataset contains NaN values")
     
     return True
+import pandas as pd
+import numpy as np
+from typing import Optional
+
+class DataCleaner:
+    def __init__(self, df: pd.DataFrame):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_duplicates(self, subset: Optional[list] = None) -> 'DataCleaner':
+        self.df = self.df.drop_duplicates(subset=subset)
+        return self
+        
+    def fill_missing_numeric(self, strategy: str = 'mean', fill_value: Optional[float] = None) -> 'DataCleaner':
+        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+        
+        for col in numeric_cols:
+            if self.df[col].isnull().any():
+                if strategy == 'mean' and fill_value is None:
+                    self.df[col].fillna(self.df[col].mean(), inplace=True)
+                elif strategy == 'median' and fill_value is None:
+                    self.df[col].fillna(self.df[col].median(), inplace=True)
+                elif fill_value is not None:
+                    self.df[col].fillna(fill_value, inplace=True)
+                else:
+                    self.df[col].fillna(0, inplace=True)
+        return self
+        
+    def fill_missing_categorical(self, fill_value: str = 'Unknown') -> 'DataCleaner':
+        categorical_cols = self.df.select_dtypes(include=['object', 'category']).columns
+        
+        for col in categorical_cols:
+            if self.df[col].isnull().any():
+                self.df[col].fillna(fill_value, inplace=True)
+        return self
+        
+    def remove_outliers_iqr(self, columns: list, multiplier: float = 1.5) -> 'DataCleaner':
+        for col in columns:
+            if col in self.df.columns and self.df[col].dtype in [np.float64, np.int64]:
+                Q1 = self.df[col].quantile(0.25)
+                Q3 = self.df[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - multiplier * IQR
+                upper_bound = Q3 + multiplier * IQR
+                
+                self.df = self.df[(self.df[col] >= lower_bound) & (self.df[col] <= upper_bound)]
+        return self
+        
+    def normalize_column(self, column: str) -> 'DataCleaner':
+        if column in self.df.columns and self.df[column].dtype in [np.float64, np.int64]:
+            min_val = self.df[column].min()
+            max_val = self.df[column].max()
+            
+            if max_val > min_val:
+                self.df[column] = (self.df[column] - min_val) / (max_val - min_val)
+        return self
+        
+    def get_cleaned_data(self) -> pd.DataFrame:
+        return self.df
+        
+    def get_cleaning_report(self) -> dict:
+        return {
+            'original_rows': self.original_shape[0],
+            'original_columns': self.original_shape[1],
+            'cleaned_rows': self.df.shape[0],
+            'cleaned_columns': self.df.shape[1],
+            'rows_removed': self.original_shape[0] - self.df.shape[0],
+            'columns_removed': self.original_shape[1] - self.df.shape[1]
+        }
+
+def load_and_clean_csv(filepath: str, **kwargs) -> pd.DataFrame:
+    df = pd.read_csv(filepath, **kwargs)
+    cleaner = DataCleaner(df)
+    
+    cleaner.fill_missing_numeric()
+    cleaner.fill_missing_categorical()
+    cleaner.remove_duplicates()
+    
+    return cleaner.get_cleaned_data()
