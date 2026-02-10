@@ -432,4 +432,81 @@ if __name__ == "__main__":
     except FileNotFoundError:
         print(f"Error: File '{input_file}' not found.")
     except Exception as e:
-        print(f"An error occurred: {str(e)}")
+        print(f"An error occurred: {str(e)}")import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a pandas Series using the IQR method.
+    Returns a filtered Series.
+    """
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
+
+def z_score_normalize(data, column):
+    """
+    Normalize data using Z-score normalization.
+    Returns a new Series with normalized values.
+    """
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    if std_val == 0:
+        return data[column]
+    normalized = (data[column] - mean_val) / std_val
+    return normalized
+
+def min_max_normalize(data, column):
+    """
+    Normalize data using Min-Max scaling to range [0, 1].
+    Returns a new Series with normalized values.
+    """
+    min_val = data[column].min()
+    max_val = data[column].max()
+    if max_val == min_val:
+        return data[column]
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def detect_missing_patterns(data):
+    """
+    Detect missing values pattern in DataFrame.
+    Returns a dictionary with missing counts and percentages.
+    """
+    missing_counts = data.isnull().sum()
+    missing_percentage = (missing_counts / len(data)) * 100
+    missing_info = pd.DataFrame({
+        'missing_count': missing_counts,
+        'missing_percentage': missing_percentage
+    })
+    return missing_info[missing_info['missing_count'] > 0]
+
+def clean_dataset(df, target_column=None, normalize_method='zscore'):
+    """
+    Main function to clean dataset by handling missing values,
+    removing outliers, and normalizing numerical columns.
+    """
+    cleaned_df = df.copy()
+    
+    numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    if target_column and target_column in numeric_cols:
+        numeric_cols.remove(target_column)
+    
+    for col in numeric_cols:
+        if cleaned_df[col].isnull().any():
+            cleaned_df[col].fillna(cleaned_df[col].median(), inplace=True)
+        
+        cleaned_df = remove_outliers_iqr(cleaned_df, col)
+        
+        if normalize_method == 'zscore':
+            cleaned_df[col] = z_score_normalize(cleaned_df, col)
+        elif normalize_method == 'minmax':
+            cleaned_df[col] = min_max_normalize(cleaned_df, col)
+    
+    return cleaned_df
