@@ -137,3 +137,11 @@ class DataCleaner:
             'data_types': self.df.dtypes.to_dict()
         }
         return summary
+def remove_duplicates(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
