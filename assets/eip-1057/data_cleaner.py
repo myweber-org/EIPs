@@ -354,3 +354,140 @@ if __name__ == "__main__":
     
     is_valid, msg = validate_dataframe(cleaned, required_columns=['A', 'B'])
     print(f"\nValidation: {msg}")
+import pandas as pd
+import numpy as np
+from typing import Optional
+
+def clean_csv_data(
+    input_path: str,
+    output_path: str,
+    missing_strategy: str = 'drop',
+    fill_value: Optional[float] = None
+) -> pd.DataFrame:
+    """
+    Clean CSV data by handling missing values and removing duplicates.
+    
+    Parameters:
+    input_path: Path to input CSV file
+    output_path: Path to save cleaned CSV file
+    missing_strategy: Strategy for handling missing values ('drop', 'fill', 'interpolate')
+    fill_value: Value to fill missing data with when using 'fill' strategy
+    
+    Returns:
+    Cleaned DataFrame
+    """
+    
+    try:
+        df = pd.read_csv(input_path)
+        
+        # Remove duplicate rows
+        df = df.drop_duplicates()
+        
+        # Handle missing values based on strategy
+        if missing_strategy == 'drop':
+            df = df.dropna()
+        elif missing_strategy == 'fill':
+            if fill_value is not None:
+                df = df.fillna(fill_value)
+            else:
+                df = df.fillna(df.mean(numeric_only=True))
+        elif missing_strategy == 'interpolate':
+            df = df.interpolate(method='linear', limit_direction='forward')
+        
+        # Reset index after cleaning
+        df = df.reset_index(drop=True)
+        
+        # Save cleaned data
+        df.to_csv(output_path, index=False)
+        
+        print(f"Data cleaning completed. Cleaned data saved to {output_path}")
+        print(f"Original shape: {pd.read_csv(input_path).shape}, Cleaned shape: {df.shape}")
+        
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: Input file not found at {input_path}")
+        raise
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        raise
+
+def validate_dataframe(df: pd.DataFrame) -> bool:
+    """
+    Validate DataFrame for common data quality issues.
+    
+    Parameters:
+    df: DataFrame to validate
+    
+    Returns:
+    Boolean indicating if data passes validation
+    """
+    
+    if df.empty:
+        print("Validation failed: DataFrame is empty")
+        return False
+    
+    # Check for infinite values
+    if np.any(np.isinf(df.select_dtypes(include=[np.number]))):
+        print("Validation warning: DataFrame contains infinite values")
+    
+    # Check for negative values in numeric columns (where negative doesn't make sense)
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        if (df[col] < 0).any() and col not in ['temperature_change', 'profit_loss']:
+            print(f"Validation warning: Column '{col}' contains negative values")
+    
+    return True
+
+def calculate_statistics(df: pd.DataFrame) -> dict:
+    """
+    Calculate basic statistics for numeric columns.
+    
+    Parameters:
+    df: DataFrame to analyze
+    
+    Returns:
+    Dictionary containing statistics
+    """
+    
+    stats = {}
+    
+    numeric_df = df.select_dtypes(include=[np.number])
+    
+    for column in numeric_df.columns:
+        stats[column] = {
+            'mean': float(numeric_df[column].mean()),
+            'median': float(numeric_df[column].median()),
+            'std': float(numeric_df[column].std()),
+            'min': float(numeric_df[column].min()),
+            'max': float(numeric_df[column].max()),
+            'missing_count': int(df[column].isna().sum())
+        }
+    
+    return stats
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'id': [1, 2, 3, 4, 5, 6],
+        'value': [10.5, 20.3, np.nan, 15.7, 20.3, 12.1],
+        'category': ['A', 'B', 'A', 'B', 'B', 'A']
+    }
+    
+    df_sample = pd.DataFrame(sample_data)
+    df_sample.to_csv('sample_data.csv', index=False)
+    
+    cleaned_df = clean_csv_data(
+        input_path='sample_data.csv',
+        output_path='cleaned_data.csv',
+        missing_strategy='fill',
+        fill_value=0.0
+    )
+    
+    if validate_dataframe(cleaned_df):
+        stats = calculate_statistics(cleaned_df)
+        print("\nData Statistics:")
+        for col, col_stats in stats.items():
+            print(f"\n{col}:")
+            for stat_name, stat_value in col_stats.items():
+                print(f"  {stat_name}: {stat_value}")
