@@ -164,3 +164,129 @@ if __name__ == "__main__":
     print(cleaned)
     print("\nValidation Results after cleaning:")
     print(validate_dataset(cleaned))
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, column_mapping=None, drop_duplicates=True, fill_missing='mean'):
+    """
+    Clean a pandas DataFrame by handling missing values, duplicates,
+    and standardizing column names.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column_mapping (dict): Dictionary to rename columns
+    drop_duplicates (bool): Whether to remove duplicate rows
+    fill_missing (str): Strategy to fill missing values ('mean', 'median', 'mode', or 'drop')
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    
+    df_clean = df.copy()
+    
+    if column_mapping:
+        df_clean = df_clean.rename(columns=column_mapping)
+    
+    if drop_duplicates:
+        df_clean = df_clean.drop_duplicates()
+    
+    if fill_missing == 'drop':
+        df_clean = df_clean.dropna()
+    elif fill_missing in ['mean', 'median']:
+        numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            if fill_missing == 'mean':
+                df_clean[col] = df_clean[col].fillna(df_clean[col].mean())
+            else:
+                df_clean[col] = df_clean[col].fillna(df_clean[col].median())
+    elif fill_missing == 'mode':
+        for col in df_clean.columns:
+            mode_val = df_clean[col].mode()
+            if not mode_val.empty:
+                df_clean[col] = df_clean[col].fillna(mode_val.iloc[0])
+    
+    df_clean = df_clean.reset_index(drop=True)
+    
+    return df_clean
+
+def validate_data(df, required_columns=None, min_rows=1):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of required column names
+    min_rows (int): Minimum number of rows required
+    
+    Returns:
+    tuple: (bool, str) Validation result and message
+    """
+    
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if len(df) < min_rows:
+        return False, f"DataFrame has fewer than {min_rows} rows"
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
+    
+    return True, "Data validation passed"
+
+def standardize_numeric(df, columns=None):
+    """
+    Standardize numeric columns to have zero mean and unit variance.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    columns (list): List of columns to standardize
+    
+    Returns:
+    pd.DataFrame: DataFrame with standardized numeric columns
+    """
+    
+    df_std = df.copy()
+    
+    if columns is None:
+        columns = df_std.select_dtypes(include=[np.number]).columns
+    
+    for col in columns:
+        if col in df_std.columns and np.issubdtype(df_std[col].dtype, np.number):
+            mean = df_std[col].mean()
+            std = df_std[col].std()
+            if std > 0:
+                df_std[col] = (df_std[col] - mean) / std
+    
+    return df_std
+
+if __name__ == "__main__":
+    sample_data = {
+        'Name': ['Alice', 'Bob', 'Alice', 'Charlie', None],
+        'Age': [25, 30, 25, 35, 40],
+        'Score': [85.5, 92.0, 85.5, 78.0, 88.0]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n")
+    
+    cleaned_df = clean_dataset(df, 
+                              column_mapping={'Name': 'Full_Name'},
+                              drop_duplicates=True,
+                              fill_missing='mean')
+    
+    print("Cleaned DataFrame:")
+    print(cleaned_df)
+    print("\n")
+    
+    is_valid, message = validate_data(cleaned_df, 
+                                     required_columns=['Full_Name', 'Age', 'Score'],
+                                     min_rows=3)
+    print(f"Validation: {is_valid} - {message}")
+    
+    standardized_df = standardize_numeric(cleaned_df, columns=['Age', 'Score'])
+    print("\nStandardized DataFrame:")
+    print(standardized_df)
