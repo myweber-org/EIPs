@@ -361,3 +361,80 @@ def example_usage():
 
 if __name__ == "__main__":
     example_usage()
+import pandas as pd
+import numpy as np
+
+def clean_dataframe(df):
+    """
+    Clean a pandas DataFrame by removing duplicate rows and
+    handling missing values in numeric columns.
+    """
+    # Remove duplicate rows
+    df_cleaned = df.drop_duplicates()
+    
+    # Fill missing values in numeric columns with column median
+    numeric_cols = df_cleaned.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        if df_cleaned[col].isnull().any():
+            median_value = df_cleaned[col].median()
+            df_cleaned[col] = df_cleaned[col].fillna(median_value)
+    
+    # Reset index after cleaning
+    df_cleaned = df_cleaned.reset_index(drop=True)
+    
+    return df_cleaned
+
+def validate_dataframe(df):
+    """
+    Validate that DataFrame has no missing values in numeric columns
+    and no duplicate rows.
+    """
+    # Check for duplicates
+    has_duplicates = df.duplicated().any()
+    
+    # Check for missing values in numeric columns
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    has_missing = df[numeric_cols].isnull().any().any()
+    
+    return not has_duplicates and not has_missing
+
+def process_file(input_path, output_path=None):
+    """
+    Read a CSV file, clean the data, and optionally save to output path.
+    """
+    # Read input file
+    df = pd.read_csv(input_path)
+    
+    # Clean the data
+    df_cleaned = clean_dataframe(df)
+    
+    # Validate the cleaning
+    if validate_dataframe(df_cleaned):
+        print("Data cleaning successful. No duplicates or missing values found.")
+    else:
+        print("Warning: Data cleaning may not have completed successfully.")
+    
+    # Save to output if specified
+    if output_path:
+        df_cleaned.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to: {output_path}")
+    
+    return df_cleaned
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = pd.DataFrame({
+        'A': [1, 2, 2, 4, np.nan],
+        'B': [5, 6, 6, np.nan, 9],
+        'C': ['x', 'y', 'y', 'z', 'w']
+    })
+    
+    print("Original DataFrame:")
+    print(sample_data)
+    
+    cleaned = clean_dataframe(sample_data)
+    print("\nCleaned DataFrame:")
+    print(cleaned)
+    
+    is_valid = validate_dataframe(cleaned)
+    print(f"\nData validation passed: {is_valid}")
