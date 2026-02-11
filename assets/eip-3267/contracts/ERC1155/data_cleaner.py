@@ -95,3 +95,64 @@ if __name__ == "__main__":
     print("\nCleaned dataset:")
     print(cleaned_df)
     print(f"\nRemoved {len(df) - len(cleaned_df)} total outliers")
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df):
+    """
+    Clean a pandas DataFrame by handling missing values and standardizing text.
+    """
+    df_clean = df.copy()
+    
+    # Remove rows where all values are null
+    df_clean.dropna(how='all', inplace=True)
+    
+    # Fill numeric columns with median
+    numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        df_clean[col].fillna(df_clean[col].median(), inplace=True)
+    
+    # Fill text columns with 'Unknown'
+    text_cols = df_clean.select_dtypes(include=['object']).columns
+    for col in text_cols:
+        df_clean[col].fillna('Unknown', inplace=True)
+        df_clean[col] = df_clean[col].str.strip().str.lower()
+    
+    # Remove duplicate rows
+    df_clean.drop_duplicates(inplace=True)
+    
+    return df_clean
+
+def validate_data(df):
+    """
+    Validate that the cleaned DataFrame meets basic quality checks.
+    """
+    if df.empty:
+        raise ValueError("DataFrame is empty after cleaning")
+    
+    null_counts = df.isnull().sum()
+    if null_counts.sum() > 0:
+        print(f"Warning: {null_counts.sum()} null values remain")
+    
+    return True
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'name': ['Alice', 'Bob', None, 'Charlie', 'Alice'],
+        'age': [25, None, 30, 35, 25],
+        'city': ['New York', 'London', 'Paris', None, 'New York']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nCleaned DataFrame:")
+    cleaned_df = clean_dataset(df)
+    print(cleaned_df)
+    
+    try:
+        validate_data(cleaned_df)
+        print("\nData validation passed")
+    except ValueError as e:
+        print(f"\nData validation failed: {e}")
