@@ -510,3 +510,102 @@ def clean_dataset(df, target_column=None, normalize_method='zscore'):
             cleaned_df[col] = min_max_normalize(cleaned_df, col)
     
     return cleaned_df
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_outliers_iqr(self, column, multiplier=1.5):
+        Q1 = self.df[column].quantile(0.25)
+        Q3 = self.df[column].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - multiplier * IQR
+        upper_bound = Q3 + multiplier * IQR
+        mask = (self.df[column] >= lower_bound) & (self.df[column] <= upper_bound)
+        self.df = self.df[mask]
+        removed_count = self.original_shape[0] - self.df.shape[0]
+        return removed_count
+        
+    def normalize_column(self, column, method='minmax'):
+        if method == 'minmax':
+            min_val = self.df[column].min()
+            max_val = self.df[column].max()
+            if max_val != min_val:
+                self.df[f'{column}_normalized'] = (self.df[column] - min_val) / (max_val - min_val)
+            else:
+                self.df[f'{column}_normalized'] = 0
+        elif method == 'zscore':
+            mean_val = self.df[column].mean()
+            std_val = self.df[column].std()
+            if std_val > 0:
+                self.df[f'{column}_normalized'] = (self.df[column] - mean_val) / std_val
+            else:
+                self.df[f'{column}_normalized'] = 0
+        return self.df[f'{column}_normalized']
+        
+    def fill_missing_values(self, column, strategy='mean'):
+        if strategy == 'mean':
+            fill_value = self.df[column].mean()
+        elif strategy == 'median':
+            fill_value = self.df[column].median()
+        elif strategy == 'mode':
+            fill_value = self.df[column].mode()[0]
+        else:
+            fill_value = 0
+            
+        missing_count = self.df[column].isnull().sum()
+        self.df[column] = self.df[column].fillna(fill_value)
+        return missing_count
+        
+    def get_summary(self):
+        summary = {
+            'original_rows': self.original_shape[0],
+            'current_rows': self.df.shape[0],
+            'columns': list(self.df.columns),
+            'missing_values': self.df.isnull().sum().to_dict(),
+            'data_types': self.df.dtypes.to_dict()
+        }
+        return summary
+        
+    def get_cleaned_data(self):
+        return self.df.copy()
+
+def create_sample_data():
+    np.random.seed(42)
+    data = {
+        'temperature': np.random.normal(25, 5, 100),
+        'humidity': np.random.uniform(30, 80, 100),
+        'pressure': np.random.normal(1013, 10, 100)
+    }
+    df = pd.DataFrame(data)
+    df.loc[10:15, 'temperature'] = np.nan
+    df.loc[5, 'humidity'] = 150
+    df.loc[6, 'pressure'] = 2000
+    return df
+
+if __name__ == "__main__":
+    sample_df = create_sample_data()
+    cleaner = DataCleaner(sample_df)
+    
+    print("Initial summary:")
+    print(cleaner.get_summary())
+    
+    removed = cleaner.remove_outliers_iqr('pressure')
+    print(f"Removed {removed} outliers from pressure")
+    
+    cleaner.normalize_column('temperature', method='minmax')
+    cleaner.normalize_column('humidity', method='zscore')
+    
+    filled = cleaner.fill_missing_values('temperature', strategy='mean')
+    print(f"Filled {filled} missing values in temperature")
+    
+    print("\nFinal summary:")
+    print(cleaner.get_summary())
+    
+    cleaned_df = cleaner.get_cleaned_data()
+    print(f"\nCleaned data shape: {cleaned_df.shape}")
+    print(cleaned_df.head())
