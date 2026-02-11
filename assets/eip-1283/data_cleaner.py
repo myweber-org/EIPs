@@ -642,4 +642,75 @@ def validate_dataframe(df, required_columns=None):
 #     
 #     # Validate
 #     is_valid, message = validate_dataframe(cleaned, ['A', 'B'])
-#     print(f"Validation: {is_valid}, Message: {message}")
+#     print(f"Validation: {is_valid}, Message: {message}")import pandas as pd
+
+def remove_duplicates(dataframe, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a pandas DataFrame.
+    
+    Args:
+        dataframe (pd.DataFrame): Input DataFrame.
+        subset (list, optional): Column labels to consider for duplicates.
+        keep (str, optional): Which duplicates to keep.
+    
+    Returns:
+        pd.DataFrame: DataFrame with duplicates removed.
+    """
+    if dataframe.empty:
+        return dataframe
+    
+    cleaned_df = dataframe.drop_duplicates(subset=subset, keep=keep)
+    return cleaned_df
+
+def clean_numeric_column(dataframe, column_name, fill_method='mean'):
+    """
+    Clean a numeric column by filling missing values.
+    
+    Args:
+        dataframe (pd.DataFrame): Input DataFrame.
+        column_name (str): Name of column to clean.
+        fill_method (str): Method for filling missing values.
+    
+    Returns:
+        pd.DataFrame: DataFrame with cleaned column.
+    """
+    if column_name not in dataframe.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    
+    df_copy = dataframe.copy()
+    
+    if fill_method == 'mean':
+        fill_value = df_copy[column_name].mean()
+    elif fill_method == 'median':
+        fill_value = df_copy[column_name].median()
+    elif fill_method == 'zero':
+        fill_value = 0
+    else:
+        raise ValueError("Invalid fill_method. Use 'mean', 'median', or 'zero'")
+    
+    df_copy[column_name] = df_copy[column_name].fillna(fill_value)
+    return df_copy
+
+def validate_dataframe(dataframe, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        dataframe (pd.DataFrame): DataFrame to validate.
+        required_columns (list, optional): List of required column names.
+    
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    if not isinstance(dataframe, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
+    if dataframe.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in dataframe.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "DataFrame is valid"
