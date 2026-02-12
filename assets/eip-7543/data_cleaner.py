@@ -247,3 +247,71 @@ if __name__ == "__main__":
     cleaned_data = clean_dataset('raw_data.csv')
     cleaned_data.to_csv('cleaned_data.csv', index=False)
     print(f"Data cleaning complete. Original shape: {pd.read_csv('raw_data.csv').shape}, Cleaned shape: {cleaned_data.shape}")
+import re
+import unicodedata
+
+def clean_text(text, remove_digits=False, lower_case=True, remove_punctuation=True):
+    """
+    Clean and normalize a given text string.
+
+    Args:
+        text (str): The input text to be cleaned.
+        remove_digits (bool): If True, remove all digits from the text.
+        lower_case (bool): If True, convert text to lowercase.
+        remove_punctuation (bool): If True, remove all punctuation characters.
+
+    Returns:
+        str: The cleaned and normalized text.
+    """
+    if not isinstance(text, str):
+        raise TypeError("Input must be a string.")
+
+    # Normalize unicode characters (e.g., convert accented characters to their base form)
+    text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii')
+
+    # Optionally convert to lowercase
+    if lower_case:
+        text = text.lower()
+
+    # Remove digits if specified
+    if remove_digits:
+        text = re.sub(r'\d+', '', text)
+
+    # Remove punctuation if specified
+    if remove_punctuation:
+        # Define punctuation pattern, keeping apostrophe for contractions if needed
+        # This pattern removes common punctuation but keeps apostrophes within words.
+        text = re.sub(r'[^\w\s\']', '', text)
+        # Optional: remove standalone apostrophes and extra spaces they might create
+        text = re.sub(r'\s\'|\'\s', ' ', text)
+
+    # Remove extra whitespace (newlines, tabs, multiple spaces)
+    text = re.sub(r'\s+', ' ', text).strip()
+
+    return text
+
+def tokenize_text(text, tokenizer=None):
+    """
+    Tokenize the cleaned text. Uses a simple split by default or a custom tokenizer.
+
+    Args:
+        text (str): The cleaned text string.
+        tokenizer (callable, optional): A function that takes a string and returns a list of tokens.
+                                        If None, uses str.split().
+
+    Returns:
+        list: A list of tokens.
+    """
+    if tokenizer is None:
+        tokens = text.split()
+    else:
+        tokens = tokenizer(text)
+    return tokens
+
+if __name__ == "__main__":
+    # Example usage
+    sample_text = "Hello, World! This is a TEST string with 123 numbers and some punctuation... Isn't it?"
+    cleaned = clean_text(sample_text, remove_digits=True)
+    print("Original:", sample_text)
+    print("Cleaned:", cleaned)
+    print("Tokens:", tokenize_text(cleaned))
