@@ -220,3 +220,125 @@ def remove_outliers_iqr(df, column, multiplier=1.5):
     filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
     
     return filtered_df
+import pandas as pd
+import re
+
+def clean_dataframe(df, column_mapping=None, drop_duplicates=True, normalize_text=True):
+    """
+    Clean a pandas DataFrame by removing duplicates and normalizing text columns.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean
+    column_mapping (dict): Optional dictionary to rename columns
+    drop_duplicates (bool): Whether to remove duplicate rows
+    normalize_text (bool): Whether to normalize text columns
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    
+    cleaned_df = df.copy()
+    
+    if column_mapping:
+        cleaned_df = cleaned_df.rename(columns=column_mapping)
+    
+    if drop_duplicates:
+        initial_rows = len(cleaned_df)
+        cleaned_df = cleaned_df.drop_duplicates()
+        removed = initial_rows - len(cleaned_df)
+        print(f"Removed {removed} duplicate rows")
+    
+    if normalize_text:
+        text_columns = cleaned_df.select_dtypes(include=['object']).columns
+        
+        for col in text_columns:
+            if cleaned_df[col].dtype == 'object':
+                cleaned_df[col] = cleaned_df[col].apply(_normalize_string)
+                print(f"Normalized text in column: {col}")
+    
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    return cleaned_df
+
+def _normalize_string(text):
+    """
+    Normalize a string by converting to lowercase, removing extra whitespace,
+    and stripping special characters.
+    
+    Parameters:
+    text (str): Input string to normalize
+    
+    Returns:
+    str: Normalized string
+    """
+    if pd.isna(text):
+        return text
+    
+    text = str(text)
+    text = text.lower().strip()
+    text = re.sub(r'\s+', ' ', text)
+    text = re.sub(r'[^\w\s-]', '', text)
+    
+    return text
+
+def validate_dataframe(df, required_columns=None, min_rows=1):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of required column names
+    min_rows (int): Minimum number of rows required
+    
+    Returns:
+    tuple: (is_valid, error_message)
+    """
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if len(df) < min_rows:
+        return False, f"DataFrame has fewer than {min_rows} rows"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "DataFrame is valid"
+
+def sample_usage():
+    """Example usage of the data cleaning functions."""
+    data = {
+        'Name': ['John Doe', 'Jane Smith', 'John Doe', 'Bob Johnson', 'ALICE WONDERLAND'],
+        'Email': ['john@example.com', 'jane@example.com', 'john@example.com', 'bob@example.com', 'alice@example.com'],
+        'Age': [25, 30, 25, 35, 28],
+        'Notes': ['Good customer!', 'Needs follow-up', 'Good customer!', 'VIP client', 'New sign-up']
+    }
+    
+    df = pd.DataFrame(data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    cleaned_df = clean_dataframe(
+        df,
+        column_mapping={'Notes': 'Comments'},
+        drop_duplicates=True,
+        normalize_text=True
+    )
+    
+    print("Cleaned DataFrame:")
+    print(cleaned_df)
+    print("\n" + "="*50 + "\n")
+    
+    is_valid, message = validate_dataframe(
+        cleaned_df,
+        required_columns=['Name', 'Email', 'Age'],
+        min_rows=1
+    )
+    
+    print(f"Validation: {is_valid}")
+    print(f"Message: {message}")
+
+if __name__ == "__main__":
+    sample_usage()
