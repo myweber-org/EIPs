@@ -13,11 +13,11 @@ def fetch_repositories(username):
             print(f"Stars: {repo['stargazers_count']}")
             print("-" * 40)
     else:
-        print(f"Error: Unable to fetch repositories for user '{username}'")
-        sys.exit(1)
+        print(f"Failed to fetch repositories. Status code: {response.status_code}")
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("Usage: python fetch_github_repos.py <username>")
         sys.exit(1)
-    fetch_repositories(sys.argv[1])
+    username = sys.argv[1]
+    fetch_repositories(username)
