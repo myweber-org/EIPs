@@ -149,3 +149,11 @@ if __name__ == "__main__":
     input_csv = "raw_data.csv"
     output_csv = "cleaned_data.csv"
     cleaned_df = clean_data(input_csv, output_csv)
+def remove_duplicates(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
