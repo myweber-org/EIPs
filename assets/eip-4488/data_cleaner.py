@@ -80,4 +80,129 @@ def save_cleaned_data(df, output_path, format='csv'):
     else:
         raise ValueError(f"Unsupported format: {format}")
     
-    print(f"Data saved to {output_path} in {format} format")
+    print(f"Data saved to {output_path} in {format} format")import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(df, columns):
+    """
+    Remove outliers from specified columns using IQR method.
+    Returns cleaned DataFrame and outlier indices.
+    """
+    cleaned_df = df.copy()
+    outlier_indices = []
+    
+    for col in columns:
+        if col in df.columns:
+            Q1 = cleaned_df[col].quantile(0.25)
+            Q3 = cleaned_df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - 1.5 * IQR
+            upper_bound = Q3 + 1.5 * IQR
+            
+            outliers = cleaned_df[(cleaned_df[col] < lower_bound) | 
+                                 (cleaned_df[col] > upper_bound)].index
+            outlier_indices.extend(outliers)
+            
+            cleaned_df = cleaned_df[(cleaned_df[col] >= lower_bound) & 
+                                   (cleaned_df[col] <= upper_bound)]
+    
+    return cleaned_df, list(set(outlier_indices))
+
+def normalize_minmax(df, columns):
+    """
+    Normalize specified columns using min-max scaling.
+    Returns DataFrame with normalized columns.
+    """
+    normalized_df = df.copy()
+    
+    for col in columns:
+        if col in df.columns:
+            min_val = normalized_df[col].min()
+            max_val = normalized_df[col].max()
+            
+            if max_val > min_val:
+                normalized_df[col] = (normalized_df[col] - min_val) / (max_val - min_val)
+    
+    return normalized_df
+
+def standardize_zscore(df, columns):
+    """
+    Standardize specified columns using z-score normalization.
+    Returns DataFrame with standardized columns.
+    """
+    standardized_df = df.copy()
+    
+    for col in columns:
+        if col in df.columns:
+            mean_val = standardized_df[col].mean()
+            std_val = standardized_df[col].std()
+            
+            if std_val > 0:
+                standardized_df[col] = (standardized_df[col] - mean_val) / std_val
+    
+    return standardized_df
+
+def handle_missing_values(df, strategy='mean', columns=None):
+    """
+    Handle missing values in specified columns.
+    Supported strategies: 'mean', 'median', 'mode', 'drop'
+    """
+    if columns is None:
+        columns = df.columns
+    
+    handled_df = df.copy()
+    
+    for col in columns:
+        if col in df.columns and handled_df[col].isnull().any():
+            if strategy == 'mean':
+                fill_value = handled_df[col].mean()
+            elif strategy == 'median':
+                fill_value = handled_df[col].median()
+            elif strategy == 'mode':
+                fill_value = handled_df[col].mode()[0] if not handled_df[col].mode().empty else 0
+            elif strategy == 'drop':
+                handled_df = handled_df.dropna(subset=[col])
+                continue
+            else:
+                raise ValueError(f"Unsupported strategy: {strategy}")
+            
+            handled_df[col] = handled_df[col].fillna(fill_value)
+    
+    return handled_df
+
+def validate_dataframe(df, required_columns=None, numeric_columns=None):
+    """
+    Validate DataFrame structure and data types.
+    Returns validation results dictionary.
+    """
+    validation_results = {
+        'is_valid': True,
+        'missing_columns': [],
+        'non_numeric_columns': [],
+        'null_counts': {},
+        'shape': df.shape
+    }
+    
+    if required_columns:
+        missing = [col for col in required_columns if col not in df.columns]
+        if missing:
+            validation_results['missing_columns'] = missing
+            validation_results['is_valid'] = False
+    
+    if numeric_columns:
+        non_numeric = []
+        for col in numeric_columns:
+            if col in df.columns and not np.issubdtype(df[col].dtype, np.number):
+                non_numeric.append(col)
+        
+        if non_numeric:
+            validation_results['non_numeric_columns'] = non_numeric
+            validation_results['is_valid'] = False
+    
+    for col in df.columns:
+        null_count = df[col].isnull().sum()
+        if null_count > 0:
+            validation_results['null_counts'][col] = null_count
+    
+    return validation_results
