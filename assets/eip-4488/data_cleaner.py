@@ -206,3 +206,52 @@ def validate_dataframe(df, required_columns=None, numeric_columns=None):
             validation_results['null_counts'][col] = null_count
     
     return validation_results
+import pandas as pd
+import re
+
+def clean_dataframe(df, column_name):
+    """
+    Clean a specific column in a pandas DataFrame by removing duplicates,
+    stripping whitespace, and converting to lowercase.
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+
+    df_clean = df.copy()
+    df_clean[column_name] = df_clean[column_name].astype(str)
+    df_clean[column_name] = df_clean[column_name].str.strip()
+    df_clean[column_name] = df_clean[column_name].str.lower()
+    df_clean = df_clean.drop_duplicates(subset=[column_name], keep='first')
+    df_clean = df_clean.reset_index(drop=True)
+    
+    return df_clean
+
+def remove_special_characters(text):
+    """
+    Remove special characters from a string, keeping only alphanumeric and spaces.
+    """
+    if not isinstance(text, str):
+        return text
+    cleaned_text = re.sub(r'[^a-zA-Z0-9\s]', '', text)
+    return cleaned_text
+
+def normalize_column(df, column_name):
+    """
+    Apply special character removal to a DataFrame column.
+    """
+    df[column_name] = df[column_name].apply(remove_special_characters)
+    return df
+
+if __name__ == "__main__":
+    sample_data = {'Name': ['  Alice  ', 'Bob', 'alice', 'Charlie!', '  david  ']}
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned_df = clean_dataframe(df, 'Name')
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    
+    normalized_df = normalize_column(cleaned_df, 'Name')
+    print("\nNormalized DataFrame:")
+    print(normalized_df)
