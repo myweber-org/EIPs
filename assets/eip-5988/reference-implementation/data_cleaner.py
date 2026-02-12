@@ -290,3 +290,96 @@ if __name__ == "__main__":
     standardized_df = standardize_numeric(cleaned_df, columns=['Age', 'Score'])
     print("\nStandardized DataFrame:")
     print(standardized_df)
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, missing_strategy='mean', outlier_method='iqr', columns=None):
+    """
+    Clean a pandas DataFrame by handling missing values and outliers.
+    """
+    df_clean = df.copy()
+    
+    if columns is None:
+        columns = df_clean.select_dtypes(include=[np.number]).columns
+    
+    for col in columns:
+        if col in df_clean.columns:
+            # Handle missing values
+            if missing_strategy == 'mean':
+                df_clean[col].fillna(df_clean[col].mean(), inplace=True)
+            elif missing_strategy == 'median':
+                df_clean[col].fillna(df_clean[col].median(), inplace=True)
+            elif missing_strategy == 'mode':
+                df_clean[col].fillna(df_clean[col].mode()[0], inplace=True)
+            elif missing_strategy == 'drop':
+                df_clean.dropna(subset=[col], inplace=True)
+            
+            # Handle outliers
+            if outlier_method == 'iqr':
+                Q1 = df_clean[col].quantile(0.25)
+                Q3 = df_clean[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - 1.5 * IQR
+                upper_bound = Q3 + 1.5 * IQR
+                
+                if missing_strategy == 'drop':
+                    df_clean = df_clean[(df_clean[col] >= lower_bound) & (df_clean[col] <= upper_bound)]
+                else:
+                    df_clean[col] = np.where(df_clean[col] < lower_bound, lower_bound, df_clean[col])
+                    df_clean[col] = np.where(df_clean[col] > upper_bound, upper_bound, df_clean[col])
+    
+    return df_clean
+
+def validate_data(df, required_columns=None, unique_constraints=None):
+    """
+    Validate the DataFrame for required columns and uniqueness constraints.
+    """
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    if unique_constraints:
+        for constraint in unique_constraints:
+            if constraint in df.columns:
+                if df[constraint].duplicated().any():
+                    raise ValueError(f"Duplicate values found in unique column: {constraint}")
+    
+    return True
+
+def export_cleaned_data(df, output_path, format='csv'):
+    """
+    Export cleaned DataFrame to a file.
+    """
+    if format == 'csv':
+        df.to_csv(output_path, index=False)
+    elif format == 'excel':
+        df.to_excel(output_path, index=False)
+    elif format == 'json':
+        df.to_json(output_path, orient='records')
+    else:
+        raise ValueError(f"Unsupported format: {format}")
+    
+    print(f"Data exported successfully to {output_path}")
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'id': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        'value': [10, 20, None, 40, 50, 60, 70, 80, 90, 1000],
+        'category': ['A', 'B', 'A', 'B', 'A', 'B', 'A', 'B', 'A', 'B']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned_df = clean_dataset(df, missing_strategy='mean', outlier_method='iqr')
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    
+    try:
+        validate_data(cleaned_df, required_columns=['id', 'value'], unique_constraints=['id'])
+        print("\nData validation passed")
+    except ValueError as e:
+        print(f"\nData validation failed: {e}")
