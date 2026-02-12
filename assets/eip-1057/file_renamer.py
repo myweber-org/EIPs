@@ -61,3 +61,59 @@ def main():
 
 if __name__ == '__main__':
     main()
+import os
+import sys
+
+def rename_files_with_sequential_numbers(directory_path, prefix="file", start_number=1):
+    """
+    Rename all files in the specified directory with sequential numbering.
+    
+    Args:
+        directory_path (str): Path to the directory containing files to rename.
+        prefix (str): Prefix to use for renamed files. Default is "file".
+        start_number (int): Starting number for sequential naming. Default is 1.
+    
+    Returns:
+        dict: Dictionary mapping old filenames to new filenames.
+    """
+    if not os.path.isdir(directory_path):
+        print(f"Error: Directory '{directory_path}' does not exist.")
+        return {}
+    
+    try:
+        files = [f for f in os.listdir(directory_path) if os.path.isfile(os.path.join(directory_path, f))]
+        files.sort()
+        
+        renamed_files = {}
+        counter = start_number
+        
+        for filename in files:
+            file_extension = os.path.splitext(filename)[1]
+            new_filename = f"{prefix}_{counter:03d}{file_extension}"
+            old_path = os.path.join(directory_path, filename)
+            new_path = os.path.join(directory_path, new_filename)
+            
+            os.rename(old_path, new_path)
+            renamed_files[filename] = new_filename
+            counter += 1
+        
+        print(f"Successfully renamed {len(renamed_files)} files.")
+        for old_name, new_name in renamed_files.items():
+            print(f"  {old_name} -> {new_name}")
+        
+        return renamed_files
+        
+    except Exception as e:
+        print(f"Error during renaming: {e}")
+        return {}
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Usage: python file_renamer.py <directory_path> [prefix] [start_number]")
+        sys.exit(1)
+    
+    dir_path = sys.argv[1]
+    prefix = sys.argv[2] if len(sys.argv) > 2 else "file"
+    start_num = int(sys.argv[3]) if len(sys.argv) > 3 else 1
+    
+    rename_files_with_sequential_numbers(dir_path, prefix, start_num)
