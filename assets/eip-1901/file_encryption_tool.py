@@ -1,66 +1,43 @@
-
 import os
 import sys
 
-class XORCipher:
-    def __init__(self, key: str):
-        self.key = key.encode('utf-8')
-    
-    def _xor_operation(self, data: bytes) -> bytes:
-        key_length = len(self.key)
-        return bytes([data[i] ^ self.key[i % key_length] for i in range(len(data))])
-    
-    def encrypt_file(self, input_path: str, output_path: str):
-        try:
-            with open(input_path, 'rb') as f:
-                plaintext = f.read()
-            
-            ciphertext = self._xor_operation(plaintext)
-            
-            with open(output_path, 'wb') as f:
-                f.write(ciphertext)
-            
-            return True
-        except Exception as e:
-            print(f"Encryption error: {e}")
-            return False
-    
-    def decrypt_file(self, input_path: str, output_path: str):
-        return self.encrypt_file(input_path, output_path)
+def xor_encrypt_decrypt(data, key):
+    return bytes([b ^ key[i % len(key)] for i, b in enumerate(data)])
+
+def process_file(input_path, output_path, key):
+    try:
+        with open(input_path, 'rb') as f:
+            data = f.read()
+        
+        processed_data = xor_encrypt_decrypt(data, key)
+        
+        with open(output_path, 'wb') as f:
+            f.write(processed_data)
+        
+        print(f"File processed successfully: {output_path}")
+        return True
+    except Exception as e:
+        print(f"Error processing file: {e}")
+        return False
 
 def main():
     if len(sys.argv) < 4:
-        print("Usage: python file_encryption_tool.py <encrypt|decrypt> <input_file> <output_file>")
-        print("Example: python file_encryption_tool.py encrypt secret.txt secret.enc")
+        print("Usage: python file_encryption_tool.py <input_file> <output_file> <key>")
+        print("Example: python file_encryption_tool.py secret.txt encrypted.txt mykey123")
         sys.exit(1)
     
-    operation = sys.argv[1].lower()
-    input_file = sys.argv[2]
-    output_file = sys.argv[3]
+    input_file = sys.argv[1]
+    output_file = sys.argv[2]
+    key = sys.argv[3].encode()
     
     if not os.path.exists(input_file):
-        print(f"Error: Input file '{input_file}' does not exist.")
+        print(f"Input file does not exist: {input_file}")
         sys.exit(1)
     
-    key = input("Enter encryption key: ").strip()
-    if not key:
-        print("Error: Key cannot be empty.")
-        sys.exit(1)
-    
-    cipher = XORCipher(key)
-    
-    if operation == 'encrypt':
-        if cipher.encrypt_file(input_file, output_file):
-            print(f"File encrypted successfully: {output_file}")
-        else:
-            print("Encryption failed.")
-    elif operation == 'decrypt':
-        if cipher.decrypt_file(input_file, output_file):
-            print(f"File decrypted successfully: {output_file}")
-        else:
-            print("Decryption failed.")
+    if process_file(input_file, output_file, key):
+        print("Operation completed.")
     else:
-        print("Error: Operation must be 'encrypt' or 'decrypt'.")
+        print("Operation failed.")
         sys.exit(1)
 
 if __name__ == "__main__":
