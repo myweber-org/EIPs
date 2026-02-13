@@ -472,4 +472,88 @@ def get_data_summary(data):
         'data_types': data.dtypes.to_dict()
     }
     
-    return summary
+    return summaryimport pandas as pd
+
+def clean_dataset(df, remove_duplicates=True, fill_method='drop'):
+    """
+    Clean a pandas DataFrame by handling missing values and optionally removing duplicates.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    remove_duplicates (bool): If True, remove duplicate rows.
+    fill_method (str): Method to handle missing values: 'drop' to remove rows, 
+                       'ffill' to forward fill, 'bfill' to backward fill.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    # Handle missing values
+    if fill_method == 'drop':
+        cleaned_df = cleaned_df.dropna()
+    elif fill_method == 'ffill':
+        cleaned_df = cleaned_df.ffill()
+    elif fill_method == 'bfill':
+        cleaned_df = cleaned_df.bfill()
+    else:
+        raise ValueError("fill_method must be 'drop', 'ffill', or 'bfill'")
+    
+    # Remove duplicates if requested
+    if remove_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    # Reset index after cleaning operations
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate that the DataFrame meets basic requirements.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+    required_columns (list): List of column names that must be present.
+    
+    Returns:
+    bool: True if validation passes, False otherwise.
+    """
+    if not isinstance(df, pd.DataFrame):
+        print("Error: Input is not a pandas DataFrame")
+        return False
+    
+    if df.empty:
+        print("Warning: DataFrame is empty")
+        return False
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            print(f"Error: Missing required columns: {missing_cols}")
+            return False
+    
+    return True
+
+# Example usage
+if __name__ == "__main__":
+    # Create sample data with some issues
+    sample_data = {
+        'id': [1, 2, 3, 3, 4, None],
+        'value': [10.5, None, 15.3, 15.3, 20.1, 25.0],
+        'category': ['A', 'B', 'C', 'C', None, 'E']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nShape:", df.shape)
+    
+    # Clean the data
+    if validate_dataframe(df, required_columns=['id', 'value']):
+        cleaned = clean_dataset(df, remove_duplicates=True, fill_method='drop')
+        print("\nCleaned DataFrame:")
+        print(cleaned)
+        print("\nCleaned shape:", cleaned.shape)
+    else:
+        print("Data validation failed")
