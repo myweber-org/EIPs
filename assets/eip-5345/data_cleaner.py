@@ -573,3 +573,105 @@ if __name__ == "__main__":
     print("\nCleaned DataFrame shape:", cleaned_df.shape)
     print("\nCleaned summary for column 'A':")
     print(calculate_summary_statistics(cleaned_df, 'A'))
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(dataframe, column, threshold=1.5):
+    """
+    Remove outliers using IQR method
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    Q1 = dataframe[column].quantile(0.25)
+    Q3 = dataframe[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - threshold * IQR
+    upper_bound = Q3 + threshold * IQR
+    
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
+                           (dataframe[column] <= upper_bound)]
+    
+    return filtered_df
+
+def z_score_normalization(dataframe, column):
+    """
+    Apply z-score normalization to a column
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    mean_val = dataframe[column].mean()
+    std_val = dataframe[column].std()
+    
+    if std_val == 0:
+        return dataframe[column]
+    
+    normalized = (dataframe[column] - mean_val) / std_val
+    return normalized
+
+def min_max_normalization(dataframe, column, feature_range=(0, 1)):
+    """
+    Apply min-max normalization to a column
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    min_val = dataframe[column].min()
+    max_val = dataframe[column].max()
+    
+    if max_val == min_val:
+        return dataframe[column]
+    
+    normalized = (dataframe[column] - min_val) / (max_val - min_val)
+    
+    if feature_range != (0, 1):
+        new_min, new_max = feature_range
+        normalized = normalized * (new_max - new_min) + new_min
+    
+    return normalized
+
+def detect_skewed_columns(dataframe, threshold=0.5):
+    """
+    Detect columns with significant skewness
+    """
+    skewed_cols = []
+    
+    for col in dataframe.select_dtypes(include=[np.number]).columns:
+        skewness = stats.skew(dataframe[col].dropna())
+        if abs(skewness) > threshold:
+            skewed_cols.append((col, skewness))
+    
+    return sorted(skewed_cols, key=lambda x: abs(x[1]), reverse=True)
+
+def apply_log_transform(dataframe, column):
+    """
+    Apply log transformation to reduce skewness
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    if dataframe[column].min() <= 0:
+        shifted = dataframe[column] - dataframe[column].min() + 1
+        transformed = np.log(shifted)
+    else:
+        transformed = np.log(dataframe[column])
+    
+    return transformed
+
+def clean_dataset(dataframe, numeric_columns=None, outlier_threshold=1.5):
+    """
+    Comprehensive data cleaning pipeline
+    """
+    df_clean = dataframe.copy()
+    
+    if numeric_columns is None:
+        numeric_columns = df_clean.select_dtypes(include=[np.number]).columns.tolist()
+    
+    for col in numeric_columns:
+        if col in df_clean.columns:
+            df_clean = remove_outliers_iqr(df_clean, col, outlier_threshold)
+    
+    return df_clean
