@@ -90,3 +90,99 @@ if __name__ == "__main__":
     cleaned_df = clean_numeric_data(df, columns=['A', 'B'])
     print("\nCleaned DataFrame:")
     print(cleaned_df)
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, key_columns=None, date_column=None, numeric_columns=None):
+    """
+    Clean a pandas DataFrame by removing duplicates, handling missing values,
+    and standardizing column formats.
+    """
+    cleaned_df = df.copy()
+    
+    # Remove duplicate rows based on key columns or all columns
+    if key_columns:
+        cleaned_df = cleaned_df.drop_duplicates(subset=key_columns, keep='first')
+    else:
+        cleaned_df = cleaned_df.drop_duplicates(keep='first')
+    
+    # Standardize date column format if specified
+    if date_column and date_column in cleaned_df.columns:
+        cleaned_df[date_column] = pd.to_datetime(cleaned_df[date_column], errors='coerce')
+    
+    # Fill missing numeric values with column median
+    if numeric_columns:
+        for col in numeric_columns:
+            if col in cleaned_df.columns:
+                median_val = cleaned_df[col].median()
+                cleaned_df[col] = cleaned_df[col].fillna(median_val)
+    
+    # Reset index after cleaning
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    return cleaned_df
+
+def validate_data(df, required_columns=None, min_rows=1):
+    """
+    Validate dataset structure and content requirements.
+    """
+    if df.empty:
+        raise ValueError("DataFrame is empty")
+    
+    if len(df) < min_rows:
+        raise ValueError(f"DataFrame must have at least {min_rows} rows")
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    return True
+
+def export_cleaned_data(df, output_path, format='csv'):
+    """
+    Export cleaned DataFrame to specified format.
+    """
+    if format == 'csv':
+        df.to_csv(output_path, index=False)
+    elif format == 'excel':
+        df.to_excel(output_path, index=False)
+    elif format == 'json':
+        df.to_json(output_path, orient='records')
+    else:
+        raise ValueError(f"Unsupported format: {format}")
+    
+    print(f"Data exported successfully to {output_path}")
+
+# Example usage
+if __name__ == "__main__":
+    # Create sample data
+    sample_data = {
+        'id': [1, 2, 2, 3, 4],
+        'name': ['Alice', 'Bob', 'Bob', 'Charlie', None],
+        'date': ['2023-01-01', '2023-01-02', '2023-01-02', 'invalid', '2023-01-03'],
+        'value': [100, 200, 200, None, 400]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n")
+    
+    # Clean the data
+    cleaned = clean_dataset(
+        df, 
+        key_columns=['id', 'name'],
+        date_column='date',
+        numeric_columns=['value']
+    )
+    
+    print("Cleaned DataFrame:")
+    print(cleaned)
+    
+    # Validate the cleaned data
+    try:
+        validate_data(cleaned, required_columns=['id', 'name', 'value'], min_rows=3)
+        print("Data validation passed")
+    except ValueError as e:
+        print(f"Data validation failed: {e}")
