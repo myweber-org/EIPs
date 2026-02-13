@@ -100,4 +100,46 @@ if __name__ == "__main__":
     print("\nSummary statistics after cleaning:")
     for col in cleaned_df.columns:
         stats = calculate_summary_stats(cleaned_df, col)
-        print(f"{col}: {stats}")
+        print(f"{col}: {stats}")import pandas as pd
+import numpy as np
+import sys
+
+def clean_csv_data(input_file, output_file):
+    """
+    Clean a CSV file by handling missing values and duplicates.
+    """
+    try:
+        df = pd.read_csv(input_file)
+        
+        # Fill missing numeric values with column mean
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
+        
+        # Fill missing categorical values with mode
+        categorical_cols = df.select_dtypes(include=['object']).columns
+        for col in categorical_cols:
+            if df[col].isnull().any():
+                df[col].fillna(df[col].mode()[0], inplace=True)
+        
+        # Remove duplicate rows
+        df.drop_duplicates(inplace=True)
+        
+        # Save cleaned data
+        df.to_csv(output_file, index=False)
+        print(f"Data cleaned successfully. Saved to {output_file}")
+        
+    except FileNotFoundError:
+        print(f"Error: File '{input_file}' not found.")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error during data cleaning: {e}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("Usage: python data_cleaner.py <input_file> <output_file>")
+        sys.exit(1)
+    
+    input_file = sys.argv[1]
+    output_file = sys.argv[2]
+    clean_csv_data(input_file, output_file)
