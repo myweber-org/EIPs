@@ -896,3 +896,147 @@ if __name__ == "__main__":
     print("\nCleaned DataFrame shape:", cleaned_df.shape)
     print("\nCleaned statistics for column 'A':")
     print(stats['A'])
+import pandas as pd
+import numpy as np
+from typing import List, Optional
+
+class DataCleaner:
+    def __init__(self, df: pd.DataFrame):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_duplicates(self, subset: Optional[List[str]] = None, keep: str = 'first') -> pd.DataFrame:
+        """
+        Remove duplicate rows from the DataFrame.
+        
+        Args:
+            subset: Column labels to consider for identifying duplicates.
+            keep: Determines which duplicates to keep.
+                  'first' : Keep the first occurrence.
+                  'last'  : Keep the last occurrence.
+                  False   : Drop all duplicates.
+                  
+        Returns:
+            Cleaned DataFrame with duplicates removed.
+        """
+        cleaned_df = self.df.drop_duplicates(subset=subset, keep=keep)
+        removed_count = len(self.df) - len(cleaned_df)
+        
+        if removed_count > 0:
+            print(f"Removed {removed_count} duplicate rows.")
+            print(f"Data shape changed from {self.original_shape} to {cleaned_df.shape}")
+        else:
+            print("No duplicates found.")
+            
+        return cleaned_df
+    
+    def handle_missing_values(self, strategy: str = 'drop', fill_value: Optional[float] = None) -> pd.DataFrame:
+        """
+        Handle missing values in the DataFrame.
+        
+        Args:
+            strategy: How to handle missing values.
+                      'drop': Drop rows with any missing values.
+                      'fill': Fill missing values with specified value.
+            fill_value: Value to use for filling when strategy is 'fill'.
+            
+        Returns:
+            DataFrame with missing values handled.
+        """
+        if strategy == 'drop':
+            cleaned_df = self.df.dropna()
+            removed_count = len(self.df) - len(cleaned_df)
+            print(f"Removed {removed_count} rows with missing values.")
+            
+        elif strategy == 'fill':
+            if fill_value is None:
+                raise ValueError("fill_value must be provided when strategy is 'fill'")
+            cleaned_df = self.df.fillna(fill_value)
+            print(f"Filled missing values with {fill_value}.")
+            
+        else:
+            raise ValueError("strategy must be either 'drop' or 'fill'")
+            
+        return cleaned_df
+    
+    def normalize_numeric_columns(self, columns: List[str]) -> pd.DataFrame:
+        """
+        Normalize specified numeric columns to range [0, 1].
+        
+        Args:
+            columns: List of column names to normalize.
+            
+        Returns:
+            DataFrame with normalized columns.
+        """
+        df_copy = self.df.copy()
+        
+        for col in columns:
+            if col in df_copy.columns and pd.api.types.is_numeric_dtype(df_copy[col]):
+                col_min = df_copy[col].min()
+                col_max = df_copy[col].max()
+                
+                if col_max > col_min:
+                    df_copy[col] = (df_copy[col] - col_min) / (col_max - col_min)
+                    print(f"Normalized column '{col}' to range [0, 1].")
+                else:
+                    print(f"Column '{col}' has constant values, skipping normalization.")
+            else:
+                print(f"Column '{col}' not found or not numeric, skipping.")
+                
+        return df_copy
+
+def clean_dataset(file_path: str, output_path: Optional[str] = None) -> pd.DataFrame:
+    """
+    Clean a dataset by removing duplicates and handling missing values.
+    
+    Args:
+        file_path: Path to the input CSV file.
+        output_path: Path to save cleaned data (optional).
+        
+    Returns:
+        Cleaned DataFrame.
+    """
+    try:
+        df = pd.read_csv(file_path)
+        print(f"Loaded data with shape: {df.shape}")
+        
+        cleaner = DataCleaner(df)
+        
+        cleaned_df = cleaner.remove_duplicates()
+        cleaned_df = cleaner.handle_missing_values(strategy='drop')
+        
+        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns.tolist()
+        if numeric_cols:
+            cleaned_df = cleaner.normalize_numeric_columns(numeric_cols[:3])
+        
+        if output_path:
+            cleaned_df.to_csv(output_path, index=False)
+            print(f"Cleaned data saved to: {output_path}")
+            
+        return cleaned_df
+        
+    except FileNotFoundError:
+        print(f"Error: File not found at {file_path}")
+        raise
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        raise
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'id': [1, 2, 2, 3, 4, 4, 5],
+        'value': [10.5, 20.3, 20.3, np.nan, 40.1, 40.1, 50.0],
+        'category': ['A', 'B', 'B', 'C', 'D', 'D', 'E']
+    })
+    
+    print("Sample data:")
+    print(sample_data)
+    print("\nCleaning data...")
+    
+    cleaner = DataCleaner(sample_data)
+    cleaned = cleaner.remove_duplicates(subset=['id', 'value'])
+    cleaned = cleaner.handle_missing_values(strategy='fill', fill_value=0)
+    
+    print("\nCleaned data:")
+    print(cleaned)
