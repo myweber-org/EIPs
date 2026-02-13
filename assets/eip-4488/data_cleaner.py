@@ -460,3 +460,112 @@ def get_summary_statistics(data, numeric_columns):
         summary = pd.concat([summary, pd.DataFrame([stats_dict])], ignore_index=True)
     
     return summary
+import pandas as pd
+import numpy as np
+
+def remove_missing_rows(df, threshold=0.5):
+    """
+    Remove rows with missing values exceeding threshold percentage.
+    
+    Args:
+        df (pd.DataFrame): Input dataframe
+        threshold (float): Maximum allowed missing value percentage per row
+    
+    Returns:
+        pd.DataFrame: Cleaned dataframe
+    """
+    missing_percent = df.isnull().mean(axis=1)
+    return df[missing_percent <= threshold].reset_index(drop=True)
+
+def fill_missing_with_median(df, columns=None):
+    """
+    Fill missing values with column median.
+    
+    Args:
+        df (pd.DataFrame): Input dataframe
+        columns (list): Specific columns to fill, all columns if None
+    
+    Returns:
+        pd.DataFrame: Dataframe with filled values
+    """
+    df_filled = df.copy()
+    if columns is None:
+        columns = df.columns
+    
+    for col in columns:
+        if df[col].dtype in [np.float64, np.int64]:
+            median_val = df[col].median()
+            df_filled[col].fillna(median_val, inplace=True)
+    
+    return df_filled
+
+def remove_outliers_iqr(df, column, multiplier=1.5):
+    """
+    Remove outliers using IQR method.
+    
+    Args:
+        df (pd.DataFrame): Input dataframe
+        column (str): Column name to check for outliers
+        multiplier (float): IQR multiplier for outlier detection
+    
+    Returns:
+        pd.DataFrame: Dataframe without outliers
+    """
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - multiplier * IQR
+    upper_bound = Q3 + multiplier * IQR
+    
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+def standardize_columns(df, columns=None):
+    """
+    Standardize specified columns to have zero mean and unit variance.
+    
+    Args:
+        df (pd.DataFrame): Input dataframe
+        columns (list): Columns to standardize, all numeric columns if None
+    
+    Returns:
+        pd.DataFrame: Dataframe with standardized columns
+    """
+    df_standardized = df.copy()
+    
+    if columns is None:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        columns = list(numeric_cols)
+    
+    for col in columns:
+        if col in df.columns and df[col].dtype in [np.float64, np.int64]:
+            mean_val = df[col].mean()
+            std_val = df[col].std()
+            if std_val > 0:
+                df_standardized[col] = (df[col] - mean_val) / std_val
+    
+    return df_standardized
+
+def clean_dataset(df, missing_threshold=0.3, outlier_columns=None):
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Args:
+        df (pd.DataFrame): Input dataframe
+        missing_threshold (float): Threshold for missing value removal
+        outlier_columns (list): Columns to check for outliers
+    
+    Returns:
+        pd.DataFrame: Cleaned dataframe
+    """
+    cleaned_df = df.copy()
+    
+    cleaned_df = remove_missing_rows(cleaned_df, threshold=missing_threshold)
+    cleaned_df = fill_missing_with_median(cleaned_df)
+    
+    if outlier_columns:
+        for col in outlier_columns:
+            if col in cleaned_df.columns:
+                cleaned_df = remove_outliers_iqr(cleaned_df, col)
+    
+    return cleaned_df.reset_index(drop=True)
