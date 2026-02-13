@@ -417,4 +417,129 @@ if __name__ == "__main__":
     print(cleaned)
     
     is_valid, message = validate_dataframe(cleaned, required_columns=['A', 'B', 'C'])
-    print(f"\nValidation: {is_valid} - {message}")
+    print(f"\nValidation: {is_valid} - {message}")import numpy as np
+import pandas as pd
+from scipy import stats
+
+def detect_outliers_iqr(data, threshold=1.5):
+    """
+    Detect outliers using the Interquartile Range method.
+    
+    Args:
+        data: Array-like data
+        threshold: IQR multiplier for outlier detection
+    
+    Returns:
+        Boolean mask where True indicates outliers
+    """
+    q1 = np.percentile(data, 25)
+    q3 = np.percentile(data, 75)
+    iqr = q3 - q1
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    return (data < lower_bound) | (data > upper_bound)
+
+def remove_outliers(df, columns, method='iqr', threshold=1.5):
+    """
+    Remove outliers from specified columns in a DataFrame.
+    
+    Args:
+        df: Input DataFrame
+        columns: List of column names to process
+        method: Outlier detection method ('iqr' or 'zscore')
+        threshold: Detection threshold
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    df_clean = df.copy()
+    
+    for col in columns:
+        if method == 'iqr':
+            outliers = detect_outliers_iqr(df_clean[col], threshold)
+        elif method == 'zscore':
+            z_scores = np.abs(stats.zscore(df_clean[col]))
+            outliers = z_scores > threshold
+        else:
+            raise ValueError("Method must be 'iqr' or 'zscore'")
+        
+        df_clean = df_clean[~outliers]
+    
+    return df_clean.reset_index(drop=True)
+
+def normalize_data(df, columns, method='minmax'):
+    """
+    Normalize specified columns in a DataFrame.
+    
+    Args:
+        df: Input DataFrame
+        columns: List of column names to normalize
+        method: Normalization method ('minmax' or 'standard')
+    
+    Returns:
+        DataFrame with normalized columns
+    """
+    df_norm = df.copy()
+    
+    for col in columns:
+        if method == 'minmax':
+            min_val = df_norm[col].min()
+            max_val = df_norm[col].max()
+            df_norm[col] = (df_norm[col] - min_val) / (max_val - min_val)
+        elif method == 'standard':
+            mean_val = df_norm[col].mean()
+            std_val = df_norm[col].std()
+            df_norm[col] = (df_norm[col] - mean_val) / std_val
+        else:
+            raise ValueError("Method must be 'minmax' or 'standard'")
+    
+    return df_norm
+
+def clean_dataset(df, numeric_columns, outlier_method='iqr', 
+                  outlier_threshold=1.5, normalize_method='standard'):
+    """
+    Complete data cleaning pipeline.
+    
+    Args:
+        df: Input DataFrame
+        numeric_columns: List of numeric column names to clean
+        outlier_method: Outlier detection method
+        outlier_threshold: Outlier detection threshold
+        normalize_method: Normalization method
+    
+    Returns:
+        Cleaned and normalized DataFrame
+    """
+    # Remove outliers
+    df_clean = remove_outliers(df, numeric_columns, outlier_method, outlier_threshold)
+    
+    # Normalize data
+    df_normalized = normalize_data(df_clean, numeric_columns, normalize_method)
+    
+    return df_normalized
+
+# Example usage
+if __name__ == "__main__":
+    # Create sample data
+    np.random.seed(42)
+    sample_data = {
+        'feature_a': np.random.normal(100, 15, 1000),
+        'feature_b': np.random.exponential(50, 1000),
+        'feature_c': np.random.uniform(0, 200, 1000)
+    }
+    
+    # Add some outliers
+    sample_data['feature_a'][::100] += 200
+    sample_data['feature_b'][::50] *= 5
+    
+    df_sample = pd.DataFrame(sample_data)
+    
+    # Clean the data
+    numeric_cols = ['feature_a', 'feature_b', 'feature_c']
+    cleaned_df = clean_dataset(df_sample, numeric_cols)
+    
+    print(f"Original shape: {df_sample.shape}")
+    print(f"Cleaned shape: {cleaned_df.shape}")
+    print(f"Removed {len(df_sample) - len(cleaned_df)} outliers")
+    print("\nCleaned data statistics:")
+    print(cleaned_df.describe())
