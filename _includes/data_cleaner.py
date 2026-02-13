@@ -297,4 +297,52 @@ if __name__ == "__main__":
     stats = calculate_summary_statistics(cleaned_df, 'values')
     print("\nSummary statistics:")
     for key, value in stats.items():
-        print(f"{key}: {value:.2f}")
+        print(f"{key}: {value:.2f}")import pandas as pd
+import re
+
+def clean_text_column(df, column_name):
+    """
+    Standardize text by converting to lowercase and removing extra whitespace.
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    
+    df[column_name] = df[column_name].astype(str).str.lower()
+    df[column_name] = df[column_name].apply(lambda x: re.sub(r'\s+', ' ', x).strip())
+    return df
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from DataFrame.
+    """
+    return df.drop_duplicates(subset=subset, keep=keep)
+
+def validate_email_column(df, column_name):
+    """
+    Validate email format and return a boolean mask.
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return df[column_name].str.match(email_pattern, na=False)
+
+def clean_dataset(df, text_columns=None, deduplicate=True, email_columns=None):
+    """
+    Perform comprehensive cleaning on a dataset.
+    """
+    cleaned_df = df.copy()
+    
+    if text_columns:
+        for col in text_columns:
+            cleaned_df = clean_text_column(cleaned_df, col)
+    
+    if deduplicate:
+        cleaned_df = remove_duplicates(cleaned_df)
+    
+    if email_columns:
+        for col in email_columns:
+            mask = validate_email_column(cleaned_df, col)
+            cleaned_df = cleaned_df[mask]
+    
+    return cleaned_df
