@@ -810,3 +810,95 @@ def validate_data_types(data, schema):
             }
     
     return validation_results
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, strategy='mean', outlier_threshold=3):
+    """
+    Clean a dataset by handling missing values and removing outliers.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    strategy (str): Strategy for missing values ('mean', 'median', 'mode', 'drop')
+    outlier_threshold (float): Z-score threshold for outlier detection
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    
+    df_clean = df.copy()
+    
+    # Handle missing values
+    if strategy == 'mean':
+        df_clean = df_clean.fillna(df_clean.mean())
+    elif strategy == 'median':
+        df_clean = df_clean.fillna(df_clean.median())
+    elif strategy == 'mode':
+        df_clean = df_clean.fillna(df_clean.mode().iloc[0])
+    elif strategy == 'drop':
+        df_clean = df_clean.dropna()
+    
+    # Remove outliers using Z-score method
+    if outlier_threshold > 0:
+        numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
+        z_scores = np.abs((df_clean[numeric_cols] - df_clean[numeric_cols].mean()) / df_clean[numeric_cols].std())
+        df_clean = df_clean[(z_scores < outlier_threshold).all(axis=1)]
+    
+    return df_clean
+
+def normalize_data(df, method='minmax'):
+    """
+    Normalize numerical columns in the DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    method (str): Normalization method ('minmax', 'standard')
+    
+    Returns:
+    pd.DataFrame: Normalized DataFrame
+    """
+    
+    df_norm = df.copy()
+    numeric_cols = df_norm.select_dtypes(include=[np.number]).columns
+    
+    if method == 'minmax':
+        for col in numeric_cols:
+            min_val = df_norm[col].min()
+            max_val = df_norm[col].max()
+            if max_val > min_val:
+                df_norm[col] = (df_norm[col] - min_val) / (max_val - min_val)
+    
+    elif method == 'standard':
+        for col in numeric_cols:
+            mean_val = df_norm[col].mean()
+            std_val = df_norm[col].std()
+            if std_val > 0:
+                df_norm[col] = (df_norm[col] - mean_val) / std_val
+    
+    return df_norm
+
+def validate_data(df, required_columns=None, min_rows=1):
+    """
+    Validate the structure and content of a DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of required column names
+    min_rows (int): Minimum number of rows required
+    
+    Returns:
+    tuple: (is_valid, error_message)
+    """
+    
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if len(df) < min_rows:
+        return False, f"DataFrame has fewer than {min_rows} rows"
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
+    
+    return True, "Data validation passed"
