@@ -2314,4 +2314,126 @@ if __name__ == "__main__":
     
     cleaned_df = clean_dataset(df)
     print(f"Cleaned shape: {cleaned_df.shape}")
-    print(f"Rows removed: {len(df) - len(cleaned_df)}")
+    print(f"Rows removed: {len(df) - len(cleaned_df)}")import pandas as pd
+import numpy as np
+
+def handle_missing_values(df, strategy='mean', columns=None):
+    """
+    Handle missing values in a DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        strategy (str): Strategy to handle missing values ('mean', 'median', 'mode', 'drop')
+        columns (list): List of columns to apply the strategy to. If None, applies to all numeric columns.
+    
+    Returns:
+        pd.DataFrame: DataFrame with handled missing values
+    """
+    df_copy = df.copy()
+    
+    if columns is None:
+        columns = df_copy.select_dtypes(include=[np.number]).columns
+    
+    if strategy == 'drop':
+        return df_copy.dropna(subset=columns)
+    
+    for col in columns:
+        if strategy == 'mean':
+            fill_value = df_copy[col].mean()
+        elif strategy == 'median':
+            fill_value = df_copy[col].median()
+        elif strategy == 'mode':
+            fill_value = df_copy[col].mode()[0]
+        else:
+            raise ValueError(f"Unknown strategy: {strategy}")
+        
+        df_copy[col] = df_copy[col].fillna(fill_value)
+    
+    return df_copy
+
+def remove_outliers_iqr(df, columns=None, multiplier=1.5):
+    """
+    Remove outliers using the Interquartile Range (IQR) method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns (list): List of columns to check for outliers. If None, uses all numeric columns.
+        multiplier (float): IQR multiplier for outlier detection
+    
+    Returns:
+        pd.DataFrame: DataFrame with outliers removed
+    """
+    df_copy = df.copy()
+    
+    if columns is None:
+        columns = df_copy.select_dtypes(include=[np.number]).columns
+    
+    mask = pd.Series([True] * len(df_copy))
+    
+    for col in columns:
+        Q1 = df_copy[col].quantile(0.25)
+        Q3 = df_copy[col].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - multiplier * IQR
+        upper_bound = Q3 + multiplier * IQR
+        
+        col_mask = (df_copy[col] >= lower_bound) & (df_copy[col] <= upper_bound)
+        mask = mask & col_mask
+    
+    return df_copy[mask]
+
+def normalize_data(df, columns=None, method='minmax'):
+    """
+    Normalize data in specified columns.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns (list): List of columns to normalize. If None, uses all numeric columns.
+        method (str): Normalization method ('minmax' or 'zscore')
+    
+    Returns:
+        pd.DataFrame: DataFrame with normalized columns
+    """
+    df_copy = df.copy()
+    
+    if columns is None:
+        columns = df_copy.select_dtypes(include=[np.number]).columns
+    
+    for col in columns:
+        if method == 'minmax':
+            min_val = df_copy[col].min()
+            max_val = df_copy[col].max()
+            if max_val != min_val:
+                df_copy[col] = (df_copy[col] - min_val) / (max_val - min_val)
+        elif method == 'zscore':
+            mean_val = df_copy[col].mean()
+            std_val = df_copy[col].std()
+            if std_val != 0:
+                df_copy[col] = (df_copy[col] - mean_val) / std_val
+        else:
+            raise ValueError(f"Unknown method: {method}")
+    
+    return df_copy
+
+def clean_dataset(df, missing_strategy='mean', outlier_removal=True, normalize=False):
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        missing_strategy (str): Strategy for handling missing values
+        outlier_removal (bool): Whether to remove outliers
+        normalize (bool): Whether to normalize the data
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = handle_missing_values(df, strategy=missing_strategy)
+    
+    if outlier_removal:
+        cleaned_df = remove_outliers_iqr(cleaned_df)
+    
+    if normalize:
+        cleaned_df = normalize_data(cleaned_df)
+    
+    return cleaned_df
