@@ -765,3 +765,105 @@ if __name__ == "__main__":
     
     is_valid = validate_data(cleaned, required_columns=['name', 'age'], min_rows=3)
     print(f"\nData validation passed: {is_valid}")
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_duplicates=True, handle_nulls='drop'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling null values.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean
+    drop_duplicates (bool): Whether to remove duplicate rows
+    handle_nulls (str): How to handle null values - 'drop', 'fill_mean', 'fill_median', or 'fill_zero'
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        initial_rows = len(cleaned_df)
+        cleaned_df = cleaned_df.drop_duplicates()
+        removed = initial_rows - len(cleaned_df)
+        print(f"Removed {removed} duplicate rows")
+    
+    if handle_nulls == 'drop':
+        initial_rows = len(cleaned_df)
+        cleaned_df = cleaned_df.dropna()
+        removed = initial_rows - len(cleaned_df)
+        print(f"Removed {removed} rows with null values")
+    elif handle_nulls == 'fill_mean':
+        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mean())
+        print("Filled numeric nulls with column means")
+    elif handle_nulls == 'fill_median':
+        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].median())
+        print("Filled numeric nulls with column medians")
+    elif handle_nulls == 'fill_zero':
+        cleaned_df = cleaned_df.fillna(0)
+        print("Filled all nulls with zeros")
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of column names that must be present
+    
+    Returns:
+    dict: Dictionary with validation results
+    """
+    validation_results = {
+        'is_valid': True,
+        'errors': [],
+        'warnings': [],
+        'summary': {}
+    }
+    
+    if not isinstance(df, pd.DataFrame):
+        validation_results['is_valid'] = False
+        validation_results['errors'].append('Input is not a pandas DataFrame')
+        return validation_results
+    
+    validation_results['summary']['total_rows'] = len(df)
+    validation_results['summary']['total_columns'] = len(df.columns)
+    validation_results['summary']['null_count'] = df.isnull().sum().sum()
+    validation_results['summary']['duplicate_rows'] = df.duplicated().sum()
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            validation_results['is_valid'] = False
+            validation_results['errors'].append(f'Missing required columns: {missing_columns}')
+    
+    if validation_results['summary']['null_count'] > 0:
+        validation_results['warnings'].append(f'Dataset contains {validation_results["summary"]["null_count"]} null values')
+    
+    if validation_results['summary']['duplicate_rows'] > 0:
+        validation_results['warnings'].append(f'Dataset contains {validation_results["summary"]["duplicate_rows"]} duplicate rows')
+    
+    return validation_results
+
+def sample_data_for_testing():
+    """
+    Create a sample DataFrame for testing the cleaning functions.
+    
+    Returns:
+    pd.DataFrame: Sample DataFrame with various data quality issues
+    """
+    data = {
+        'id': [1, 2, 3, 3, 4, 5, 6, 7, 8, 9],
+        'name': ['Alice', 'Bob', 'Charlie', 'Charlie', 'David', 'Eve', 'Frank', None, 'Helen', 'Ivan'],
+        'age': [25, 30, 35, 35, 40, None, 50, 55, 60, 65],
+        'score': [85.5, 90.0, 78.5, 78.5, 92.0, 88.5, None, 76.0, 81.5, 94.0],
+        'department': ['Sales', 'Marketing', 'IT', 'IT', 'HR', 'Finance', 'Sales', 'Marketing', None, 'IT']
+    }
+    
+    return pd.DataFrame(data)
