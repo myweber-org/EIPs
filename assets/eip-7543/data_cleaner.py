@@ -794,3 +794,11 @@ def process_dataset(file_path, output_path=None):
     except Exception as e:
         print(f"Error processing dataset: {str(e)}")
         return None
+def deduplicate_list(input_list):
+    seen = set()
+    result = []
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
