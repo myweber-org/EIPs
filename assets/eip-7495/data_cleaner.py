@@ -199,3 +199,11 @@ def validate_data(df, required_columns, numeric_threshold=0.8):
                     validation_results['low_variance'].append((col, df[col].std()))
     
     return validation_results
+def remove_duplicates_preserve_order(iterable):
+    seen = set()
+    result = []
+    for item in iterable:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
