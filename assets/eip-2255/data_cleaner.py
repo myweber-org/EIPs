@@ -152,4 +152,117 @@ if __name__ == "__main__":
     print("\nCleaned data shape:", cleaned_df.shape)
     print("Cleaned data columns:", cleaned_df.columns.tolist())
     print("\nFirst 5 rows of cleaned data:")
-    print(cleaned_df.head())
+    print(cleaned_df.head())import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column, multiplier=1.5):
+    """
+    Remove outliers from a DataFrame column using the IQR method.
+    
+    Parameters:
+    data (pd.DataFrame): Input DataFrame
+    column (str): Column name to process
+    multiplier (float): IQR multiplier for outlier detection
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - multiplier * iqr
+    upper_bound = q3 + multiplier * iqr
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
+
+def normalize_column(data, column, method='zscore'):
+    """
+    Normalize a column in the DataFrame.
+    
+    Parameters:
+    data (pd.DataFrame): Input DataFrame
+    column (str): Column name to normalize
+    method (str): Normalization method ('zscore', 'minmax', 'robust')
+    
+    Returns:
+    pd.DataFrame: DataFrame with normalized column
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    data_copy = data.copy()
+    
+    if method == 'zscore':
+        data_copy[f'{column}_normalized'] = stats.zscore(data_copy[column])
+    elif method == 'minmax':
+        min_val = data_copy[column].min()
+        max_val = data_copy[column].max()
+        data_copy[f'{column}_normalized'] = (data_copy[column] - min_val) / (max_val - min_val)
+    elif method == 'robust':
+        median = data_copy[column].median()
+        iqr = data_copy[column].quantile(0.75) - data_copy[column].quantile(0.25)
+        data_copy[f'{column}_normalized'] = (data_copy[column] - median) / iqr
+    else:
+        raise ValueError(f"Unknown normalization method: {method}")
+    
+    return data_copy
+
+def clean_dataset(data, numeric_columns, outlier_multiplier=1.5, normalization_method='zscore'):
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Parameters:
+    data (pd.DataFrame): Input DataFrame
+    numeric_columns (list): List of numeric column names to process
+    outlier_multiplier (float): IQR multiplier for outlier removal
+    normalization_method (str): Normalization method to apply
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_data = data.copy()
+    
+    for column in numeric_columns:
+        if column in cleaned_data.columns:
+            cleaned_data = remove_outliers_iqr(cleaned_data, column, outlier_multiplier)
+            cleaned_data = normalize_column(cleaned_data, column, normalization_method)
+    
+    return cleaned_data
+
+def validate_data(data, required_columns, numeric_threshold=0.8):
+    """
+    Validate dataset structure and content.
+    
+    Parameters:
+    data (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of required column names
+    numeric_threshold (float): Minimum proportion of numeric values in numeric columns
+    
+    Returns:
+    dict: Validation results
+    """
+    validation_results = {
+        'has_required_columns': True,
+        'missing_columns': [],
+        'numeric_columns_valid': True,
+        'invalid_numeric_columns': []
+    }
+    
+    for col in required_columns:
+        if col not in data.columns:
+            validation_results['has_required_columns'] = False
+            validation_results['missing_columns'].append(col)
+    
+    numeric_cols = data.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        numeric_proportion = data[col].apply(lambda x: isinstance(x, (int, float))).mean()
+        if numeric_proportion < numeric_threshold:
+            validation_results['numeric_columns_valid'] = False
+            validation_results['invalid_numeric_columns'].append(col)
+    
+    return validation_results
