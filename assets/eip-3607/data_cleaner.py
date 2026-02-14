@@ -441,4 +441,51 @@ def validate_data(df, required_columns=None, numeric_columns=None):
         if null_count > 0:
             validation_results['null_counts'][col] = null_count
     
-    return validation_results
+    return validation_resultsimport pandas as pd
+import numpy as np
+from scipy import stats
+
+def detect_outliers_iqr(data, column):
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    outliers = data[(data[column] < lower_bound) | (data[column] > upper_bound)]
+    return outliers
+
+def impute_missing_with_median(data, column):
+    median_value = data[column].median()
+    data[column].fillna(median_value, inplace=True)
+    return data
+
+def remove_duplicates(data, subset=None):
+    if subset:
+        data_cleaned = data.drop_duplicates(subset=subset)
+    else:
+        data_cleaned = data.drop_duplicates()
+    return data_cleaned
+
+def standardize_column(data, column):
+    mean = data[column].mean()
+    std = data[column].std()
+    data[column] = (data[column] - mean) / std
+    return data
+
+def clean_dataset(data, numeric_columns, categorical_columns=None):
+    cleaned_data = data.copy()
+    
+    for col in numeric_columns:
+        if cleaned_data[col].isnull().any():
+            cleaned_data = impute_missing_with_median(cleaned_data, col)
+        outliers = detect_outliers_iqr(cleaned_data, col)
+        if not outliers.empty:
+            cleaned_data = cleaned_data[~cleaned_data.index.isin(outliers.index)]
+        cleaned_data = standardize_column(cleaned_data, col)
+    
+    if categorical_columns:
+        cleaned_data = remove_duplicates(cleaned_data, subset=categorical_columns)
+    else:
+        cleaned_data = remove_duplicates(cleaned_data)
+    
+    return cleaned_data
