@@ -185,4 +185,125 @@ if __name__ == "__main__":
         validate_data(cleaned, required_columns=['id', 'name', 'value'], min_rows=3)
         print("Data validation passed")
     except ValueError as e:
-        print(f"Data validation failed: {e}")
+        print(f"Data validation failed: {e}")import pandas as pd
+import numpy as np
+from typing import List, Optional
+
+def remove_duplicates(df: pd.DataFrame, subset: Optional[List[str]] = None) -> pd.DataFrame:
+    """
+    Remove duplicate rows from DataFrame.
+    
+    Args:
+        df: Input DataFrame
+        subset: Columns to consider for identifying duplicates
+    
+    Returns:
+        DataFrame with duplicates removed
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def convert_column_types(df: pd.DataFrame, 
+                         column_types: dict) -> pd.DataFrame:
+    """
+    Convert specified columns to given data types.
+    
+    Args:
+        df: Input DataFrame
+        column_types: Dictionary mapping column names to target types
+    
+    Returns:
+        DataFrame with converted column types
+    """
+    df_copy = df.copy()
+    for column, dtype in column_types.items():
+        if column in df_copy.columns:
+            try:
+                df_copy[column] = df_copy[column].astype(dtype)
+            except (ValueError, TypeError):
+                print(f"Warning: Could not convert column '{column}' to {dtype}")
+    return df_copy
+
+def handle_missing_values(df: pd.DataFrame, 
+                          strategy: str = 'drop',
+                          fill_value: Optional[float] = None) -> pd.DataFrame:
+    """
+    Handle missing values in DataFrame.
+    
+    Args:
+        df: Input DataFrame
+        strategy: 'drop' to remove rows, 'fill' to fill values
+        fill_value: Value to use when filling (if strategy is 'fill')
+    
+    Returns:
+        DataFrame with handled missing values
+    """
+    if strategy == 'drop':
+        return df.dropna()
+    elif strategy == 'fill' and fill_value is not None:
+        return df.fillna(fill_value)
+    else:
+        return df
+
+def normalize_numeric_columns(df: pd.DataFrame,
+                              columns: List[str],
+                              method: str = 'minmax') -> pd.DataFrame:
+    """
+    Normalize numeric columns using specified method.
+    
+    Args:
+        df: Input DataFrame
+        columns: List of column names to normalize
+        method: Normalization method ('minmax' or 'zscore')
+    
+    Returns:
+        DataFrame with normalized columns
+    """
+    df_copy = df.copy()
+    
+    for column in columns:
+        if column in df_copy.columns and pd.api.types.is_numeric_dtype(df_copy[column]):
+            if method == 'minmax':
+                col_min = df_copy[column].min()
+                col_max = df_copy[column].max()
+                if col_max != col_min:
+                    df_copy[column] = (df_copy[column] - col_min) / (col_max - col_min)
+            elif method == 'zscore':
+                col_mean = df_copy[column].mean()
+                col_std = df_copy[column].std()
+                if col_std != 0:
+                    df_copy[column] = (df_copy[column] - col_mean) / col_std
+    
+    return df_copy
+
+def clean_dataframe(df: pd.DataFrame,
+                    remove_dups: bool = True,
+                    type_conversions: Optional[dict] = None,
+                    missing_strategy: str = 'drop',
+                    normalize_cols: Optional[List[str]] = None) -> pd.DataFrame:
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Args:
+        df: Input DataFrame
+        remove_dups: Whether to remove duplicates
+        type_conversions: Dictionary of column type conversions
+        missing_strategy: Strategy for handling missing values
+        normalize_cols: Columns to normalize
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    if remove_dups:
+        cleaned_df = remove_duplicates(cleaned_df)
+    
+    if type_conversions:
+        cleaned_df = convert_column_types(cleaned_df, type_conversions)
+    
+    cleaned_df = handle_missing_values(cleaned_df, strategy=missing_strategy)
+    
+    if normalize_cols:
+        cleaned_df = normalize_numeric_columns(cleaned_df, normalize_cols)
+    
+    return cleaned_df
