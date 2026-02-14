@@ -880,3 +880,172 @@ if __name__ == "__main__":
     validated = validate_email_column(cleaned, 'email')
     print("DataFrame with email validation:")
     print(validated)
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def detect_outliers_iqr(data, column, threshold=1.5):
+    """
+    Detect outliers using Interquartile Range method.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to analyze
+        threshold: IQR multiplier (default 1.5)
+    
+    Returns:
+        Boolean mask of outliers
+    """
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    
+    return (data[column] < lower_bound) | (data[column] > upper_bound)
+
+def remove_outliers_zscore(data, column, threshold=3):
+    """
+    Remove outliers using Z-score method.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to process
+        threshold: Z-score threshold (default 3)
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    z_scores = np.abs(stats.zscore(data[column].dropna()))
+    filtered_data = data[(z_scores < threshold) | (data[column].isna())]
+    return filtered_data
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using Min-Max scaling.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to normalize
+    
+    Returns:
+        Series with normalized values
+    """
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return data[column].fillna(0)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def standardize_data(data, column):
+    """
+    Standardize data using Z-score normalization.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to standardize
+    
+    Returns:
+        Series with standardized values
+    """
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return data[column].fillna(0)
+    
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
+
+def clean_dataset(data, numeric_columns, outlier_method='iqr', normalize=False):
+    """
+    Main function to clean dataset with multiple options.
+    
+    Args:
+        data: pandas DataFrame
+        numeric_columns: list of numeric column names to process
+        outlier_method: 'iqr' or 'zscore' (default 'iqr')
+        normalize: whether to normalize data (default False)
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    cleaned_data = data.copy()
+    
+    for column in numeric_columns:
+        if column not in cleaned_data.columns:
+            continue
+            
+        # Handle missing values
+        cleaned_data[column] = cleaned_data[column].fillna(cleaned_data[column].median())
+        
+        # Remove outliers
+        if outlier_method == 'iqr':
+            outliers = detect_outliers_iqr(cleaned_data, column)
+            cleaned_data.loc[outliers, column] = cleaned_data[column].median()
+        elif outlier_method == 'zscore':
+            cleaned_data = remove_outliers_zscore(cleaned_data, column)
+        
+        # Normalize if requested
+        if normalize:
+            cleaned_data[column] = normalize_minmax(cleaned_data, column)
+    
+    return cleaned_data
+
+def validate_data(data, numeric_columns):
+    """
+    Validate data quality after cleaning.
+    
+    Args:
+        data: pandas DataFrame
+        numeric_columns: list of numeric column names to validate
+    
+    Returns:
+        Dictionary with validation results
+    """
+    validation_results = {}
+    
+    for column in numeric_columns:
+        if column not in data.columns:
+            continue
+            
+        col_data = data[column]
+        validation_results[column] = {
+            'missing_values': col_data.isna().sum(),
+            'unique_values': col_data.nunique(),
+            'mean': col_data.mean(),
+            'std': col_data.std(),
+            'min': col_data.min(),
+            'max': col_data.max(),
+            'median': col_data.median()
+        }
+    
+    return validation_results
+
+# Example usage
+if __name__ == "__main__":
+    # Create sample data
+    np.random.seed(42)
+    sample_data = pd.DataFrame({
+        'feature_a': np.random.normal(100, 15, 1000),
+        'feature_b': np.random.exponential(50, 1000),
+        'feature_c': np.random.uniform(0, 1, 1000)
+    })
+    
+    # Add some outliers
+    sample_data.loc[10, 'feature_a'] = 500
+    sample_data.loc[20, 'feature_b'] = 1000
+    
+    # Clean the data
+    numeric_cols = ['feature_a', 'feature_b', 'feature_c']
+    cleaned = clean_dataset(sample_data, numeric_cols, outlier_method='iqr', normalize=True)
+    
+    # Validate results
+    validation = validate_data(cleaned, numeric_cols)
+    
+    print(f"Original shape: {sample_data.shape}")
+    print(f"Cleaned shape: {cleaned.shape}")
+    print(f"Validation stats for feature_a: {validation['feature_a']}")
