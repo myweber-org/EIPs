@@ -560,3 +560,13 @@ def validate_email_column(df, email_column):
     )
     
     return df
+def clean_data(data):
+    """
+    Remove duplicate entries from a list and sort the remaining items.
+    """
+    if not isinstance(data, list):
+        raise TypeError("Input must be a list")
+    
+    unique_data = list(set(data))
+    sorted_data = sorted(unique_data)
+    return sorted_data
