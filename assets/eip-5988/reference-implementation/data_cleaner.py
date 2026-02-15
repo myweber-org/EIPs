@@ -220,4 +220,85 @@ def validate_data(data, required_columns, numeric_columns):
             if not pd.api.types.is_numeric_dtype(data[column]):
                 raise ValueError(f"Column '{column}' must be numeric")
     
-    return True
+    return Trueimport pandas as pd
+
+def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        drop_duplicates (bool): Whether to drop duplicate rows. Default is True.
+        fill_missing (str): Method to fill missing values. 
+                           Options: 'mean', 'median', 'mode', or 'drop'. 
+                           Default is 'mean'.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    df_clean = df.copy()
+    
+    if drop_duplicates:
+        df_clean = df_clean.drop_duplicates()
+    
+    if fill_missing == 'drop':
+        df_clean = df_clean.dropna()
+    elif fill_missing in ['mean', 'median', 'mode']:
+        numeric_cols = df_clean.select_dtypes(include=['number']).columns
+        
+        for col in numeric_cols:
+            if df_clean[col].isnull().any():
+                if fill_missing == 'mean':
+                    fill_value = df_clean[col].mean()
+                elif fill_missing == 'median':
+                    fill_value = df_clean[col].median()
+                elif fill_missing == 'mode':
+                    fill_value = df_clean[col].mode()[0]
+                
+                df_clean[col] = df_clean[col].fillna(fill_value)
+    
+    return df_clean
+
+def validate_dataset(df, required_columns=None):
+    """
+    Validate a DataFrame for basic integrity checks.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list): List of column names that must be present.
+    
+    Returns:
+        dict: Dictionary with validation results.
+    """
+    validation_results = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_values': df.isnull().sum().sum(),
+        'duplicate_rows': df.duplicated().sum()
+    }
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        validation_results['missing_required_columns'] = missing_columns
+        validation_results['all_required_columns_present'] = len(missing_columns) == 0
+    
+    return validation_results
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, 2, 4, None, 6],
+        'B': [10, 20, 20, None, 50, 60],
+        'C': ['x', 'y', 'y', 'z', 'x', 'z']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nValidation Results:")
+    print(validate_dataset(df))
+    
+    cleaned_df = clean_dataset(df, drop_duplicates=True, fill_missing='mean')
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    print("\nValidation Results after cleaning:")
+    print(validate_dataset(cleaned_df))
