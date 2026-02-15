@@ -311,3 +311,116 @@ if __name__ == "__main__":
     
     cleaned_df = load_and_clean_data(input_file)
     save_cleaned_data(cleaned_df, output_file)
+import pandas as pd
+import numpy as np
+
+def clean_dataframe(df, drop_duplicates=True, fill_missing='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    drop_duplicates (bool): Whether to drop duplicate rows. Default is True.
+    fill_missing (str): Method to fill missing values. Options: 'mean', 'median', 'mode', 'zero', or 'drop'.
+                        Default is 'mean'.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    
+    df_clean = df.copy()
+    
+    if drop_duplicates:
+        initial_rows = df_clean.shape[0]
+        df_clean = df_clean.drop_duplicates()
+        removed = initial_rows - df_clean.shape[0]
+        print(f"Removed {removed} duplicate rows.")
+    
+    if fill_missing == 'drop':
+        initial_rows = df_clean.shape[0]
+        df_clean = df_clean.dropna()
+        removed = initial_rows - df_clean.shape[0]
+        print(f"Removed {removed} rows with missing values.")
+    else:
+        for column in df_clean.columns:
+            if df_clean[column].isnull().any():
+                if df_clean[column].dtype in [np.float64, np.int64]:
+                    if fill_missing == 'mean':
+                        fill_value = df_clean[column].mean()
+                    elif fill_missing == 'median':
+                        fill_value = df_clean[column].median()
+                    elif fill_missing == 'zero':
+                        fill_value = 0
+                    else:
+                        fill_value = df_clean[column].mode()[0] if not df_clean[column].mode().empty else 0
+                else:
+                    fill_value = df_clean[column].mode()[0] if not df_clean[column].mode().empty else 'Unknown'
+                
+                missing_count = df_clean[column].isnull().sum()
+                df_clean[column].fillna(fill_value, inplace=True)
+                print(f"Filled {missing_count} missing values in column '{column}' with {fill_value}.")
+    
+    print(f"Data cleaning complete. Final shape: {df_clean.shape}")
+    return df_clean
+
+def validate_dataframe(df, check_duplicates=True, check_missing=True):
+    """
+    Validate a DataFrame for duplicates and missing values.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+    check_duplicates (bool): Check for duplicate rows.
+    check_missing (bool): Check for missing values.
+    
+    Returns:
+    dict: Dictionary with validation results.
+    """
+    
+    validation_results = {}
+    
+    if check_duplicates:
+        duplicate_count = df.duplicated().sum()
+        validation_results['duplicates'] = duplicate_count
+        print(f"Found {duplicate_count} duplicate rows.")
+    
+    if check_missing:
+        missing_counts = df.isnull().sum()
+        total_missing = missing_counts.sum()
+        validation_results['missing_values'] = total_missing
+        validation_results['missing_by_column'] = missing_counts[missing_counts > 0].to_dict()
+        
+        if total_missing > 0:
+            print(f"Found {total_missing} missing values in total.")
+            for col, count in missing_counts[missing_counts > 0].items():
+                print(f"  Column '{col}': {count} missing values")
+        else:
+            print("No missing values found.")
+    
+    return validation_results
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, 2, 4, 5, None, 7],
+        'B': [10, 20, 20, None, 50, 60, 70],
+        'C': ['x', 'y', 'y', 'z', None, 'x', 'x']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    print("Validation results:")
+    validation = validate_dataframe(df)
+    print("\n" + "="*50 + "\n")
+    
+    print("Cleaning data...")
+    df_clean = clean_dataframe(df, drop_duplicates=True, fill_missing='mean')
+    print("\n" + "="*50 + "\n")
+    
+    print("Cleaned DataFrame:")
+    print(df_clean)
+    print("\n" + "="*50 + "\n")
+    
+    print("Final validation:")
+    final_validation = validate_dataframe(df_clean)
