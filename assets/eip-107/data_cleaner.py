@@ -1,74 +1,62 @@
 
-import pandas as pd
 import numpy as np
+import pandas as pd
+from scipy import stats
 
-def remove_outliers_iqr(df, column):
-    """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def detect_outliers_iqr(self, column):
+        Q1 = self.df[column].quantile(0.25)
+        Q3 = self.df[column].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+        outliers = self.df[(self.df[column] < lower_bound) | (self.df[column] > upper_bound)]
+        return outliers
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to process
+    def remove_outliers_zscore(self, column, threshold=3):
+        z_scores = np.abs(stats.zscore(self.df[column].dropna()))
+        self.df = self.df[(z_scores < threshold) | (self.df[column].isna())]
+        return self
     
-    Returns:
-    pd.DataFrame: DataFrame with outliers removed
-    """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    def normalize_column(self, column, method='minmax'):
+        if method == 'minmax':
+            min_val = self.df[column].min()
+            max_val = self.df[column].max()
+            self.df[column] = (self.df[column] - min_val) / (max_val - min_val)
+        elif method == 'zscore':
+            mean_val = self.df[column].mean()
+            std_val = self.df[column].std()
+            self.df[column] = (self.df[column] - mean_val) / std_val
+        return self
     
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
+    def fill_missing(self, column, strategy='mean'):
+        if strategy == 'mean':
+            fill_value = self.df[column].mean()
+        elif strategy == 'median':
+            fill_value = self.df[column].median()
+        elif strategy == 'mode':
+            fill_value = self.df[column].mode()[0]
+        else:
+            fill_value = strategy
+            
+        self.df[column].fillna(fill_value, inplace=True)
+        return self
     
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
+    def get_cleaned_data(self):
+        print(f"Original shape: {self.original_shape}")
+        print(f"Cleaned shape: {self.df.shape}")
+        print(f"Rows removed: {self.original_shape[0] - self.df.shape[0]}")
+        return self.df
     
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    
-    return filtered_df
-
-def calculate_summary_statistics(df):
-    """
-    Calculate summary statistics for numerical columns.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    
-    Returns:
-    pd.DataFrame: Summary statistics
-    """
-    numeric_cols = df.select_dtypes(include=[np.number]).columns
-    
-    if len(numeric_cols) == 0:
-        return pd.DataFrame()
-    
-    summary = df[numeric_cols].agg(['mean', 'median', 'std', 'min', 'max'])
-    
-    return summary
-
-def handle_missing_values(df, strategy='mean'):
-    """
-    Handle missing values in numerical columns.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    strategy (str): Strategy to handle missing values ('mean', 'median', 'drop')
-    
-    Returns:
-    pd.DataFrame: DataFrame with handled missing values
-    """
-    df_clean = df.copy()
-    numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
-    
-    if strategy == 'drop':
-        df_clean = df_clean.dropna(subset=numeric_cols)
-    elif strategy == 'mean':
-        for col in numeric_cols:
-            df_clean[col] = df_clean[col].fillna(df_clean[col].mean())
-    elif strategy == 'median':
-        for col in numeric_cols:
-            df_clean[col] = df_clean[col].fillna(df_clean[col].median())
-    else:
-        raise ValueError("Strategy must be 'mean', 'median', or 'drop'")
-    
-    return df_clean
+    def summary(self):
+        summary_stats = self.df.describe(include='all')
+        missing_values = self.df.isnull().sum()
+        print("Summary Statistics:")
+        print(summary_stats)
+        print("\nMissing Values:")
+        print(missing_values)
+        return summary_stats, missing_values
