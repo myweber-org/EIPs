@@ -383,3 +383,81 @@ if __name__ == "__main__":
     cleaned_data = clean_dataset('sample_data.csv', ['age', 'income', 'score'])
     cleaned_data.to_csv('cleaned_data.csv', index=False)
     print("Data cleaning completed. Cleaned data saved to 'cleaned_data.csv'")
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_duplicates=True, fill_missing=True, fill_strategy='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    drop_duplicates (bool): Whether to remove duplicate rows.
+    fill_missing (bool): Whether to fill missing values.
+    fill_strategy (str): Strategy for filling missing values ('mean', 'median', 'mode', 'zero').
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    if fill_missing:
+        for column in cleaned_df.select_dtypes(include=[np.number]).columns:
+            if cleaned_df[column].isnull().any():
+                if fill_strategy == 'mean':
+                    cleaned_df[column].fillna(cleaned_df[column].mean(), inplace=True)
+                elif fill_strategy == 'median':
+                    cleaned_df[column].fillna(cleaned_df[column].median(), inplace=True)
+                elif fill_strategy == 'mode':
+                    cleaned_df[column].fillna(cleaned_df[column].mode()[0], inplace=True)
+                elif fill_strategy == 'zero':
+                    cleaned_df[column].fillna(0, inplace=True)
+        
+        for column in cleaned_df.select_dtypes(include=['object']).columns:
+            if cleaned_df[column].isnull().any():
+                cleaned_df[column].fillna('Unknown', inplace=True)
+    
+    return cleaned_df
+
+def validate_dataset(df, required_columns=None, min_rows=1):
+    """
+    Validate a DataFrame for required columns and minimum row count.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+    required_columns (list): List of required column names.
+    min_rows (int): Minimum number of rows required.
+    
+    Returns:
+    tuple: (bool, str) indicating validation success and message.
+    """
+    if len(df) < min_rows:
+        return False, f"Dataset must have at least {min_rows} rows"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "Dataset validation passed"
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, 2, 4, None],
+        'B': [5, None, 7, 8, 9],
+        'C': ['x', 'y', 'y', None, 'z']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned = clean_dataset(df, fill_strategy='mean')
+    print("\nCleaned DataFrame:")
+    print(cleaned)
+    
+    is_valid, message = validate_dataset(cleaned, required_columns=['A', 'B', 'C'])
+    print(f"\nValidation: {is_valid} - {message}")
