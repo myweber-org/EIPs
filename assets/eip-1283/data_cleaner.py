@@ -923,4 +923,33 @@ def clean_dataset(file_path, output_path):
     print(f"Cleaned shape: {df.shape}")
 
 if __name__ == "__main__":
-    clean_dataset('raw_data.csv', 'cleaned_data.csv')
+    clean_dataset('raw_data.csv', 'cleaned_data.csv')import re
+
+def clean_string(text):
+    """
+    Cleans a string by:
+    1. Stripping leading/trailing whitespace.
+    2. Replacing multiple spaces/newlines/tabs with a single space.
+    3. Converting to lowercase.
+    """
+    if not isinstance(text, str):
+        raise TypeError("Input must be a string")
+
+    # Strip leading/trailing whitespace
+    text = text.strip()
+
+    # Replace any sequence of whitespace characters with a single space
+    text = re.sub(r'\s+', ' ', text)
+
+    # Convert to lowercase
+    text = text.lower()
+
+    return text
+
+def normalize_whitespace(text):
+    """
+    A more specific function that only normalizes whitespace.
+    """
+    if not isinstance(text, str):
+        raise TypeError("Input must be a string")
+    return re.sub(r'\s+', ' ', text).strip()
