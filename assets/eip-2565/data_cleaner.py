@@ -205,3 +205,89 @@ if __name__ == "__main__":
     print("\nCleaned data shape:", cleaned_data.shape)
     print("\nCleaned data validation:")
     print(validate_data(cleaned_data))
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+class DataCleaner:
+    def __init__(self, data):
+        self.data = data.copy()
+        self.original_shape = data.shape
+        
+    def remove_outliers_iqr(self, columns=None, threshold=1.5):
+        if columns is None:
+            columns = self.data.select_dtypes(include=[np.number]).columns
+            
+        clean_data = self.data.copy()
+        
+        for col in columns:
+            if col in self.data.columns:
+                Q1 = self.data[col].quantile(0.25)
+                Q3 = self.data[col].quantile(0.75)
+                IQR = Q3 - Q1
+                
+                lower_bound = Q1 - threshold * IQR
+                upper_bound = Q3 + threshold * IQR
+                
+                mask = (self.data[col] >= lower_bound) & (self.data[col] <= upper_bound)
+                clean_data = clean_data[mask]
+                
+        self.data = clean_data
+        return self
+        
+    def normalize_minmax(self, columns=None):
+        if columns is None:
+            columns = self.data.select_dtypes(include=[np.number]).columns
+            
+        for col in columns:
+            if col in self.data.columns:
+                col_min = self.data[col].min()
+                col_max = self.data[col].max()
+                
+                if col_max != col_min:
+                    self.data[col] = (self.data[col] - col_min) / (col_max - col_min)
+                    
+        return self
+        
+    def standardize_zscore(self, columns=None):
+        if columns is None:
+            columns = self.data.select_dtypes(include=[np.number]).columns
+            
+        for col in columns:
+            if col in self.data.columns:
+                col_mean = self.data[col].mean()
+                col_std = self.data[col].std()
+                
+                if col_std > 0:
+                    self.data[col] = (self.data[col] - col_mean) / col_std
+                    
+        return self
+        
+    def fill_missing_mean(self, columns=None):
+        if columns is None:
+            columns = self.data.select_dtypes(include=[np.number]).columns
+            
+        for col in columns:
+            if col in self.data.columns:
+                self.data[col] = self.data[col].fillna(self.data[col].mean())
+                
+        return self
+        
+    def get_cleaned_data(self):
+        return self.data
+        
+    def get_removed_count(self):
+        return self.original_shape[0] - self.data.shape[0]
+
+def clean_dataset(df, outlier_threshold=1.5, normalize=True, fill_missing=True):
+    cleaner = DataCleaner(df)
+    
+    if fill_missing:
+        cleaner.fill_missing_mean()
+        
+    cleaner.remove_outliers_iqr(threshold=outlier_threshold)
+    
+    if normalize:
+        cleaner.normalize_minmax()
+        
+    return cleaner.get_cleaned_data(), cleaner.get_removed_count()
