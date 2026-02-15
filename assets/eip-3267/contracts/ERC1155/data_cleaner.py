@@ -598,4 +598,127 @@ if __name__ == "__main__":
         print(f"{key}: {value}")
     
     print("\nFirst 5 rows of cleaned data:")
-    print(cleaned_df.head())
+    print(cleaned_df.head())import numpy as np
+import pandas as pd
+from scipy import stats
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    def detect_outliers_iqr(self, column, threshold=1.5):
+        Q1 = self.df[column].quantile(0.25)
+        Q3 = self.df[column].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - threshold * IQR
+        upper_bound = Q3 + threshold * IQR
+        outliers = self.df[(self.df[column] < lower_bound) | (self.df[column] > upper_bound)]
+        return outliers.index.tolist()
+    
+    def remove_outliers(self, columns=None, threshold=1.5):
+        if columns is None:
+            columns = self.numeric_columns
+        
+        outlier_indices = []
+        for col in columns:
+            if col in self.numeric_columns:
+                outlier_indices.extend(self.detect_outliers_iqr(col, threshold))
+        
+        unique_outliers = list(set(outlier_indices))
+        cleaned_df = self.df.drop(index=unique_outliers)
+        return cleaned_df, len(unique_outliers)
+    
+    def impute_missing_mean(self, columns=None):
+        if columns is None:
+            columns = self.numeric_columns
+        
+        imputed_df = self.df.copy()
+        for col in columns:
+            if col in self.numeric_columns:
+                mean_value = imputed_df[col].mean()
+                imputed_df[col] = imputed_df[col].fillna(mean_value)
+        return imputed_df
+    
+    def impute_missing_median(self, columns=None):
+        if columns is None:
+            columns = self.numeric_columns
+        
+        imputed_df = self.df.copy()
+        for col in columns:
+            if col in self.numeric_columns:
+                median_value = imputed_df[col].median()
+                imputed_df[col] = imputed_df[col].fillna(median_value)
+        return imputed_df
+    
+    def standardize_data(self, columns=None):
+        if columns is None:
+            columns = self.numeric_columns
+        
+        standardized_df = self.df.copy()
+        for col in columns:
+            if col in self.numeric_columns:
+                mean = standardized_df[col].mean()
+                std = standardized_df[col].std()
+                if std > 0:
+                    standardized_df[col] = (standardized_df[col] - mean) / std
+        return standardized_df
+    
+    def normalize_data(self, columns=None):
+        if columns is None:
+            columns = self.numeric_columns
+        
+        normalized_df = self.df.copy()
+        for col in columns:
+            if col in self.numeric_columns:
+                min_val = normalized_df[col].min()
+                max_val = normalized_df[col].max()
+                if max_val > min_val:
+                    normalized_df[col] = (normalized_df[col] - min_val) / (max_val - min_val)
+        return normalized_df
+    
+    def get_summary(self):
+        summary = {
+            'total_rows': len(self.df),
+            'total_columns': len(self.df.columns),
+            'numeric_columns': self.numeric_columns,
+            'missing_values': self.df.isnull().sum().to_dict(),
+            'data_types': self.df.dtypes.to_dict()
+        }
+        return summary
+
+def create_sample_data():
+    np.random.seed(42)
+    data = {
+        'age': np.random.normal(35, 10, 100),
+        'income': np.random.normal(50000, 15000, 100),
+        'score': np.random.uniform(0, 100, 100)
+    }
+    
+    df = pd.DataFrame(data)
+    
+    df.loc[10:15, 'age'] = np.nan
+    df.loc[95, 'income'] = 200000
+    df.loc[96, 'income'] = -50000
+    
+    return df
+
+if __name__ == "__main__":
+    sample_df = create_sample_data()
+    cleaner = DataCleaner(sample_df)
+    
+    summary = cleaner.get_summary()
+    print("Data Summary:")
+    for key, value in summary.items():
+        print(f"{key}: {value}")
+    
+    cleaned_df, outliers_removed = cleaner.remove_outliers(threshold=1.5)
+    print(f"\nRemoved {outliers_removed} outliers")
+    
+    imputed_df = cleaner.impute_missing_mean()
+    print(f"\nMissing values after imputation: {imputed_df.isnull().sum().sum()}")
+    
+    standardized_df = cleaner.standardize_data()
+    normalized_df = cleaner.normalize_data()
+    
+    print("\nData cleaning completed successfully")
