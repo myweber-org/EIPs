@@ -132,4 +132,69 @@ def remove_duplicates_preserve_order(sequence):
         if item not in seen:
             seen.add(item)
             result.append(item)
-    return result
+    return resultimport pandas as pd
+
+def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    drop_duplicates (bool): Whether to drop duplicate rows. Default is True.
+    fill_missing (str): Method to fill missing values. Options: 'mean', 'median', 'mode', or 'drop'. Default is 'mean'.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    if fill_missing == 'drop':
+        cleaned_df = cleaned_df.dropna()
+    elif fill_missing in ['mean', 'median']:
+        numeric_cols = cleaned_df.select_dtypes(include=['number']).columns
+        for col in numeric_cols:
+            if fill_missing == 'mean':
+                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mean())
+            elif fill_missing == 'median':
+                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].median())
+    elif fill_missing == 'mode':
+        for col in cleaned_df.columns:
+            mode_val = cleaned_df[col].mode()
+            if not mode_val.empty:
+                cleaned_df[col] = cleaned_df[col].fillna(mode_val.iloc[0])
+    
+    return cleaned_df
+
+def validate_dataset(df, check_missing=True, check_inf=True):
+    """
+    Validate a DataFrame by checking for missing values and infinite values.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to validate.
+    check_missing (bool): Whether to check for missing values. Default is True.
+    check_inf (bool): Whether to check for infinite values. Default is True.
+    
+    Returns:
+    dict: Dictionary containing validation results.
+    """
+    validation_results = {}
+    
+    if check_missing:
+        missing_counts = df.isnull().sum()
+        validation_results['missing_values'] = missing_counts[missing_counts > 0].to_dict()
+    
+    if check_inf:
+        numeric_cols = df.select_dtypes(include=['number']).columns
+        inf_counts = {}
+        for col in numeric_cols:
+            inf_count = (df[col] == float('inf')).sum() + (df[col] == float('-inf')).sum()
+            if inf_count > 0:
+                inf_counts[col] = inf_count
+        validation_results['infinite_values'] = inf_counts
+    
+    validation_results['is_valid'] = len(validation_results.get('missing_values', {})) == 0 and len(validation_results.get('infinite_values', {})) == 0
+    
+    return validation_results
