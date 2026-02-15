@@ -206,4 +206,75 @@ def remove_duplicates_preserve_order(iterable):
         if item not in seen:
             seen.add(item)
             result.append(item)
-    return result
+    return resultimport pandas as pd
+
+def remove_duplicates(dataframe, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a pandas DataFrame.
+    
+    Args:
+        dataframe: Input pandas DataFrame.
+        subset: Column label or sequence of labels to consider for duplicates.
+                If None, all columns are used.
+        keep: Determines which duplicates to mark.
+              'first' : Mark duplicates as False except for the first occurrence.
+              'last' : Mark duplicates as False except for the last occurrence.
+              False : Mark all duplicates as True.
+    
+    Returns:
+        DataFrame with duplicates removed.
+    """
+    if not isinstance(dataframe, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    cleaned_df = dataframe.drop_duplicates(subset=subset, keep=keep)
+    return cleaned_df
+
+def clean_missing_values(dataframe, strategy='drop', fill_value=None):
+    """
+    Handle missing values in a DataFrame.
+    
+    Args:
+        dataframe: Input pandas DataFrame.
+        strategy: How to handle missing values.
+                  'drop': Remove rows with any missing values.
+                  'fill': Fill missing values with specified fill_value.
+        fill_value: Value to use when strategy is 'fill'.
+    
+    Returns:
+        DataFrame with missing values handled.
+    """
+    if strategy == 'drop':
+        cleaned_df = dataframe.dropna()
+    elif strategy == 'fill':
+        if fill_value is None:
+            raise ValueError("fill_value must be provided when strategy is 'fill'")
+        cleaned_df = dataframe.fillna(fill_value)
+    else:
+        raise ValueError("strategy must be either 'drop' or 'fill'")
+    
+    return cleaned_df
+
+def validate_dataframe(dataframe, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        dataframe: Input pandas DataFrame.
+        required_columns: List of column names that must be present.
+    
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not isinstance(dataframe, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
+    if dataframe.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in dataframe.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "DataFrame is valid"
