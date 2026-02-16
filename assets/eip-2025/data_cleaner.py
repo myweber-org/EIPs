@@ -272,3 +272,105 @@ def main():
 
 if __name__ == "__main__":
     main()
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_threshold=0.5, fill_strategy='mean'):
+    """
+    Clean a pandas DataFrame by handling missing values and standardizing columns.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean
+    drop_threshold (float): Threshold for dropping columns with too many nulls
+    fill_strategy (str): Strategy for filling missing values ('mean', 'median', 'mode')
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    
+    # Create a copy to avoid modifying original
+    cleaned_df = df.copy()
+    
+    # Standardize column names
+    cleaned_df.columns = cleaned_df.columns.str.lower().str.replace(' ', '_')
+    
+    # Drop columns with too many null values
+    null_ratio = cleaned_df.isnull().sum() / len(cleaned_df)
+    cols_to_drop = null_ratio[null_ratio > drop_threshold].index
+    cleaned_df = cleaned_df.drop(columns=cols_to_drop)
+    
+    # Fill missing values based on strategy
+    for column in cleaned_df.columns:
+        if cleaned_df[column].isnull().any():
+            if cleaned_df[column].dtype in ['int64', 'float64']:
+                if fill_strategy == 'mean':
+                    fill_value = cleaned_df[column].mean()
+                elif fill_strategy == 'median':
+                    fill_value = cleaned_df[column].median()
+                else:
+                    fill_value = cleaned_df[column].mode()[0] if not cleaned_df[column].mode().empty else 0
+            else:
+                fill_value = cleaned_df[column].mode()[0] if not cleaned_df[column].mode().empty else 'unknown'
+            
+            cleaned_df[column] = cleaned_df[column].fillna(fill_value)
+    
+    # Remove duplicate rows
+    cleaned_df = cleaned_df.drop_duplicates()
+    
+    # Reset index
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    return cleaned_df
+
+def validate_data(df, required_columns=None):
+    """
+    Validate the cleaned DataFrame for basic data quality.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of columns that must be present
+    
+    Returns:
+    dict: Dictionary with validation results
+    """
+    validation_results = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'has_null_values': df.isnull().sum().sum() > 0,
+        'duplicate_rows': len(df) - len(df.drop_duplicates()),
+        'column_names': list(df.columns)
+    }
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        validation_results['missing_required_columns'] = missing_columns
+        validation_results['all_required_present'] = len(missing_columns) == 0
+    
+    return validation_results
+
+# Example usage
+if __name__ == "__main__":
+    # Create sample data
+    sample_data = {
+        'Customer ID': [1, 2, 3, 4, 5, None],
+        'Order Value': [100.5, None, 75.2, 120.8, 90.1, 110.3],
+        'Product Category': ['A', 'B', 'A', None, 'C', 'B'],
+        'Region': ['North', 'South', 'North', 'East', 'West', 'North']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    # Clean the data
+    cleaned_df = clean_dataset(df, drop_threshold=0.3, fill_strategy='mean')
+    print("Cleaned DataFrame:")
+    print(cleaned_df)
+    print("\n" + "="*50 + "\n")
+    
+    # Validate the cleaned data
+    validation = validate_data(cleaned_df, required_columns=['customer_id', 'order_value'])
+    print("Validation Results:")
+    for key, value in validation.items():
+        print(f"{key}: {value}")
