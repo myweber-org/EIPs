@@ -1040,3 +1040,158 @@ def remove_outliers_iqr(data, column):
     upper_bound = Q3 + 1.5 * IQR
     filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
     return filtered_data
+import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(data, column, multiplier=1.5):
+    """
+    Remove outliers from a column using the IQR method.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    column (str): Column name to process
+    multiplier (float): IQR multiplier for outlier detection
+    
+    Returns:
+    pd.DataFrame: Dataframe with outliers removed
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - multiplier * iqr
+    upper_bound = q3 + multiplier * iqr
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
+
+def normalize_minmax(data, column):
+    """
+    Normalize a column using min-max scaling to range [0, 1].
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    column (str): Column name to normalize
+    
+    Returns:
+    pd.DataFrame: Dataframe with normalized column
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        data[f'{column}_normalized'] = 0.5
+    else:
+        data[f'{column}_normalized'] = (data[column] - min_val) / (max_val - min_val)
+    
+    return data
+
+def standardize_zscore(data, column):
+    """
+    Standardize a column using z-score normalization.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    column (str): Column name to standardize
+    
+    Returns:
+    pd.DataFrame: Dataframe with standardized column
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        data[f'{column}_standardized'] = 0
+    else:
+        data[f'{column}_standardized'] = (data[column] - mean_val) / std_val
+    
+    return data
+
+def clean_dataset(data, numeric_columns, outlier_multiplier=1.5, normalize=True, standardize=False):
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    numeric_columns (list): List of numeric column names to process
+    outlier_multiplier (float): IQR multiplier for outlier removal
+    normalize (bool): Whether to apply min-max normalization
+    standardize (bool): Whether to apply z-score standardization
+    
+    Returns:
+    pd.DataFrame: Cleaned dataframe
+    """
+    cleaned_data = data.copy()
+    
+    for column in numeric_columns:
+        if column in cleaned_data.columns:
+            cleaned_data = remove_outliers_iqr(cleaned_data, column, outlier_multiplier)
+            
+            if normalize:
+                cleaned_data = normalize_minmax(cleaned_data, column)
+            
+            if standardize:
+                cleaned_data = standardize_zscore(cleaned_data, column)
+    
+    return cleaned_data
+
+def get_summary_statistics(data, numeric_columns):
+    """
+    Generate summary statistics for numeric columns.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    numeric_columns (list): List of numeric column names
+    
+    Returns:
+    pd.DataFrame: Summary statistics
+    """
+    summary = {}
+    
+    for column in numeric_columns:
+        if column in data.columns:
+            col_data = data[column].dropna()
+            summary[column] = {
+                'count': len(col_data),
+                'mean': np.mean(col_data),
+                'std': np.std(col_data),
+                'min': np.min(col_data),
+                '25%': np.percentile(col_data, 25),
+                '50%': np.percentile(col_data, 50),
+                '75%': np.percentile(col_data, 75),
+                'max': np.max(col_data)
+            }
+    
+    return pd.DataFrame(summary).T
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'feature_a': np.random.normal(100, 15, 1000),
+        'feature_b': np.random.exponential(50, 1000),
+        'feature_c': np.random.uniform(0, 200, 1000)
+    })
+    
+    print("Original data shape:", sample_data.shape)
+    print("\nOriginal summary statistics:")
+    print(get_summary_statistics(sample_data, ['feature_a', 'feature_b', 'feature_c']))
+    
+    cleaned = clean_dataset(
+        sample_data, 
+        ['feature_a', 'feature_b', 'feature_c'],
+        outlier_multiplier=1.5,
+        normalize=True,
+        standardize=False
+    )
+    
+    print("\nCleaned data shape:", cleaned.shape)
+    print("\nCleaned summary statistics:")
+    print(get_summary_statistics(cleaned, ['feature_a', 'feature_b', 'feature_c']))
