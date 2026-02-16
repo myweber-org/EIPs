@@ -124,4 +124,112 @@ if __name__ == "__main__":
         print(f"{key}: {value}")
     
     print("\nFirst 5 rows of cleaned data:")
-    print(cleaned_df.head())
+    print(cleaned_df.head())import numpy as np
+import pandas as pd
+from scipy import stats
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_outliers_iqr(self, columns=None, threshold=1.5):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+        
+        df_clean = self.df.copy()
+        for col in columns:
+            if col in df_clean.columns:
+                Q1 = df_clean[col].quantile(0.25)
+                Q3 = df_clean[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - threshold * IQR
+                upper_bound = Q3 + threshold * IQR
+                df_clean = df_clean[(df_clean[col] >= lower_bound) & (df_clean[col] <= upper_bound)]
+        
+        removed_count = self.original_shape[0] - df_clean.shape[0]
+        self.df = df_clean
+        return removed_count
+    
+    def normalize_column(self, column, method='minmax'):
+        if column not in self.df.columns:
+            raise ValueError(f"Column '{column}' not found in DataFrame")
+        
+        if method == 'minmax':
+            col_min = self.df[column].min()
+            col_max = self.df[column].max()
+            if col_max == col_min:
+                self.df[f'{column}_normalized'] = 0.5
+            else:
+                self.df[f'{column}_normalized'] = (self.df[column] - col_min) / (col_max - col_min)
+        
+        elif method == 'zscore':
+            self.df[f'{column}_normalized'] = stats.zscore(self.df[column])
+        
+        else:
+            raise ValueError("Method must be 'minmax' or 'zscore'")
+        
+        return self.df[f'{column}_normalized']
+    
+    def fill_missing_with_strategy(self, strategy='median'):
+        df_filled = self.df.copy()
+        numeric_cols = df_filled.select_dtypes(include=[np.number]).columns
+        
+        for col in numeric_cols:
+            if df_filled[col].isnull().any():
+                if strategy == 'mean':
+                    fill_value = df_filled[col].mean()
+                elif strategy == 'median':
+                    fill_value = df_filled[col].median()
+                elif strategy == 'mode':
+                    fill_value = df_filled[col].mode()[0]
+                else:
+                    raise ValueError("Strategy must be 'mean', 'median', or 'mode'")
+                
+                df_filled[col].fillna(fill_value, inplace=True)
+        
+        self.df = df_filled
+        return self.df
+    
+    def get_clean_data(self):
+        return self.df.copy()
+    
+    def get_summary(self):
+        summary = {
+            'original_rows': self.original_shape[0],
+            'current_rows': self.df.shape[0],
+            'columns': list(self.df.columns),
+            'missing_values': self.df.isnull().sum().sum(),
+            'numeric_columns': list(self.df.select_dtypes(include=[np.number]).columns)
+        }
+        return summary
+
+def example_usage():
+    np.random.seed(42)
+    data = {
+        'feature_a': np.random.normal(100, 15, 100),
+        'feature_b': np.random.exponential(50, 100),
+        'category': np.random.choice(['A', 'B', 'C'], 100)
+    }
+    data['feature_a'][:5] = np.nan
+    data['feature_a'][10:15] = 500
+    
+    df = pd.DataFrame(data)
+    cleaner = DataCleaner(df)
+    
+    print("Initial summary:", cleaner.get_summary())
+    
+    removed = cleaner.remove_outliers_iqr(['feature_a', 'feature_b'])
+    print(f"Removed {removed} outliers")
+    
+    cleaner.fill_missing_with_strategy('median')
+    cleaner.normalize_column('feature_a', 'minmax')
+    cleaner.normalize_column('feature_b', 'zscore')
+    
+    print("Final summary:", cleaner.get_summary())
+    return cleaner.get_clean_data()
+
+if __name__ == "__main__":
+    cleaned_data = example_usage()
+    print("\nFirst 5 rows of cleaned data:")
+    print(cleaned_data.head())
