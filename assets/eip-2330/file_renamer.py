@@ -54,4 +54,48 @@ if __name__ == "__main__":
     target_dir = sys.argv[1]
     name_prefix = sys.argv[2] if len(sys.argv) > 2 else "file"
     
-    rename_files(target_dir, name_prefix)
+    rename_files(target_dir, name_prefix)import os
+import sys
+from datetime import datetime
+
+def rename_files_by_date(directory, prefix="file_"):
+    try:
+        files = [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))]
+        
+        for filename in files:
+            filepath = os.path.join(directory, filename)
+            mod_time = os.path.getmtime(filepath)
+            date_str = datetime.fromtimestamp(mod_time).strftime("%Y%m%d_%H%M%S")
+            
+            name, ext = os.path.splitext(filename)
+            new_filename = f"{prefix}{date_str}{ext}"
+            new_filepath = os.path.join(directory, new_filename)
+            
+            counter = 1
+            while os.path.exists(new_filepath):
+                new_filename = f"{prefix}{date_str}_{counter}{ext}"
+                new_filepath = os.path.join(directory, new_filename)
+                counter += 1
+            
+            os.rename(filepath, new_filepath)
+            print(f"Renamed: {filename} -> {new_filename}")
+            
+        print(f"Successfully renamed {len(files)} files.")
+        
+    except Exception as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Usage: python file_renamer.py <directory> [prefix]")
+        sys.exit(1)
+    
+    target_dir = sys.argv[1]
+    file_prefix = sys.argv[2] if len(sys.argv) > 2 else "file_"
+    
+    if not os.path.isdir(target_dir):
+        print(f"Error: {target_dir} is not a valid directory.")
+        sys.exit(1)
+    
+    rename_files_by_date(target_dir, file_prefix)
