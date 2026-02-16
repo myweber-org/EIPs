@@ -1049,3 +1049,11 @@ if __name__ == "__main__":
     print(f"Original shape: {sample_data.shape}")
     print(f"Cleaned shape: {cleaned.shape}")
     print(f"Validation stats for feature_a: {validation['feature_a']}")
+def remove_duplicates_preserve_order(seq):
+    seen = set()
+    result = []
+    for item in seq:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
