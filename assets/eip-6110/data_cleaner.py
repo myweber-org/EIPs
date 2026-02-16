@@ -93,4 +93,91 @@ if __name__ == "__main__":
     stats = calculate_statistics(cleaned_df, 'values')
     print("\nStatistics for cleaned data:")
     for key, value in stats.items():
-        print(f"{key}: {value:.2f}")
+        print(f"{key}: {value:.2f}")import numpy as np
+import pandas as pd
+from scipy import stats
+
+def detect_outliers_iqr(data, column, threshold=1.5):
+    """
+    Detect outliers using the Interquartile Range method.
+    Returns a boolean mask where True indicates an outlier.
+    """
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    return (data[column] < lower_bound) | (data[column] > upper_bound)
+
+def remove_outliers(df, columns, threshold=1.5):
+    """
+    Remove outliers from specified columns using IQR method.
+    Returns a cleaned DataFrame.
+    """
+    clean_df = df.copy()
+    for col in columns:
+        if col in clean_df.columns:
+            outlier_mask = detect_outliers_iqr(clean_df, col, threshold)
+            clean_df = clean_df[~outlier_mask]
+    return clean_df.reset_index(drop=True)
+
+def normalize_minmax(data, column):
+    """
+    Apply min-max normalization to a column.
+    Returns normalized values between 0 and 1.
+    """
+    min_val = data[column].min()
+    max_val = data[column].max()
+    if max_val == min_val:
+        return pd.Series([0.5] * len(data), index=data.index)
+    return (data[column] - min_val) / (max_val - min_val)
+
+def standardize_zscore(data, column):
+    """
+    Apply z-score standardization to a column.
+    Returns standardized values with mean=0 and std=1.
+    """
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    if std_val == 0:
+        return pd.Series([0] * len(data), index=data.index)
+    return (data[column] - mean_val) / std_val
+
+def clean_dataset(df, numeric_columns, outlier_threshold=1.5, normalization='standard'):
+    """
+    Comprehensive data cleaning pipeline.
+    Handles outliers and applies normalization/standardization.
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    cleaned_df = remove_outliers(df, numeric_columns, outlier_threshold)
+    
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            if normalization == 'minmax':
+                cleaned_df[f'{col}_normalized'] = normalize_minmax(cleaned_df, col)
+            elif normalization == 'standard':
+                cleaned_df[f'{col}_standardized'] = standardize_zscore(cleaned_df, col)
+    
+    return cleaned_df
+
+def summarize_cleaning(df_before, df_after, numeric_columns):
+    """
+    Generate a summary of the cleaning process.
+    """
+    summary = {
+        'original_rows': len(df_before),
+        'cleaned_rows': len(df_after),
+        'removed_rows': len(df_before) - len(df_after),
+        'removed_percentage': ((len(df_before) - len(df_after)) / len(df_before)) * 100
+    }
+    
+    for col in numeric_columns:
+        if col in df_before.columns and col in df_after.columns:
+            summary[f'{col}_original_mean'] = df_before[col].mean()
+            summary[f'{col}_cleaned_mean'] = df_after[col].mean()
+            summary[f'{col}_original_std'] = df_before[col].std()
+            summary[f'{col}_cleaned_std'] = df_after[col].std()
+    
+    return pd.Series(summary)
