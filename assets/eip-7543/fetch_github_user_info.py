@@ -36,4 +36,51 @@ if __name__ == "__main__":
             print(f"Following: {info['following']}")
             print(f"Profile URL: {info['html_url']}")
         else:
-            print("Failed to fetch user information.")
+            print("Failed to fetch user information.")import requests
+import sys
+
+def get_github_user_info(username):
+    """
+    Fetch public information for a given GitHub username.
+    """
+    url = f"https://api.github.com/users/{username}"
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        user_data = response.json()
+        return {
+            'name': user_data.get('name'),
+            'login': user_data.get('login'),
+            'public_repos': user_data.get('public_repos'),
+            'followers': user_data.get('followers'),
+            'following': user_data.get('following'),
+            'created_at': user_data.get('created_at')
+        }
+    except requests.exceptions.HTTPError as e:
+        print(f"Error fetching data: {e}")
+        return None
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return None
+
+def display_user_info(info):
+    """
+    Display the fetched user information in a formatted way.
+    """
+    if info is None:
+        print("No user information to display.")
+        return
+    print(f"GitHub User: {info['login']}")
+    print(f"Name: {info['name']}")
+    print(f"Public Repositories: {info['public_repos']}")
+    print(f"Followers: {info['followers']}")
+    print(f"Following: {info['following']}")
+    print(f"Account Created: {info['created_at']}")
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print("Usage: python fetch_github_user_info.py <github_username>")
+        sys.exit(1)
+    username = sys.argv[1]
+    user_info = get_github_user_info(username)
+    display_user_info(user_info)
