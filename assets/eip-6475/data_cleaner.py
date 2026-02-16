@@ -171,3 +171,88 @@ if __name__ == "__main__":
 
     cleaned_df = load_and_clean_data(input_file)
     save_cleaned_data(cleaned_df, output_file)
+import pandas as pd
+
+def remove_duplicates(dataframe, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Args:
+        dataframe: pandas DataFrame to process
+        subset: column label or sequence of labels to consider for duplicates
+        keep: determines which duplicates to keep ('first', 'last', False)
+    
+    Returns:
+        DataFrame with duplicates removed
+    """
+    if dataframe.empty:
+        return dataframe
+    
+    cleaned_df = dataframe.drop_duplicates(subset=subset, keep=keep)
+    
+    removed_count = len(dataframe) - len(cleaned_df)
+    if removed_count > 0:
+        print(f"Removed {removed_count} duplicate rows")
+    
+    return cleaned_df
+
+def clean_numeric_columns(dataframe, columns=None):
+    """
+    Clean numeric columns by converting to appropriate types and handling errors.
+    
+    Args:
+        dataframe: pandas DataFrame to process
+        columns: list of column names to clean (None for all numeric columns)
+    
+    Returns:
+        DataFrame with cleaned numeric columns
+    """
+    if dataframe.empty:
+        return dataframe
+    
+    if columns is None:
+        numeric_cols = dataframe.select_dtypes(include=['number']).columns
+    else:
+        numeric_cols = [col for col in columns if col in dataframe.columns]
+    
+    for col in numeric_cols:
+        if col in dataframe.columns:
+            original_dtype = str(dataframe[col].dtype)
+            dataframe[col] = pd.to_numeric(dataframe[col], errors='coerce')
+            new_dtype = str(dataframe[col].dtype)
+            
+            if original_dtype != new_dtype:
+                print(f"Converted column '{col}' from {original_dtype} to {new_dtype}")
+    
+    return dataframe
+
+def validate_dataframe(dataframe, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        dataframe: pandas DataFrame to validate
+        required_columns: list of column names that must be present
+    
+    Returns:
+        tuple: (is_valid, validation_message)
+    """
+    if dataframe.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in dataframe.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    null_counts = dataframe.isnull().sum()
+    total_nulls = null_counts.sum()
+    
+    if total_nulls > 0:
+        message = f"Found {total_nulls} null values in DataFrame"
+        columns_with_nulls = null_counts[null_counts > 0]
+        if len(columns_with_nulls) > 0:
+            message += f" in columns: {list(columns_with_nulls.index)}"
+        return True, message
+    
+    return True, "DataFrame validation passed"
