@@ -83,3 +83,84 @@ if __name__ == "__main__":
     validated = validate_email_column(cleaned, 'email')
     print("DataFrame with email validation:")
     print(validated)
+import pandas as pd
+
+def clean_dataset(df, column_mapping=None, drop_duplicates=True):
+    """
+    Clean a pandas DataFrame by standardizing column names and removing duplicates.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        column_mapping (dict, optional): Dictionary mapping old column names to new ones.
+        drop_duplicates (bool, optional): Whether to remove duplicate rows.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    # Standardize column names
+    if column_mapping:
+        cleaned_df.rename(columns=column_mapping, inplace=True)
+    
+    # Convert column names to lowercase and replace spaces with underscores
+    cleaned_df.columns = cleaned_df.columns.str.lower().str.replace(' ', '_')
+    
+    # Remove duplicate rows
+    if drop_duplicates:
+        cleaned_df.drop_duplicates(inplace=True)
+    
+    # Reset index after cleaning
+    cleaned_df.reset_index(drop=True, inplace=True)
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate that a DataFrame meets basic requirements.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list, optional): List of required column names.
+    
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "DataFrame is valid"
+
+def sample_data_cleaning():
+    """Example usage of the data cleaning functions."""
+    # Create sample data
+    data = {
+        'Product Name': ['Laptop', 'Mouse', 'Keyboard', 'Laptop', 'Monitor'],
+        'Price USD': [1200, 25, 45, 1200, 300],
+        'Quantity': [5, 10, 8, 5, 3]
+    }
+    
+    df = pd.DataFrame(data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n")
+    
+    # Clean the data
+    column_mapping = {'Price USD': 'price'}
+    cleaned_df = clean_dataset(df, column_mapping=column_mapping)
+    
+    print("Cleaned DataFrame:")
+    print(cleaned_df)
+    print("\n")
+    
+    # Validate the cleaned data
+    is_valid, message = validate_dataframe(cleaned_df, required_columns=['product_name', 'price'])
+    print(f"Validation: {is_valid} - {message}")
+
+if __name__ == "__main__":
+    sample_data_cleaning()
