@@ -327,3 +327,11 @@ if __name__ == "__main__":
     df_validated = validate_email_column(df_clean, 'email')
     print("\nDataFrame with email validation:")
     print(df_validated[['name', 'email', 'email_valid']])
+def remove_duplicates_preserve_order(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
