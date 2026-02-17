@@ -1,127 +1,45 @@
-
-import numpy as np
+import re
 import pandas as pd
-from scipy import stats
+from typing import List, Optional, Union
 
-class DataCleaner:
-    def __init__(self, df):
-        self.df = df.copy()
-        self.original_shape = df.shape
-        
-    def remove_outliers_iqr(self, columns=None, factor=1.5):
-        if columns is None:
-            columns = self.df.select_dtypes(include=[np.number]).columns
-        
-        df_clean = self.df.copy()
-        for col in columns:
-            if col in df_clean.columns:
-                Q1 = df_clean[col].quantile(0.25)
-                Q3 = df_clean[col].quantile(0.75)
-                IQR = Q3 - Q1
-                lower_bound = Q1 - factor * IQR
-                upper_bound = Q3 + factor * IQR
-                df_clean = df_clean[(df_clean[col] >= lower_bound) & (df_clean[col] <= upper_bound)]
-        
-        self.df = df_clean
-        return self
-    
-    def remove_outliers_zscore(self, columns=None, threshold=3):
-        if columns is None:
-            columns = self.df.select_dtypes(include=[np.number]).columns
-        
-        df_clean = self.df.copy()
-        for col in columns:
-            if col in df_clean.columns:
-                z_scores = np.abs(stats.zscore(df_clean[col].dropna()))
-                df_clean = df_clean[(z_scores < threshold) | df_clean[col].isna()]
-        
-        self.df = df_clean
-        return self
-    
-    def normalize_minmax(self, columns=None):
-        if columns is None:
-            columns = self.df.select_dtypes(include=[np.number]).columns
-        
-        df_norm = self.df.copy()
-        for col in columns:
-            if col in df_norm.columns and df_norm[col].nunique() > 1:
-                min_val = df_norm[col].min()
-                max_val = df_norm[col].max()
-                if max_val != min_val:
-                    df_norm[col] = (df_norm[col] - min_val) / (max_val - min_val)
-        
-        self.df = df_norm
-        return self
-    
-    def normalize_zscore(self, columns=None):
-        if columns is None:
-            columns = self.df.select_dtypes(include=[np.number]).columns
-        
-        df_norm = self.df.copy()
-        for col in columns:
-            if col in df_norm.columns and df_norm[col].nunique() > 1:
-                mean_val = df_norm[col].mean()
-                std_val = df_norm[col].std()
-                if std_val > 0:
-                    df_norm[col] = (df_norm[col] - mean_val) / std_val
-        
-        self.df = df_norm
-        return self
-    
-    def fill_missing_mean(self, columns=None):
-        if columns is None:
-            columns = self.df.select_dtypes(include=[np.number]).columns
-        
-        df_filled = self.df.copy()
-        for col in columns:
-            if col in df_filled.columns and df_filled[col].isna().any():
-                df_filled[col] = df_filled[col].fillna(df_filled[col].mean())
-        
-        self.df = df_filled
-        return self
-    
-    def fill_missing_median(self, columns=None):
-        if columns is None:
-            columns = self.df.select_dtypes(include=[np.number]).columns
-        
-        df_filled = self.df.copy()
-        for col in columns:
-            if col in df_filled.columns and df_filled[col].isna().any():
-                df_filled[col] = df_filled[col].fillna(df_filled[col].median())
-        
-        self.df = df_filled
-        return self
-    
-    def get_cleaned_data(self):
-        return self.df
-    
-    def get_removed_count(self):
-        return self.original_shape[0] - self.df.shape[0]
-    
-    def get_summary(self):
-        summary = {
-            'original_rows': self.original_shape[0],
-            'cleaned_rows': self.df.shape[0],
-            'removed_rows': self.get_removed_count(),
-            'columns': self.df.shape[1],
-            'missing_values': self.df.isna().sum().sum(),
-            'numeric_columns': list(self.df.select_dtypes(include=[np.number]).columns),
-            'categorical_columns': list(self.df.select_dtypes(include=['object']).columns)
-        }
-        return summary
+def clean_string(text: str, remove_digits: bool = False) -> str:
+    """Clean a string by removing extra whitespace and optionally digits."""
+    if not isinstance(text, str):
+        return ''
+    cleaned = re.sub(r'\s+', ' ', text.strip())
+    if remove_digits:
+        cleaned = re.sub(r'\d+', '', cleaned)
+    return cleaned
 
-def clean_dataset(df, method='iqr', normalize=True, fill_missing=True):
-    cleaner = DataCleaner(df)
-    
-    if method == 'iqr':
-        cleaner.remove_outliers_iqr()
-    elif method == 'zscore':
-        cleaner.remove_outliers_zscore()
-    
-    if fill_missing:
-        cleaner.fill_missing_mean()
-    
-    if normalize:
-        cleaner.normalize_minmax()
-    
-    return cleaner.get_cleaned_data(), cleaner.get_summary()
+def validate_email(email: str) -> bool:
+    """Validate an email address format."""
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, email)) if isinstance(email, str) else False
+
+def normalize_column(df: pd.DataFrame, column_name: str) -> pd.DataFrame:
+    """Normalize a DataFrame column to lowercase and strip whitespace."""
+    if column_name in df.columns:
+        df[column_name] = df[column_name].astype(str).str.lower().str.strip()
+    return df
+
+def remove_outliers_iqr(series: pd.Series, multiplier: float = 1.5) -> pd.Series:
+    """Remove outliers from a pandas Series using the IQR method."""
+    if not pd.api.types.is_numeric_dtype(series):
+        return series
+    q1 = series.quantile(0.25)
+    q3 = series.quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - multiplier * iqr
+    upper_bound = q3 + multiplier * iqr
+    return series[(series >= lower_bound) & (series <= upper_bound)]
+
+def fill_missing_with_median(df: pd.DataFrame, columns: Optional[List[str]] = None) -> pd.DataFrame:
+    """Fill missing values in specified columns with the column median."""
+    df_filled = df.copy()
+    if columns is None:
+        columns = df_filled.select_dtypes(include=['number']).columns.tolist()
+    for col in columns:
+        if col in df_filled.columns and pd.api.types.is_numeric_dtype(df_filled[col]):
+            median_val = df_filled[col].median()
+            df_filled[col].fillna(median_val, inplace=True)
+    return df_filled
