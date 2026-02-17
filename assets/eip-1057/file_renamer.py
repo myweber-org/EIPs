@@ -117,3 +117,47 @@ if __name__ == "__main__":
     start_num = int(sys.argv[3]) if len(sys.argv) > 3 else 1
     
     rename_files_with_sequential_numbers(dir_path, prefix, start_num)
+import os
+import sys
+from datetime import datetime
+
+def rename_files_by_date(directory_path):
+    try:
+        if not os.path.isdir(directory_path):
+            print(f"Error: {directory_path} is not a valid directory.")
+            return False
+        
+        files = [f for f in os.listdir(directory_path) if os.path.isfile(os.path.join(directory_path, f))]
+        
+        for filename in files:
+            file_path = os.path.join(directory_path, filename)
+            creation_time = os.path.getctime(file_path)
+            date_str = datetime.fromtimestamp(creation_time).strftime("%Y%m%d_%H%M%S")
+            
+            name, extension = os.path.splitext(filename)
+            new_filename = f"{date_str}{extension}"
+            new_file_path = os.path.join(directory_path, new_filename)
+            
+            counter = 1
+            while os.path.exists(new_file_path):
+                new_filename = f"{date_str}_{counter}{extension}"
+                new_file_path = os.path.join(directory_path, new_filename)
+                counter += 1
+            
+            os.rename(file_path, new_file_path)
+            print(f"Renamed: {filename} -> {new_filename}")
+        
+        print(f"Successfully renamed {len(files)} files.")
+        return True
+        
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return False
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print("Usage: python file_renamer.py <directory_path>")
+        sys.exit(1)
+    
+    target_directory = sys.argv[1]
+    rename_files_by_date(target_directory)
