@@ -1,57 +1,42 @@
 
-def remove_duplicates_preserve_order(sequence):
-    seen = set()
-    result = []
-    for item in sequence:
-        if item not in seen:
-            seen.add(item)
-            result.append(item)
-    return result
 import pandas as pd
 import numpy as np
+from scipy import stats
 
-def remove_outliers_iqr(df, column):
-    """
-    Remove outliers from a DataFrame column using the Interquartile Range (IQR) method.
-    
-    Parameters:
-    df (pd.DataFrame): The input DataFrame.
-    column (str): The column name to clean.
-    
-    Returns:
-    pd.DataFrame: DataFrame with outliers removed.
-    """
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    return filtered_df
+def remove_outliers_iqr(df, columns):
+    df_clean = df.copy()
+    for col in columns:
+        Q1 = df_clean[col].quantile(0.25)
+        Q3 = df_clean[col].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+        df_clean = df_clean[(df_clean[col] >= lower_bound) & (df_clean[col] <= upper_bound)]
+    return df_clean
 
-def clean_dataset(file_path, output_path):
-    """
-    Load a dataset, clean specified columns, and save the cleaned version.
-    
-    Parameters:
-    file_path (str): Path to the input CSV file.
-    output_path (str): Path to save the cleaned CSV file.
-    """
-    df = pd.read_csv(file_path)
-    
-    numeric_columns = df.select_dtypes(include=[np.number]).columns
-    
-    for col in numeric_columns:
-        original_len = len(df)
-        df = remove_outliers_iqr(df, col)
-        removed_count = original_len - len(df)
-        print(f"Removed {removed_count} outliers from column '{col}'")
-    
-    df.to_csv(output_path, index=False)
-    print(f"Cleaned dataset saved to {output_path}")
+def normalize_minmax(df, columns):
+    df_norm = df.copy()
+    for col in columns:
+        min_val = df_norm[col].min()
+        max_val = df_norm[col].max()
+        if max_val != min_val:
+            df_norm[col] = (df_norm[col] - min_val) / (max_val - min_val)
+    return df_norm
+
+def clean_dataset(df, numeric_columns):
+    df_no_outliers = remove_outliers_iqr(df, numeric_columns)
+    df_normalized = normalize_minmax(df_no_outliers, numeric_columns)
+    return df_normalized
 
 if __name__ == "__main__":
-    input_file = "raw_data.csv"
-    output_file = "cleaned_data.csv"
-    clean_dataset(input_file, output_file)
+    sample_data = pd.DataFrame({
+        'feature1': np.random.normal(100, 15, 200),
+        'feature2': np.random.exponential(50, 200),
+        'category': np.random.choice(['A', 'B', 'C'], 200)
+    })
+    
+    numeric_cols = ['feature1', 'feature2']
+    cleaned_df = clean_dataset(sample_data, numeric_cols)
+    print(f"Original shape: {sample_data.shape}")
+    print(f"Cleaned shape: {cleaned_df.shape}")
+    print(cleaned_df.describe())
