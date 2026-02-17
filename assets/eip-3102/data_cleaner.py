@@ -570,3 +570,84 @@ def clean_data(data):
     unique_data = list(set(data))
     sorted_data = sorted(unique_data)
     return sorted_data
+import numpy as np
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specified column using the Interquartile Range method.
+    
+    Args:
+        data (list or np.array): Input data array
+        column (int): Index of column to process (if 2D array) or None for 1D array
+    
+    Returns:
+        np.array: Data with outliers removed
+    """
+    if isinstance(data, list):
+        data = np.array(data)
+    
+    if data.ndim == 2 and column is not None:
+        column_data = data[:, column]
+    else:
+        column_data = data
+    
+    q1 = np.percentile(column_data, 25)
+    q3 = np.percentile(column_data, 75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - 1.5 * iqr
+    upper_bound = q3 + 1.5 * iqr
+    
+    if data.ndim == 2 and column is not None:
+        mask = (data[:, column] >= lower_bound) & (data[:, column] <= upper_bound)
+        return data[mask]
+    else:
+        mask = (data >= lower_bound) & (data <= upper_bound)
+        return data[mask]
+
+def calculate_statistics(data):
+    """
+    Calculate basic statistics for the data.
+    
+    Args:
+        data (np.array): Input data array
+    
+    Returns:
+        dict: Dictionary containing mean, median, std, min, max
+    """
+    stats = {
+        'mean': np.mean(data),
+        'median': np.median(data),
+        'std': np.std(data),
+        'min': np.min(data),
+        'max': np.max(data)
+    }
+    return stats
+
+def normalize_data(data, method='minmax'):
+    """
+    Normalize data using specified method.
+    
+    Args:
+        data (np.array): Input data array
+        method (str): Normalization method ('minmax' or 'zscore')
+    
+    Returns:
+        np.array: Normalized data
+    """
+    if method == 'minmax':
+        data_min = np.min(data)
+        data_max = np.max(data)
+        if data_max - data_min == 0:
+            return np.zeros_like(data)
+        return (data - data_min) / (data_max - data_min)
+    
+    elif method == 'zscore':
+        mean = np.mean(data)
+        std = np.std(data)
+        if std == 0:
+            return np.zeros_like(data)
+        return (data - mean) / std
+    
+    else:
+        raise ValueError("Method must be 'minmax' or 'zscore'")
