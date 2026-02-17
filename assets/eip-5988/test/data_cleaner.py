@@ -1,110 +1,83 @@
+
 import pandas as pd
 import numpy as np
+from typing import List, Optional
 
 class DataCleaner:
-    def __init__(self, df):
+    def __init__(self, df: pd.DataFrame):
         self.df = df.copy()
-        self.numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
-        self.categorical_columns = df.select_dtypes(exclude=[np.number]).columns.tolist()
-
-    def handle_missing_values(self, strategy='mean', fill_value=None):
-        if strategy == 'mean':
-            for col in self.numeric_columns:
-                self.df[col].fillna(self.df[col].mean(), inplace=True)
-        elif strategy == 'median':
-            for col in self.numeric_columns:
-                self.df[col].fillna(self.df[col].median(), inplace=True)
-        elif strategy == 'mode':
-            for col in self.df.columns:
-                self.df[col].fillna(self.df[col].mode()[0], inplace=True)
-        elif strategy == 'constant':
-            if fill_value is not None:
-                self.df.fillna(fill_value, inplace=True)
-            else:
-                raise ValueError("fill_value must be provided for constant strategy")
+        self.original_shape = df.shape
+        
+    def remove_duplicates(self, subset: Optional[List[str]] = None) -> 'DataCleaner':
+        self.df = self.df.drop_duplicates(subset=subset, keep='first')
+        return self
+        
+    def normalize_column(self, column: str, method: str = 'minmax') -> 'DataCleaner':
+        if column not in self.df.columns:
+            raise ValueError(f"Column '{column}' not found in DataFrame")
+            
+        if method == 'minmax':
+            col_min = self.df[column].min()
+            col_max = self.df[column].max()
+            if col_max != col_min:
+                self.df[column] = (self.df[column] - col_min) / (col_max - col_min)
+        elif method == 'zscore':
+            col_mean = self.df[column].mean()
+            col_std = self.df[column].std()
+            if col_std > 0:
+                self.df[column] = (self.df[column] - col_mean) / col_std
         else:
-            raise ValueError("Invalid strategy. Choose from 'mean', 'median', 'mode', or 'constant'")
+            raise ValueError(f"Unknown normalization method: {method}")
+            
+        return self
         
+    def fill_missing(self, column: str, strategy: str = 'mean') -> 'DataCleaner':
+        if column not in self.df.columns:
+            raise ValueError(f"Column '{column}' not found in DataFrame")
+            
+        if strategy == 'mean':
+            fill_value = self.df[column].mean()
+        elif strategy == 'median':
+            fill_value = self.df[column].median()
+        elif strategy == 'mode':
+            fill_value = self.df[column].mode()[0]
+        elif strategy == 'zero':
+            fill_value = 0
+        else:
+            raise ValueError(f"Unknown fill strategy: {strategy}")
+            
+        self.df[column].fillna(fill_value, inplace=True)
+        return self
+        
+    def remove_outliers(self, column: str, method: str = 'iqr', threshold: float = 1.5) -> 'DataCleaner':
+        if column not in self.df.columns:
+            raise ValueError(f"Column '{column}' not found in DataFrame")
+            
+        if method == 'iqr':
+            Q1 = self.df[column].quantile(0.25)
+            Q3 = self.df[column].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - threshold * IQR
+            upper_bound = Q3 + threshold * IQR
+            self.df = self.df[(self.df[column] >= lower_bound) & (self.df[column] <= upper_bound)]
+        elif method == 'zscore':
+            z_scores = np.abs((self.df[column] - self.df[column].mean()) / self.df[column].std())
+            self.df = self.df[z_scores < threshold]
+        else:
+            raise ValueError(f"Unknown outlier removal method: {method}")
+            
+        return self
+        
+    def get_cleaned_data(self) -> pd.DataFrame:
         return self.df
-
-    def remove_outliers_iqr(self, columns=None, multiplier=1.5):
-        if columns is None:
-            columns = self.numeric_columns
         
-        df_clean = self.df.copy()
-        for col in columns:
-            if col in self.numeric_columns:
-                Q1 = df_clean[col].quantile(0.25)
-                Q3 = df_clean[col].quantile(0.75)
-                IQR = Q3 - Q1
-                lower_bound = Q1 - multiplier * IQR
-                upper_bound = Q3 + multiplier * IQR
-                
-                df_clean = df_clean[(df_clean[col] >= lower_bound) & (df_clean[col] <= upper_bound)]
-        
-        self.df = df_clean
-        return self.df
-
-    def standardize_data(self, columns=None):
-        if columns is None:
-            columns = self.numeric_columns
-        
-        df_standardized = self.df.copy()
-        for col in columns:
-            if col in self.numeric_columns:
-                mean = df_standardized[col].mean()
-                std = df_standardized[col].std()
-                if std > 0:
-                    df_standardized[col] = (df_standardized[col] - mean) / std
-        
-        self.df = df_standardized
-        return self.df
-
-    def normalize_data(self, columns=None):
-        if columns is None:
-            columns = self.numeric_columns
-        
-        df_normalized = self.df.copy()
-        for col in columns:
-            if col in self.numeric_columns:
-                min_val = df_normalized[col].min()
-                max_val = df_normalized[col].max()
-                if max_val > min_val:
-                    df_normalized[col] = (df_normalized[col] - min_val) / (max_val - min_val)
-        
-        self.df = df_normalized
-        return self.df
-
-    def get_cleaned_data(self):
-        return self.df.copy()
-
-def example_usage():
-    data = {
-        'age': [25, 30, np.nan, 35, 40, 200, 45],
-        'salary': [50000, 60000, 70000, np.nan, 90000, 1000000, 55000],
-        'department': ['IT', 'HR', 'IT', 'Finance', 'HR', 'IT', 'Finance']
-    }
-    
-    df = pd.DataFrame(data)
-    print("Original Data:")
-    print(df)
-    print("\n")
-    
-    cleaner = DataCleaner(df)
-    
-    cleaner.handle_missing_values(strategy='mean')
-    print("After handling missing values:")
-    print(cleaner.get_cleaned_data())
-    print("\n")
-    
-    cleaner.remove_outliers_iqr(multiplier=1.5)
-    print("After removing outliers:")
-    print(cleaner.get_cleaned_data())
-    print("\n")
-    
-    cleaner.standardize_data()
-    print("After standardization:")
-    print(cleaner.get_cleaned_data())
-
-if __name__ == "__main__":
-    example_usage()
+    def get_cleaning_report(self) -> dict:
+        final_shape = self.df.shape
+        return {
+            'original_rows': self.original_shape[0],
+            'original_columns': self.original_shape[1],
+            'final_rows': final_shape[0],
+            'final_columns': final_shape[1],
+            'rows_removed': self.original_shape[0] - final_shape[0],
+            'columns_removed': self.original_shape[1] - final_shape[1]
+        }
