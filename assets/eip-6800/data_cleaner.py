@@ -212,4 +212,11 @@ def create_data_summary(df):
             'top_values': value_counts.head(5).to_dict()
         }
     
-    return summary
+    return summarydef remove_duplicates_preserve_order(seq):
+    seen = set()
+    result = []
+    for item in seq:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
