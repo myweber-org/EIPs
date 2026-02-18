@@ -279,3 +279,11 @@ def validate_data(data, required_columns=None, allow_nan=True, max_nan_ratio=0.1
                 return False, f"Column '{column}' has too many NaN values ({nan_ratio:.1%})"
     
     return True, "Data validation passed"
+def remove_duplicates(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
