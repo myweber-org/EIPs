@@ -131,3 +131,59 @@ def remove_outliers_iqr(data, column):
     
     filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
     return filtered_data
+import pandas as pd
+import numpy as np
+
+def clean_dataframe(df, columns_to_check=None, normalize_strings=True):
+    """
+    Clean a pandas DataFrame by removing duplicate rows and optionally
+    normalizing string columns.
+    """
+    if df.empty:
+        return df
+    
+    cleaned_df = df.copy()
+    
+    if columns_to_check is None:
+        cleaned_df = cleaned_df.drop_duplicates()
+    else:
+        cleaned_df = cleaned_df.drop_duplicates(subset=columns_to_check)
+    
+    if normalize_strings:
+        for col in cleaned_df.select_dtypes(include=['object']).columns:
+            cleaned_df[col] = cleaned_df[col].astype(str).str.strip().str.lower()
+    
+    cleaned_df = cleaned_df.replace('', np.nan)
+    cleaned_df = cleaned_df.dropna(how='all')
+    
+    return cleaned_df.reset_index(drop=True)
+
+def validate_email_column(df, email_column):
+    """
+    Validate email addresses in a specified column.
+    """
+    if email_column not in df.columns:
+        raise ValueError(f"Column '{email_column}' not found in DataFrame")
+    
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    valid_emails = df[email_column].str.match(email_pattern, na=False)
+    
+    return valid_emails
+
+def remove_outliers_iqr(df, column, multiplier=1.5):
+    """
+    Remove outliers from a numeric column using the IQR method.
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - multiplier * IQR
+    upper_bound = Q3 + multiplier * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df
