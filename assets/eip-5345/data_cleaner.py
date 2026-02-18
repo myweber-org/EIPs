@@ -262,4 +262,52 @@ if __name__ == "__main__":
     
     # Validate the cleaned data
     is_valid, message = validate_dataframe(cleaned, required_columns=['A', 'B', 'C'])
-    print(f"\nValidation: {message}")
+    print(f"\nValidation: {message}")import pandas as pd
+import numpy as np
+from scipy import stats
+
+def load_and_clean_data(filepath):
+    """
+    Load a CSV file and perform basic data cleaning operations.
+    """
+    df = pd.read_csv(filepath)
+    
+    # Remove duplicate rows
+    df = df.drop_duplicates()
+    
+    # Remove rows with missing values in critical columns
+    critical_columns = ['value', 'timestamp']
+    if all(col in df.columns for col in critical_columns):
+        df = df.dropna(subset=critical_columns)
+    
+    # Remove outliers using z-score method for numerical columns
+    numerical_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numerical_cols:
+        z_scores = np.abs(stats.zscore(df[col].dropna()))
+        df = df[(z_scores < 3) | df[col].isna()]
+    
+    # Normalize numerical columns to range [0, 1]
+    for col in numerical_cols:
+        if df[col].max() != df[col].min():
+            df[col] = (df[col] - df[col].min()) / (df[col].max() - df[col].min())
+    
+    return df
+
+def save_cleaned_data(df, output_path):
+    """
+    Save the cleaned DataFrame to a new CSV file.
+    """
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to {output_path}")
+
+if __name__ == "__main__":
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    
+    try:
+        cleaned_df = load_and_clean_data(input_file)
+        save_cleaned_data(cleaned_df, output_file)
+    except FileNotFoundError:
+        print(f"Error: File '{input_file}' not found.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
