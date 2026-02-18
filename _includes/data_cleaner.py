@@ -245,4 +245,61 @@ def validate_dataframe(df, required_columns=None):
 #     
 #     # Validate
 #     is_valid, message = validate_dataframe(cleaned, required_columns=['id', 'value'])
-#     print(f"\nValidation: {is_valid} - {message}")
+#     print(f"\nValidation: {is_valid} - {message}")import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(dataframe, column):
+    """
+    Remove outliers from a specified column using the IQR method.
+    Returns a cleaned DataFrame.
+    """
+    Q1 = dataframe[column].quantile(0.25)
+    Q3 = dataframe[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    cleaned_df = dataframe[(dataframe[column] >= lower_bound) & (dataframe[column] <= upper_bound)]
+    return cleaned_df
+
+def normalize_column_minmax(dataframe, column):
+    """
+    Normalize a specified column using Min-Max scaling.
+    Returns the DataFrame with an additional normalized column.
+    """
+    min_val = dataframe[column].min()
+    max_val = dataframe[column].max()
+    normalized_col_name = f"{column}_normalized"
+    dataframe[normalized_col_name] = (dataframe[column] - min_val) / (max_val - min_val)
+    return dataframe
+
+def calculate_statistics(dataframe, column):
+    """
+    Calculate basic statistics for a specified column.
+    Returns a dictionary with mean, median, and standard deviation.
+    """
+    stats = {
+        'mean': dataframe[column].mean(),
+        'median': dataframe[column].median(),
+        'std': dataframe[column].std()
+    }
+    return stats
+
+def process_dataframe(dataframe, target_column):
+    """
+    Main function to process a DataFrame by removing outliers,
+    normalizing the target column, and calculating statistics.
+    Returns a tuple of cleaned DataFrame and statistics dictionary.
+    """
+    cleaned_df = remove_outliers_iqr(dataframe, target_column)
+    normalized_df = normalize_column_minmax(cleaned_df, target_column)
+    stats = calculate_statistics(normalized_df, target_column)
+    return normalized_df, stats
+
+if __name__ == "__main__":
+    sample_data = {'values': [10, 12, 12, 13, 12, 11, 10, 100, 12, 14, 15, 12, 11, 10]}
+    df = pd.DataFrame(sample_data)
+    processed_df, statistics = process_dataframe(df, 'values')
+    print("Processed DataFrame:")
+    print(processed_df)
+    print("\nStatistics:")
+    print(statistics)
