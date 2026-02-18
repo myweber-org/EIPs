@@ -123,3 +123,63 @@ if __name__ == "__main__":
     
     print("\nFirst 5 rows of cleaned data:")
     print(cleaned_df.head())
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+def load_data(filepath):
+    """Load dataset from CSV file."""
+    return pd.read_csv(filepath)
+
+def remove_outliers_iqr(df, column):
+    """Remove outliers using IQR method."""
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+def z_score_normalization(df, column):
+    """Apply z-score normalization to a column."""
+    mean = df[column].mean()
+    std = df[column].std()
+    df[column + '_normalized'] = (df[column] - mean) / std
+    return df
+
+def min_max_scaling(df, column):
+    """Apply min-max scaling to a column."""
+    min_val = df[column].min()
+    max_val = df[column].max()
+    df[column + '_scaled'] = (df[column] - min_val) / (max_val - min_val)
+    return df
+
+def clean_dataset(df, numeric_columns):
+    """Main cleaning pipeline."""
+    cleaned_df = df.copy()
+    
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+            cleaned_df = z_score_normalization(cleaned_df, col)
+            cleaned_df = min_max_scaling(cleaned_df, col)
+    
+    cleaned_df = cleaned_df.dropna()
+    return cleaned_df
+
+def save_cleaned_data(df, output_path):
+    """Save cleaned dataframe to CSV."""
+    df.to_csv(output_path, index=False)
+
+if __name__ == "__main__":
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    numeric_cols = ["age", "income", "score"]
+    
+    raw_data = load_data(input_file)
+    cleaned_data = clean_dataset(raw_data, numeric_cols)
+    save_cleaned_data(cleaned_data, output_file)
+    
+    print(f"Original shape: {raw_data.shape}")
+    print(f"Cleaned shape: {cleaned_data.shape}")
+    print(f"Cleaned data saved to {output_file}")
