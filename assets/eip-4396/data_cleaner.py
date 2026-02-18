@@ -80,3 +80,117 @@ def validate_cleaning(original_df, cleaned_df, column):
     print(f"Original range: [{original_df[column].min():.4f}, {original_df[column].max():.4f}]")
     print(f"Cleaned range: [{cleaned_df[column].min():.4f}, {cleaned_df[column].max():.4f}]")
     print("-" * 50)
+import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a DataFrame column using the Interquartile Range method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to process
+    
+    Returns:
+        pd.DataFrame: DataFrame with outliers removed
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df.reset_index(drop=True)
+
+def clean_numeric_data(df, columns=None):
+    """
+    Clean numeric data by removing outliers from specified columns.
+    If no columns specified, clean all numeric columns.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns (list, optional): List of column names to clean
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_df = df.copy()
+    
+    for col in columns:
+        if col in cleaned_df.columns and pd.api.types.is_numeric_dtype(cleaned_df[col]):
+            try:
+                cleaned_df = remove_outliers_iqr(cleaned_df, col)
+            except Exception as e:
+                print(f"Warning: Could not clean column '{col}': {e}")
+    
+    return cleaned_df
+
+def get_data_summary(df):
+    """
+    Generate summary statistics for a DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+    
+    Returns:
+        dict: Dictionary containing summary statistics
+    """
+    summary = {
+        'original_rows': len(df),
+        'cleaned_rows': None,
+        'removed_rows': None,
+        'columns': list(df.columns),
+        'numeric_columns': df.select_dtypes(include=[np.number]).columns.tolist(),
+        'categorical_columns': df.select_dtypes(include=['object', 'category']).columns.tolist()
+    }
+    
+    return summary
+
+def example_usage():
+    """
+    Example usage of the data cleaning functions.
+    """
+    np.random.seed(42)
+    
+    data = {
+        'id': range(100),
+        'value': np.random.normal(100, 15, 100),
+        'category': np.random.choice(['A', 'B', 'C'], 100)
+    }
+    
+    df = pd.DataFrame(data)
+    
+    df.loc[95, 'value'] = 500
+    df.loc[96, 'value'] = -200
+    
+    print("Original data shape:", df.shape)
+    print("Original data summary:")
+    print(df['value'].describe())
+    
+    cleaned_df = clean_numeric_data(df, columns=['value'])
+    
+    print("\nCleaned data shape:", cleaned_df.shape)
+    print("Cleaned data summary:")
+    print(cleaned_df['value'].describe())
+    
+    summary = get_data_summary(df)
+    summary['cleaned_rows'] = len(cleaned_df)
+    summary['removed_rows'] = len(df) - len(cleaned_df)
+    
+    print("\nData Summary:")
+    for key, value in summary.items():
+        print(f"{key}: {value}")
+    
+    return cleaned_df
+
+if __name__ == "__main__":
+    cleaned_data = example_usage()
