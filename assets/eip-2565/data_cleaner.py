@@ -599,3 +599,96 @@ def calculate_summary_statistics(data, column):
         "median": data[column].median(),
         "std": data[column].std()
     }
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.numeric_columns = df.select_dtypes(include=[np.number]).columns
+        
+    def remove_outliers_iqr(self, column, multiplier=1.5):
+        if column not in self.numeric_columns:
+            raise ValueError(f"Column {column} is not numeric")
+        
+        Q1 = self.df[column].quantile(0.25)
+        Q3 = self.df[column].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - multiplier * IQR
+        upper_bound = Q3 + multiplier * IQR
+        
+        mask = (self.df[column] >= lower_bound) & (self.df[column] <= upper_bound)
+        return self.df[mask]
+    
+    def zscore_normalize(self, column):
+        if column not in self.numeric_columns:
+            raise ValueError(f"Column {column} is not numeric")
+        
+        mean_val = self.df[column].mean()
+        std_val = self.df[column].std()
+        self.df[f"{column}_normalized"] = (self.df[column] - mean_val) / std_val
+        return self.df
+    
+    def minmax_normalize(self, column, feature_range=(0, 1)):
+        if column not in self.numeric_columns:
+            raise ValueError(f"Column {column} is not numeric")
+        
+        min_val = self.df[column].min()
+        max_val = self.df[column].max()
+        
+        if min_val == max_val:
+            self.df[f"{column}_scaled"] = feature_range[0]
+        else:
+            scaled = (self.df[column] - min_val) / (max_val - min_val)
+            scaled = scaled * (feature_range[1] - feature_range[0]) + feature_range[0]
+            self.df[f"{column}_scaled"] = scaled
+        
+        return self.df
+    
+    def handle_missing_values(self, strategy='mean'):
+        for col in self.numeric_columns:
+            if self.df[col].isnull().any():
+                if strategy == 'mean':
+                    fill_value = self.df[col].mean()
+                elif strategy == 'median':
+                    fill_value = self.df[col].median()
+                elif strategy == 'mode':
+                    fill_value = self.df[col].mode()[0]
+                else:
+                    fill_value = 0
+                
+                self.df[col].fillna(fill_value, inplace=True)
+        
+        return self.df
+    
+    def get_clean_data(self):
+        return self.df.copy()
+
+def create_sample_data():
+    np.random.seed(42)
+    data = {
+        'feature_a': np.random.normal(100, 15, 100),
+        'feature_b': np.random.exponential(50, 100),
+        'feature_c': np.random.uniform(0, 200, 100)
+    }
+    
+    data['feature_a'][[10, 25, 50]] = [500, -100, 300]
+    data['feature_b'][[30, 75]] = [1000, 1200]
+    
+    return pd.DataFrame(data)
+
+if __name__ == "__main__":
+    sample_df = create_sample_data()
+    cleaner = DataCleaner(sample_df)
+    
+    print("Original data shape:", sample_df.shape)
+    print("Missing values:", sample_df.isnull().sum().sum())
+    
+    cleaned_df = cleaner.handle_missing_values('mean')
+    cleaned_df = cleaner.remove_outliers_iqr('feature_a')
+    cleaned_df = cleaner.zscore_normalize('feature_b')
+    cleaned_df = cleaner.minmax_normalize('feature_c')
+    
+    print("Cleaned data shape:", cleaned_df.shape)
+    print("New columns:", [col for col in cleaned_df.columns if 'normalized' in col or 'scaled' in col])
