@@ -246,4 +246,52 @@ if __name__ == "__main__":
     
     print(f"Original data shape: {raw_data.shape}")
     print(f"Cleaned data shape: {cleaned_data.shape}")
-    print(f"Data cleaning completed. Saved to {output_file}")
+    print(f"Data cleaning completed. Saved to {output_file}")import pandas as pd
+
+def clean_dataset(df):
+    """
+    Clean a pandas DataFrame by removing null values and duplicates.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to be cleaned.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    # Remove rows with any null values
+    df_cleaned = df.dropna()
+    
+    # Remove duplicate rows
+    df_cleaned = df_cleaned.drop_duplicates()
+    
+    # Reset index after cleaning
+    df_cleaned = df_cleaned.reset_index(drop=True)
+    
+    return df_cleaned
+
+def validate_dataframe(df):
+    """
+    Validate that the input is a pandas DataFrame.
+    
+    Args:
+        df: Object to validate.
+    
+    Returns:
+        bool: True if input is a DataFrame, False otherwise.
+    """
+    return isinstance(df, pd.DataFrame)
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'A': [1, 2, None, 4, 2],
+        'B': [5, None, 7, 8, 5],
+        'C': ['x', 'y', 'z', 'x', 'y']
+    }
+    
+    df_sample = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df_sample)
+    print("\nCleaned DataFrame:")
+    cleaned_df = clean_dataset(df_sample)
+    print(cleaned_df)
