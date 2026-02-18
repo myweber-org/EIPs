@@ -382,4 +382,93 @@ if __name__ == "__main__":
     
     print("\nRemoving outliers from column 'A':")
     no_outliers = remove_outliers_iqr(cleaned, columns=['A'])
-    print(no_outliers)
+    print(no_outliers)import pandas as pd
+import numpy as np
+import re
+
+def clean_csv_data(input_file, output_file):
+    """
+    Clean data from a CSV file by handling missing values,
+    standardizing text, and removing duplicates.
+    """
+    try:
+        df = pd.read_csv(input_file)
+        
+        # Remove duplicate rows
+        df.drop_duplicates(inplace=True)
+        
+        # Standardize column names
+        df.columns = df.columns.str.strip().str.lower().str.replace(' ', '_')
+        
+        # Handle missing values for numeric columns
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            df[col].fillna(df[col].median(), inplace=True)
+        
+        # Handle missing values for text columns
+        text_cols = df.select_dtypes(include=['object']).columns
+        for col in text_cols:
+            df[col].fillna('unknown', inplace=True)
+            # Remove extra whitespace
+            df[col] = df[col].apply(lambda x: re.sub(r'\s+', ' ', str(x)).strip())
+        
+        # Convert date columns if present
+        date_pattern = r'\d{4}-\d{2}-\d{2}|\d{2}/\d{2}/\d{4}'
+        for col in df.columns:
+            if df[col].astype(str).str.match(date_pattern).any():
+                try:
+                    df[col] = pd.to_datetime(df[col], errors='coerce')
+                except:
+                    pass
+        
+        # Save cleaned data
+        df.to_csv(output_file, index=False)
+        print(f"Data cleaned successfully. Output saved to {output_file}")
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: Input file '{input_file}' not found.")
+        return None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None
+
+def validate_data(df, required_columns=None):
+    """
+    Validate the cleaned dataframe for required columns and data quality.
+    """
+    if df is None or df.empty:
+        print("DataFrame is empty or None.")
+        return False
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            print(f"Missing required columns: {missing_cols}")
+            return False
+    
+    # Check for remaining null values
+    null_counts = df.isnull().sum()
+    if null_counts.sum() > 0:
+        print(f"Warning: DataFrame contains {null_counts.sum()} null values.")
+        print(null_counts[null_counts > 0])
+    
+    return True
+
+if __name__ == "__main__":
+    # Example usage
+    input_csv = "raw_data.csv"
+    output_csv = "cleaned_data.csv"
+    
+    cleaned_df = clean_csv_data(input_csv, output_csv)
+    
+    if cleaned_df is not None:
+        required_cols = ['id', 'name', 'value']
+        is_valid = validate_data(cleaned_df, required_cols)
+        
+        if is_valid:
+            print("Data validation passed.")
+            print(f"Cleaned data shape: {cleaned_df.shape}")
+            print("Column names:", list(cleaned_df.columns))
+        else:
+            print("Data validation failed.")
