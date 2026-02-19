@@ -254,4 +254,107 @@ def clean_dataset(input_file, output_file):
         return False
 
 if __name__ == "__main__":
-    clean_dataset('raw_data.csv', 'cleaned_data.csv')
+    clean_dataset('raw_data.csv', 'cleaned_data.csv')import numpy as np
+import pandas as pd
+from scipy import stats
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_outliers_iqr(self, columns=None, threshold=1.5):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+            
+        df_clean = self.df.copy()
+        for col in columns:
+            if col in df_clean.columns:
+                Q1 = df_clean[col].quantile(0.25)
+                Q3 = df_clean[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - threshold * IQR
+                upper_bound = Q3 + threshold * IQR
+                df_clean = df_clean[(df_clean[col] >= lower_bound) & (df_clean[col] <= upper_bound)]
+        
+        removed_count = len(self.df) - len(df_clean)
+        self.df = df_clean
+        return removed_count
+    
+    def impute_missing(self, strategy='median', columns=None):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+            
+        df_imputed = self.df.copy()
+        for col in columns:
+            if col in df_imputed.columns and df_imputed[col].isnull().any():
+                if strategy == 'mean':
+                    fill_value = df_imputed[col].mean()
+                elif strategy == 'median':
+                    fill_value = df_imputed[col].median()
+                elif strategy == 'mode':
+                    fill_value = df_imputed[col].mode()[0]
+                else:
+                    fill_value = 0
+                
+                df_imputed[col] = df_imputed[col].fillna(fill_value)
+        
+        self.df = df_imputed
+        return self.df.isnull().sum().sum()
+    
+    def normalize_data(self, columns=None, method='zscore'):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+            
+        df_normalized = self.df.copy()
+        for col in columns:
+            if col in df_normalized.columns:
+                if method == 'zscore':
+                    df_normalized[col] = stats.zscore(df_normalized[col])
+                elif method == 'minmax':
+                    min_val = df_normalized[col].min()
+                    max_val = df_normalized[col].max()
+                    if max_val != min_val:
+                        df_normalized[col] = (df_normalized[col] - min_val) / (max_val - min_val)
+        
+        self.df = df_normalized
+        return self.df
+    
+    def get_cleaned_data(self):
+        return self.df
+    
+    def get_cleaning_stats(self):
+        final_shape = self.df.shape
+        return {
+            'original_rows': self.original_shape[0],
+            'final_rows': final_shape[0],
+            'rows_removed': self.original_shape[0] - final_shape[0],
+            'original_columns': self.original_shape[1],
+            'final_columns': final_shape[1]
+        }
+
+def load_and_clean_dataset(filepath):
+    try:
+        if filepath.endswith('.csv'):
+            df = pd.read_csv(filepath)
+        elif filepath.endswith('.xlsx'):
+            df = pd.read_excel(filepath)
+        else:
+            raise ValueError("Unsupported file format")
+        
+        cleaner = DataCleaner(df)
+        missing_before = df.isnull().sum().sum()
+        
+        cleaner.impute_missing(strategy='median')
+        outliers_removed = cleaner.remove_outliers_iqr(threshold=1.5)
+        cleaner.normalize_data(method='zscore')
+        
+        stats = cleaner.get_cleaning_stats()
+        stats['missing_values_imputed'] = missing_before
+        stats['outliers_removed'] = outliers_removed
+        
+        return cleaner.get_cleaned_data(), stats
+        
+    except Exception as e:
+        print(f"Error during data cleaning: {e}")
+        return None, {}
