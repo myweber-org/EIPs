@@ -125,3 +125,127 @@ if __name__ == "__main__":
     input_file = "raw_data.csv"
     output_file = "cleaned_data.csv"
     clean_dataset(input_file, output_file)
+import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a specified column in a DataFrame using the IQR method.
+    
+    Parameters:
+    df (pd.DataFrame): The input DataFrame.
+    column (str): The column name to process.
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed.
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df.reset_index(drop=True)
+
+def clean_missing_values(df, strategy='mean', columns=None):
+    """
+    Handle missing values in specified columns.
+    
+    Parameters:
+    df (pd.DataFrame): The input DataFrame.
+    strategy (str): One of 'mean', 'median', 'mode', or 'drop'.
+    columns (list): List of column names to process. If None, process all numeric columns.
+    
+    Returns:
+    pd.DataFrame: DataFrame with missing values handled.
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    df_clean = df.copy()
+    
+    for col in columns:
+        if col not in df.columns:
+            continue
+            
+        if strategy == 'drop':
+            df_clean = df_clean.dropna(subset=[col])
+        elif strategy == 'mean':
+            df_clean[col].fillna(df_clean[col].mean(), inplace=True)
+        elif strategy == 'median':
+            df_clean[col].fillna(df_clean[col].median(), inplace=True)
+        elif strategy == 'mode':
+            df_clean[col].fillna(df_clean[col].mode()[0], inplace=True)
+        else:
+            raise ValueError(f"Unknown strategy: {strategy}")
+    
+    return df_clean.reset_index(drop=True)
+
+def normalize_column(df, column, method='minmax'):
+    """
+    Normalize a column using specified method.
+    
+    Parameters:
+    df (pd.DataFrame): The input DataFrame.
+    column (str): The column name to normalize.
+    method (str): One of 'minmax' or 'zscore'.
+    
+    Returns:
+    pd.DataFrame: DataFrame with normalized column.
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    df_norm = df.copy()
+    
+    if method == 'minmax':
+        min_val = df_norm[column].min()
+        max_val = df_norm[column].max()
+        if max_val != min_val:
+            df_norm[column] = (df_norm[column] - min_val) / (max_val - min_val)
+    
+    elif method == 'zscore':
+        mean_val = df_norm[column].mean()
+        std_val = df_norm[column].std()
+        if std_val > 0:
+            df_norm[column] = (df_norm[column] - mean_val) / std_val
+    
+    else:
+        raise ValueError(f"Unknown normalization method: {method}")
+    
+    return df_norm
+
+def get_data_summary(df):
+    """
+    Generate a summary statistics DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): The input DataFrame.
+    
+    Returns:
+    pd.DataFrame: Summary statistics for each numeric column.
+    """
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    
+    summary_data = []
+    for col in numeric_cols:
+        summary_data.append({
+            'column': col,
+            'count': df[col].count(),
+            'mean': df[col].mean(),
+            'std': df[col].std(),
+            'min': df[col].min(),
+            '25%': df[col].quantile(0.25),
+            '50%': df[col].quantile(0.50),
+            '75%': df[col].quantile(0.75),
+            'max': df[col].max(),
+            'missing': df[col].isnull().sum()
+        })
+    
+    return pd.DataFrame(summary_data)
