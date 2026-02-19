@@ -364,4 +364,201 @@ def clean_dataset(filepath, outlier_method='iqr', normalize_method='minmax'):
 if __name__ == "__main__":
     cleaned_data = clean_dataset('raw_data.csv', outlier_method='zscore', normalize_method='zscore')
     cleaned_data.to_csv('cleaned_data.csv', index=False)
-    print(f"Data cleaning complete. Original shape: {pd.read_csv('raw_data.csv').shape}, Cleaned shape: {cleaned_data.shape}")
+    print(f"Data cleaning complete. Original shape: {pd.read_csv('raw_data.csv').shape}, Cleaned shape: {cleaned_data.shape}")import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column, multiplier=1.5):
+    """
+    Remove outliers from a pandas Series using the IQR method.
+    
+    Parameters:
+    data (pd.Series): Input data series
+    column (str): Column name to process
+    multiplier (float): IQR multiplier for outlier detection
+    
+    Returns:
+    pd.Series: Data with outliers removed
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in data")
+    
+    series = data[column]
+    q1 = series.quantile(0.25)
+    q3 = series.quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - multiplier * iqr
+    upper_bound = q3 + multiplier * iqr
+    
+    return data[(series >= lower_bound) & (series <= upper_bound)]
+
+def normalize_minmax(data, column):
+    """
+    Normalize data to [0, 1] range using min-max scaling.
+    
+    Parameters:
+    data (pd.Series or np.ndarray): Input data
+    column (str): Column name to normalize
+    
+    Returns:
+    pd.Series: Normalized data
+    """
+    if isinstance(data, pd.DataFrame):
+        series = data[column]
+    else:
+        series = data
+    
+    min_val = series.min()
+    max_val = series.max()
+    
+    if max_val == min_val:
+        return pd.Series([0.5] * len(series), index=series.index)
+    
+    normalized = (series - min_val) / (max_val - min_val)
+    return normalized
+
+def z_score_normalize(data, column):
+    """
+    Normalize data using z-score standardization.
+    
+    Parameters:
+    data (pd.Series or np.ndarray): Input data
+    column (str): Column name to normalize
+    
+    Returns:
+    pd.Series: Z-score normalized data
+    """
+    if isinstance(data, pd.DataFrame):
+        series = data[column]
+    else:
+        series = data
+    
+    mean_val = series.mean()
+    std_val = series.std()
+    
+    if std_val == 0:
+        return pd.Series([0] * len(series), index=series.index)
+    
+    z_scores = (series - mean_val) / std_val
+    return z_scores
+
+def detect_skewness(data, column, threshold=0.5):
+    """
+    Detect skewness in data and suggest transformation.
+    
+    Parameters:
+    data (pd.Series): Input data series
+    column (str): Column name to analyze
+    threshold (float): Absolute skewness threshold for detection
+    
+    Returns:
+    dict: Skewness analysis results
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in data")
+    
+    series = data[column].dropna()
+    skewness = stats.skew(series)
+    abs_skew = abs(skewness)
+    
+    result = {
+        'skewness': skewness,
+        'is_skewed': abs_skew > threshold,
+        'suggestion': None
+    }
+    
+    if abs_skew > threshold:
+        if skewness > 0:
+            result['suggestion'] = 'log_transform'
+        else:
+            result['suggestion'] = 'square_transform'
+    
+    return result
+
+def clean_dataset(df, numeric_columns=None, outlier_multiplier=1.5):
+    """
+    Comprehensive dataset cleaning pipeline.
+    
+    Parameters:
+    df (pd.DataFrame): Input dataframe
+    numeric_columns (list): List of numeric columns to clean
+    outlier_multiplier (float): IQR multiplier for outlier removal
+    
+    Returns:
+    pd.DataFrame: Cleaned dataframe
+    """
+    if numeric_columns is None:
+        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_df = df.copy()
+    
+    for col in numeric_columns:
+        if col in df.columns:
+            # Remove outliers
+            cleaned_df = remove_outliers_iqr(cleaned_df, col, outlier_multiplier)
+            
+            # Normalize using z-score
+            cleaned_df[col] = z_score_normalize(cleaned_df, col)
+    
+    return cleaned_df.reset_index(drop=True)
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate dataframe structure and data quality.
+    
+    Parameters:
+    df (pd.DataFrame): Dataframe to validate
+    required_columns (list): List of required column names
+    
+    Returns:
+    dict: Validation results
+    """
+    validation = {
+        'is_valid': True,
+        'missing_columns': [],
+        'null_counts': {},
+        'data_types': {}
+    }
+    
+    if required_columns:
+        missing = [col for col in required_columns if col not in df.columns]
+        if missing:
+            validation['is_valid'] = False
+            validation['missing_columns'] = missing
+    
+    for col in df.columns:
+        null_count = df[col].isnull().sum()
+        validation['null_counts'][col] = null_count
+        validation['data_types'][col] = str(df[col].dtype)
+    
+    return validation
+
+# Example usage demonstration
+if __name__ == "__main__":
+    # Create sample data
+    np.random.seed(42)
+    sample_data = pd.DataFrame({
+        'feature_a': np.random.normal(100, 15, 100),
+        'feature_b': np.random.exponential(50, 100),
+        'category': np.random.choice(['A', 'B', 'C'], 100)
+    })
+    
+    # Add some outliers
+    sample_data.loc[0, 'feature_a'] = 500
+    sample_data.loc[1, 'feature_b'] = 1000
+    
+    print("Original data shape:", sample_data.shape)
+    print("\nData validation:")
+    validation = validate_dataframe(sample_data)
+    for key, value in validation.items():
+        print(f"{key}: {value}")
+    
+    # Clean the data
+    cleaned = clean_dataset(sample_data, ['feature_a', 'feature_b'])
+    print("\nCleaned data shape:", cleaned.shape)
+    
+    # Check skewness
+    skew_result = detect_skewness(sample_data, 'feature_b')
+    print("\nSkewness analysis for feature_b:")
+    for key, value in skew_result.items():
+        print(f"{key}: {value}")
