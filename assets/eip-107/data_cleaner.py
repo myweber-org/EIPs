@@ -511,3 +511,127 @@ if __name__ == "__main__":
     cleaned_data = clean_dataset(data, ['A', 'B', 'C'])
     print(f"Original shape: {data.shape}")
     print(f"Cleaned shape: {cleaned_data.shape}")
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column, factor=1.5):
+    """
+    Remove outliers using IQR method
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - factor * IQR
+    upper_bound = Q3 + factor * IQR
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    outliers_removed = len(data) - len(filtered_data)
+    
+    return filtered_data, outliers_removed
+
+def zscore_normalize(data, column):
+    """
+    Normalize data using z-score method
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return data[column]
+    
+    normalized = (data[column] - mean_val) / std_val
+    return normalized
+
+def minmax_normalize(data, column, feature_range=(0, 1)):
+    """
+    Normalize data using min-max scaling
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return data[column] * 0 + feature_range[0]
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    normalized = normalized * (feature_range[1] - feature_range[0]) + feature_range[0]
+    
+    return normalized
+
+def detect_missing_patterns(data, threshold=0.3):
+    """
+    Detect columns with high percentage of missing values
+    """
+    missing_percentage = data.isnull().sum() / len(data)
+    high_missing_cols = missing_percentage[missing_percentage > threshold].index.tolist()
+    
+    return {
+        'missing_percentage': missing_percentage,
+        'high_missing_columns': high_missing_cols,
+        'total_missing': data.isnull().sum().sum()
+    }
+
+def clean_dataset(data, numeric_columns=None, outlier_factor=1.5, normalize_method='zscore'):
+    """
+    Comprehensive data cleaning pipeline
+    """
+    if numeric_columns is None:
+        numeric_columns = data.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_data = data.copy()
+    cleaning_report = {
+        'original_shape': data.shape,
+        'outliers_removed': {},
+        'normalized_columns': []
+    }
+    
+    for col in numeric_columns:
+        if col in data.columns:
+            cleaned_data, outliers = remove_outliers_iqr(cleaned_data, col, outlier_factor)
+            cleaning_report['outliers_removed'][col] = outliers
+            
+            if normalize_method == 'zscore':
+                cleaned_data[f'{col}_normalized'] = zscore_normalize(cleaned_data, col)
+            elif normalize_method == 'minmax':
+                cleaned_data[f'{col}_normalized'] = minmax_normalize(cleaned_data, col)
+            
+            cleaning_report['normalized_columns'].append(col)
+    
+    missing_info = detect_missing_patterns(cleaned_data)
+    cleaning_report.update(missing_info)
+    cleaning_report['final_shape'] = cleaned_data.shape
+    
+    return cleaned_data, cleaning_report
+
+def validate_data_types(data, expected_types):
+    """
+    Validate column data types against expected types
+    """
+    validation_results = {}
+    
+    for col, expected_type in expected_types.items():
+        if col in data.columns:
+            actual_type = str(data[col].dtype)
+            is_valid = actual_type == expected_type
+            validation_results[col] = {
+                'expected': expected_type,
+                'actual': actual_type,
+                'valid': is_valid
+            }
+    
+    all_valid = all(result['valid'] for result in validation_results.values())
+    
+    return {
+        'all_valid': all_valid,
+        'validation_results': validation_results
+    }
