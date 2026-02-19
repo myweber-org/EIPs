@@ -117,4 +117,35 @@ def example_usage():
 if __name__ == "__main__":
     result_df = example_usage()
     print(f"Cleaned data shape: {result_df.shape}")
-    print(result_df.head())
+    print(result_df.head())import pandas as pd
+
+def clean_data(df):
+    """
+    Clean the input DataFrame by removing duplicates and filling missing values.
+    """
+    # Remove duplicate rows
+    df_cleaned = df.drop_duplicates()
+    
+    # Fill missing numeric values with the column mean
+    numeric_cols = df_cleaned.select_dtypes(include=['number']).columns
+    df_cleaned[numeric_cols] = df_cleaned[numeric_cols].fillna(df_cleaned[numeric_cols].mean())
+    
+    # Fill missing categorical values with 'Unknown'
+    categorical_cols = df_cleaned.select_dtypes(include=['object']).columns
+    df_cleaned[categorical_cols] = df_cleaned[categorical_cols].fillna('Unknown')
+    
+    return df_cleaned
+
+if __name__ == "__main__":
+    # Example usage
+    data = pd.DataFrame({
+        'A': [1, 2, 2, None, 5],
+        'B': ['x', 'y', None, 'y', 'z'],
+        'C': [10.5, None, 10.5, 12.0, 12.0]
+    })
+    
+    cleaned = clean_data(data)
+    print("Original data:")
+    print(data)
+    print("\nCleaned data:")
+    print(cleaned)
