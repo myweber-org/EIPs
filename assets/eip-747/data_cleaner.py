@@ -431,3 +431,42 @@ if __name__ == "__main__":
     
     is_valid, message = validate_dataframe(cleaned, required_columns=['A', 'B'])
     print(f"\nValidation: {message}")
+import re
+
+def clean_string(text):
+    """
+    Clean a string by removing leading/trailing whitespace,
+    reducing multiple spaces to a single space, and converting to lowercase.
+    
+    Args:
+        text (str): The input string to clean.
+    
+    Returns:
+        str: The cleaned string.
+    """
+    if not isinstance(text, str):
+        raise TypeError("Input must be a string")
+    
+    # Remove leading and trailing whitespace
+    cleaned = text.strip()
+    # Replace multiple spaces with a single space
+    cleaned = re.sub(r'\s+', ' ', cleaned)
+    # Convert to lowercase
+    cleaned = cleaned.lower()
+    
+    return cleaned
+
+def normalize_names(name_list):
+    """
+    Normalize a list of names by cleaning each string.
+    
+    Args:
+        name_list (list): A list of name strings.
+    
+    Returns:
+        list: A list of cleaned name strings.
+    """
+    if not isinstance(name_list, list):
+        raise TypeError("Input must be a list")
+    
+    return [clean_string(name) for name in name_list]
