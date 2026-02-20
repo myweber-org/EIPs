@@ -470,3 +470,96 @@ def normalize_names(name_list):
         raise TypeError("Input must be a list")
     
     return [clean_string(name) for name in name_list]
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(dataframe, column, threshold=1.5):
+    """
+    Remove outliers using IQR method
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = dataframe[column].quantile(0.25)
+    Q3 = dataframe[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - threshold * IQR
+    upper_bound = Q3 + threshold * IQR
+    
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
+                           (dataframe[column] <= upper_bound)]
+    
+    return filtered_df
+
+def normalize_minmax(dataframe, columns=None):
+    """
+    Normalize data using min-max scaling
+    """
+    if columns is None:
+        columns = dataframe.select_dtypes(include=[np.number]).columns
+    
+    normalized_df = dataframe.copy()
+    
+    for col in columns:
+        if col in dataframe.columns and pd.api.types.is_numeric_dtype(dataframe[col]):
+            min_val = dataframe[col].min()
+            max_val = dataframe[col].max()
+            
+            if max_val != min_val:
+                normalized_df[col] = (dataframe[col] - min_val) / (max_val - min_val)
+            else:
+                normalized_df[col] = 0
+    
+    return normalized_df
+
+def detect_skewed_columns(dataframe, skew_threshold=0.5):
+    """
+    Identify columns with significant skewness
+    """
+    skewed_cols = []
+    
+    for col in dataframe.select_dtypes(include=[np.number]).columns:
+        skewness = dataframe[col].skew()
+        if abs(skewness) > skew_threshold:
+            skewed_cols.append((col, skewness))
+    
+    return sorted(skewed_cols, key=lambda x: abs(x[1]), reverse=True)
+
+def apply_log_transform(dataframe, columns):
+    """
+    Apply log transformation to specified columns
+    """
+    transformed_df = dataframe.copy()
+    
+    for col in columns:
+        if col in dataframe.columns and pd.api.types.is_numeric_dtype(dataframe[col]):
+            if (dataframe[col] > 0).all():
+                transformed_df[col] = np.log1p(dataframe[col])
+            else:
+                transformed_df[col] = np.sign(dataframe[col]) * np.log1p(np.abs(dataframe[col]))
+    
+    return transformed_df
+
+def clean_dataset(dataframe, outlier_columns=None, normalize=True, handle_skewness=True):
+    """
+    Comprehensive data cleaning pipeline
+    """
+    cleaned_df = dataframe.copy()
+    
+    if outlier_columns:
+        for col in outlier_columns:
+            if col in cleaned_df.columns:
+                cleaned_df = remove_outliers_iqr(cleaned_df, col)
+    
+    if handle_skewness:
+        skewed = detect_skewed_columns(cleaned_df)
+        skewed_cols = [col for col, _ in skewed]
+        if skewed_cols:
+            cleaned_df = apply_log_transform(cleaned_df, skewed_cols)
+    
+    if normalize:
+        cleaned_df = normalize_minmax(cleaned_df)
+    
+    return cleaned_df
