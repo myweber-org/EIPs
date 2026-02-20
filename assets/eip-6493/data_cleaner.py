@@ -272,3 +272,204 @@ if __name__ == "__main__":
     
     is_valid, message = validate_data(cleaned, required_columns=['A', 'B'], min_rows=3)
     print(f"\nValidation: {is_valid} - {message}")
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(dataframe, column, multiplier=1.5):
+    """
+    Remove outliers using the Interquartile Range method.
+    
+    Args:
+        dataframe: pandas DataFrame containing the data
+        column: column name to process
+        multiplier: IQR multiplier (default 1.5)
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = dataframe[column].quantile(0.25)
+    q3 = dataframe[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - multiplier * iqr
+    upper_bound = q3 + multiplier * iqr
+    
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
+                           (dataframe[column] <= upper_bound)]
+    
+    return filtered_df
+
+def remove_outliers_zscore(dataframe, column, threshold=3):
+    """
+    Remove outliers using Z-score method.
+    
+    Args:
+        dataframe: pandas DataFrame containing the data
+        column: column name to process
+        threshold: Z-score threshold (default 3)
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    z_scores = np.abs(stats.zscore(dataframe[column]))
+    filtered_df = dataframe[z_scores < threshold]
+    
+    return filtered_df
+
+def normalize_minmax(dataframe, columns=None):
+    """
+    Normalize data using Min-Max scaling.
+    
+    Args:
+        dataframe: pandas DataFrame to normalize
+        columns: list of columns to normalize (default: all numeric columns)
+    
+    Returns:
+        Normalized DataFrame
+    """
+    if columns is None:
+        numeric_cols = dataframe.select_dtypes(include=[np.number]).columns
+        columns = list(numeric_cols)
+    
+    normalized_df = dataframe.copy()
+    
+    for col in columns:
+        if col not in dataframe.columns:
+            raise ValueError(f"Column '{col}' not found in DataFrame")
+        
+        if not np.issubdtype(dataframe[col].dtype, np.number):
+            continue
+            
+        col_min = dataframe[col].min()
+        col_max = dataframe[col].max()
+        
+        if col_max - col_min > 0:
+            normalized_df[col] = (dataframe[col] - col_min) / (col_max - col_min)
+        else:
+            normalized_df[col] = 0
+    
+    return normalized_df
+
+def normalize_zscore(dataframe, columns=None):
+    """
+    Normalize data using Z-score standardization.
+    
+    Args:
+        dataframe: pandas DataFrame to normalize
+        columns: list of columns to normalize (default: all numeric columns)
+    
+    Returns:
+        Standardized DataFrame
+    """
+    if columns is None:
+        numeric_cols = dataframe.select_dtypes(include=[np.number]).columns
+        columns = list(numeric_cols)
+    
+    standardized_df = dataframe.copy()
+    
+    for col in columns:
+        if col not in dataframe.columns:
+            raise ValueError(f"Column '{col}' not found in DataFrame")
+        
+        if not np.issubdtype(dataframe[col].dtype, np.number):
+            continue
+            
+        col_mean = dataframe[col].mean()
+        col_std = dataframe[col].std()
+        
+        if col_std > 0:
+            standardized_df[col] = (dataframe[col] - col_mean) / col_std
+        else:
+            standardized_df[col] = 0
+    
+    return standardized_df
+
+def clean_missing_values(dataframe, strategy='mean', columns=None):
+    """
+    Handle missing values in the DataFrame.
+    
+    Args:
+        dataframe: pandas DataFrame to clean
+        strategy: imputation strategy ('mean', 'median', 'mode', 'drop')
+        columns: list of columns to process (default: all columns)
+    
+    Returns:
+        DataFrame with missing values handled
+    """
+    if columns is None:
+        columns = dataframe.columns
+    
+    cleaned_df = dataframe.copy()
+    
+    for col in columns:
+        if col not in dataframe.columns:
+            raise ValueError(f"Column '{col}' not found in DataFrame")
+        
+        if cleaned_df[col].isnull().sum() == 0:
+            continue
+        
+        if strategy == 'drop':
+            cleaned_df = cleaned_df.dropna(subset=[col])
+        elif strategy == 'mean':
+            if np.issubdtype(cleaned_df[col].dtype, np.number):
+                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mean())
+        elif strategy == 'median':
+            if np.issubdtype(cleaned_df[col].dtype, np.number):
+                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].median())
+        elif strategy == 'mode':
+            mode_value = cleaned_df[col].mode()
+            if not mode_value.empty:
+                cleaned_df[col] = cleaned_df[col].fillna(mode_value.iloc[0])
+        else:
+            raise ValueError(f"Unknown strategy: {strategy}")
+    
+    return cleaned_df
+
+def get_data_summary(dataframe):
+    """
+    Generate a comprehensive summary of the DataFrame.
+    
+    Args:
+        dataframe: pandas DataFrame to summarize
+    
+    Returns:
+        Dictionary containing summary statistics
+    """
+    summary = {
+        'shape': dataframe.shape,
+        'columns': list(dataframe.columns),
+        'dtypes': dataframe.dtypes.to_dict(),
+        'missing_values': dataframe.isnull().sum().to_dict(),
+        'numeric_stats': {},
+        'categorical_stats': {}
+    }
+    
+    numeric_cols = dataframe.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        summary['numeric_stats'][col] = {
+            'mean': dataframe[col].mean(),
+            'median': dataframe[col].median(),
+            'std': dataframe[col].std(),
+            'min': dataframe[col].min(),
+            'max': dataframe[col].max(),
+            'q1': dataframe[col].quantile(0.25),
+            'q3': dataframe[col].quantile(0.75)
+        }
+    
+    categorical_cols = dataframe.select_dtypes(include=['object', 'category']).columns
+    for col in categorical_cols:
+        value_counts = dataframe[col].value_counts()
+        summary['categorical_stats'][col] = {
+            'unique_values': dataframe[col].nunique(),
+            'top_value': value_counts.index[0] if not value_counts.empty else None,
+            'top_count': value_counts.iloc[0] if not value_counts.empty else 0
+        }
+    
+    return summary
