@@ -140,3 +140,47 @@ def clean_dataset(dataframe, missing_strategy='mean', outlier_method='zscore', n
     if normalize:
         cleaner.normalize_data()
     return cleaner.get_cleaned_data()
+def remove_duplicates(data_list):
+    """
+    Remove duplicate entries from a list while preserving order.
+    
+    Args:
+        data_list: A list of elements that may contain duplicates.
+        
+    Returns:
+        A new list with duplicates removed.
+    """
+    seen = set()
+    result = []
+    for item in data_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+def clean_numeric_strings(string_list):
+    """
+    Clean a list of strings by removing non-numeric characters.
+    
+    Args:
+        string_list: A list of strings that may contain non-numeric characters.
+        
+    Returns:
+        A list of strings with only numeric characters.
+    """
+    import re
+    cleaned = []
+    for s in string_list:
+        numeric_only = re.sub(r'[^0-9]', '', s)
+        if numeric_only:
+            cleaned.append(numeric_only)
+    return cleaned
+
+if __name__ == "__main__":
+    test_data = [1, 2, 2, 3, 4, 4, 5]
+    print("Original:", test_data)
+    print("Cleaned:", remove_duplicates(test_data))
+    
+    test_strings = ["abc123", "456def", "789", "a1b2c3"]
+    print("Original strings:", test_strings)
+    print("Cleaned strings:", clean_numeric_strings(test_strings))
