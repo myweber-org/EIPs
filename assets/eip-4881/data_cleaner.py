@@ -585,3 +585,101 @@ def get_data_summary(df):
     })
     
     return summary.round(3)
+import pandas as pd
+import re
+
+def clean_dataframe(df, column_mapping=None, drop_duplicates=True, normalize_text=True):
+    """
+    Clean a pandas DataFrame by removing duplicates and normalizing text columns.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column_mapping (dict): Optional dictionary to rename columns
+    drop_duplicates (bool): Whether to remove duplicate rows
+    normalize_text (bool): Whether to normalize text columns
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    
+    cleaned_df = df.copy()
+    
+    if column_mapping:
+        cleaned_df = cleaned_df.rename(columns=column_mapping)
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates().reset_index(drop=True)
+    
+    if normalize_text:
+        text_columns = cleaned_df.select_dtypes(include=['object']).columns
+        
+        for col in text_columns:
+            cleaned_df[col] = cleaned_df[col].apply(_normalize_string)
+    
+    return cleaned_df
+
+def _normalize_string(text):
+    """
+    Normalize a string by converting to lowercase, removing extra whitespace,
+    and stripping special characters.
+    """
+    if pd.isna(text):
+        return text
+    
+    normalized = str(text).lower().strip()
+    normalized = re.sub(r'\s+', ' ', normalized)
+    normalized = re.sub(r'[^\w\s-]', '', normalized)
+    
+    return normalized
+
+def validate_email(email):
+    """
+    Validate email format using regex pattern.
+    """
+    if pd.isna(email):
+        return False
+    
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, str(email)))
+
+def get_summary_statistics(df):
+    """
+    Generate summary statistics for numerical columns.
+    """
+    numerical_cols = df.select_dtypes(include=['int64', 'float64']).columns
+    
+    if len(numerical_cols) == 0:
+        return pd.DataFrame()
+    
+    summary = df[numerical_cols].describe()
+    summary.loc['missing'] = df[numerical_cols].isna().sum()
+    summary.loc['unique'] = df[numerical_cols].nunique()
+    
+    return summary
+
+if __name__ == "__main__":
+    sample_data = {
+        'Name': ['John Doe', 'Jane Smith', 'John Doe', 'Bob Johnson  ', 'ALICE WONDER'],
+        'Email': ['john@example.com', 'jane@test.com', 'invalid-email', 'bob@company.org', 'alice@domain.net'],
+        'Age': [25, 30, 25, 35, 28],
+        'Salary': [50000, 60000, 50000, 75000, 55000]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    cleaned = clean_dataframe(df, drop_duplicates=True, normalize_text=True)
+    print("Cleaned DataFrame:")
+    print(cleaned)
+    print("\n" + "="*50 + "\n")
+    
+    cleaned['Valid_Email'] = cleaned['Email'].apply(validate_email)
+    print("DataFrame with Email Validation:")
+    print(cleaned[['Name', 'Email', 'Valid_Email']])
+    print("\n" + "="*50 + "\n")
+    
+    stats = get_summary_statistics(cleaned)
+    print("Summary Statistics:")
+    print(stats)
