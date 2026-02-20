@@ -709,3 +709,102 @@ def main():
 
 if __name__ == "__main__":
     main()
+import pandas as pd
+import numpy as np
+from datetime import datetime
+
+def clean_csv_data(input_file, output_file):
+    """
+    Clean CSV data by handling missing values and converting data types.
+    """
+    try:
+        df = pd.read_csv(input_file)
+        
+        print(f"Original data shape: {df.shape}")
+        print(f"Missing values per column:\n{df.isnull().sum()}")
+        
+        # Fill missing numeric values with column median
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            if df[col].isnull().any():
+                df[col] = df[col].fillna(df[col].median())
+        
+        # Fill missing categorical values with mode
+        categorical_cols = df.select_dtypes(include=['object']).columns
+        for col in categorical_cols:
+            if df[col].isnull().any():
+                df[col] = df[col].fillna(df[col].mode()[0])
+        
+        # Convert date columns if present
+        date_columns = [col for col in df.columns if 'date' in col.lower() or 'time' in col.lower()]
+        for col in date_columns:
+            try:
+                df[col] = pd.to_datetime(df[col])
+            except:
+                print(f"Could not convert column {col} to datetime")
+        
+        # Remove duplicate rows
+        initial_rows = len(df)
+        df = df.drop_duplicates()
+        removed_duplicates = initial_rows - len(df)
+        
+        # Reset index after cleaning
+        df = df.reset_index(drop=True)
+        
+        # Save cleaned data
+        df.to_csv(output_file, index=False)
+        
+        print(f"Cleaned data shape: {df.shape}")
+        print(f"Removed duplicate rows: {removed_duplicates}")
+        print(f"Cleaned data saved to: {output_file}")
+        
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: Input file '{input_file}' not found.")
+        return None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None
+
+def validate_data(df):
+    """
+    Validate cleaned data for common issues.
+    """
+    if df is None:
+        return False
+    
+    validation_results = {
+        'has_missing_values': df.isnull().sum().sum() == 0,
+        'has_duplicates': len(df) == len(df.drop_duplicates()),
+        'numeric_ranges_valid': True,
+        'date_chronology_valid': True
+    }
+    
+    # Check numeric columns for extreme values
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        if df[col].max() > 1e10 or df[col].min() < -1e10:
+            validation_results['numeric_ranges_valid'] = False
+    
+    # Check date columns for chronological order
+    date_columns = [col for col in df.columns if 'date' in col.lower()]
+    for col in date_columns:
+        if pd.api.types.is_datetime64_any_dtype(df[col]):
+            if not df[col].is_monotonic_increasing:
+                validation_results['date_chronology_valid'] = False
+    
+    return validation_results
+
+if __name__ == "__main__":
+    # Example usage
+    input_csv = "raw_data.csv"
+    output_csv = "cleaned_data.csv"
+    
+    cleaned_df = clean_csv_data(input_csv, output_csv)
+    
+    if cleaned_df is not None:
+        validation = validate_data(cleaned_df)
+        print("\nData Validation Results:")
+        for check, result in validation.items():
+            print(f"{check}: {'PASS' if result else 'FAIL'}")
