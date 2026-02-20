@@ -71,3 +71,128 @@ def main():
 
 if __name__ == "__main__":
     main()
+import pandas as pd
+import numpy as np
+
+def clean_missing_values(df, strategy='mean', columns=None):
+    """
+    Handle missing values in a DataFrame using specified strategy.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    strategy (str): Strategy for handling missing values ('mean', 'median', 'mode', 'drop')
+    columns (list): Specific columns to apply cleaning to, if None applies to all columns
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    if df.empty:
+        return df
+    
+    if columns is None:
+        columns = df.columns
+    
+    df_clean = df.copy()
+    
+    for col in columns:
+        if col not in df_clean.columns:
+            continue
+            
+        if df_clean[col].isnull().any():
+            if strategy == 'mean' and pd.api.types.is_numeric_dtype(df_clean[col]):
+                df_clean[col].fillna(df_clean[col].mean(), inplace=True)
+            elif strategy == 'median' and pd.api.types.is_numeric_dtype(df_clean[col]):
+                df_clean[col].fillna(df_clean[col].median(), inplace=True)
+            elif strategy == 'mode':
+                mode_value = df_clean[col].mode()
+                if not mode_value.empty:
+                    df_clean[col].fillna(mode_value[0], inplace=True)
+            elif strategy == 'drop':
+                df_clean = df_clean.dropna(subset=[col])
+    
+    return df_clean
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    subset (list): Columns to consider for identifying duplicates
+    keep (str): Which duplicates to keep ('first', 'last', False)
+    
+    Returns:
+    pd.DataFrame: DataFrame with duplicates removed
+    """
+    return df.drop_duplicates(subset=subset, keep=keep)
+
+def normalize_columns(df, columns=None):
+    """
+    Normalize specified columns to range [0, 1].
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    columns (list): Columns to normalize
+    
+    Returns:
+    pd.DataFrame: DataFrame with normalized columns
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_normalized = df.copy()
+    
+    for col in columns:
+        if col in df_normalized.columns and pd.api.types.is_numeric_dtype(df_normalized[col]):
+            col_min = df_normalized[col].min()
+            col_max = df_normalized[col].max()
+            
+            if col_max > col_min:
+                df_normalized[col] = (df_normalized[col] - col_min) / (col_max - col_min)
+    
+    return df_normalized
+
+def validate_dataframe(df, required_columns=None, min_rows=1):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list): Columns that must be present
+    min_rows (int): Minimum number of rows required
+    
+    Returns:
+    tuple: (is_valid, error_message)
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
+    if len(df) < min_rows:
+        return False, f"DataFrame has fewer than {min_rows} rows"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "DataFrame is valid"
+
+def load_and_clean_csv(filepath, **kwargs):
+    """
+    Load CSV file and apply cleaning operations.
+    
+    Parameters:
+    filepath (str): Path to CSV file
+    **kwargs: Additional arguments passed to clean_missing_values
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    try:
+        df = pd.read_csv(filepath)
+        df_clean = clean_missing_values(df, **kwargs)
+        df_clean = remove_duplicates(df_clean)
+        return df_clean
+    except Exception as e:
+        print(f"Error loading or cleaning file: {e}")
+        return pd.DataFrame()
