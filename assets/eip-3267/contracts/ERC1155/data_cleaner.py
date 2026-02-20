@@ -81,3 +81,89 @@ def remove_outliers(df, column, method='iqr', threshold=1.5):
         raise ValueError("Method must be 'iqr' or 'zscore'")
     
     return df[mask]
+import pandas as pd
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Args:
+        df: pandas DataFrame
+        subset: column label or sequence of labels to consider for duplicates
+        keep: {'first', 'last', False} which duplicates to keep
+    
+    Returns:
+        DataFrame with duplicates removed
+    """
+    if df.empty:
+        return df
+    
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+    
+    removed_count = len(df) - len(cleaned_df)
+    if removed_count > 0:
+        print(f"Removed {removed_count} duplicate rows")
+    
+    return cleaned_df
+
+def clean_numeric_columns(df, columns):
+    """
+    Clean numeric columns by converting to appropriate type and handling errors.
+    
+    Args:
+        df: pandas DataFrame
+        columns: list of column names to clean
+    
+    Returns:
+        DataFrame with cleaned numeric columns
+    """
+    for col in columns:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+    
+    return df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df: pandas DataFrame
+        required_columns: list of required column names
+    
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "DataFrame is valid"
+
+def get_data_summary(df):
+    """
+    Generate summary statistics for the DataFrame.
+    
+    Args:
+        df: pandas DataFrame
+    
+    Returns:
+        dict containing summary statistics
+    """
+    summary = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'column_names': list(df.columns),
+        'data_types': df.dtypes.to_dict(),
+        'missing_values': df.isnull().sum().to_dict()
+    }
+    
+    numeric_cols = df.select_dtypes(include=['number']).columns
+    if len(numeric_cols) > 0:
+        summary['numeric_summary'] = df[numeric_cols].describe().to_dict()
+    
+    return summary
