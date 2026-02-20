@@ -1719,3 +1719,51 @@ def remove_duplicates_preserve_order(sequence):
             seen.add(item)
             result.append(item)
     return result
+import pandas as pd
+import re
+
+def clean_dataframe(df, columns_to_clean=None, remove_duplicates=True, normalize_text=True):
+    """
+    Clean a pandas DataFrame by removing duplicates and normalizing text columns.
+    """
+    cleaned_df = df.copy()
+    
+    if remove_duplicates:
+        initial_rows = len(cleaned_df)
+        cleaned_df.drop_duplicates(inplace=True)
+        removed = initial_rows - len(cleaned_df)
+        print(f"Removed {removed} duplicate rows")
+    
+    if normalize_text and columns_to_clean:
+        for column in columns_to_clean:
+            if column in cleaned_df.columns and cleaned_df[column].dtype == 'object':
+                cleaned_df[column] = cleaned_df[column].apply(_normalize_string)
+                print(f"Normalized text in column: {column}")
+    
+    return cleaned_df
+
+def _normalize_string(text):
+    """
+    Normalize a string by converting to lowercase and removing extra whitespace.
+    """
+    if pd.isna(text):
+        return text
+    text = str(text).strip().lower()
+    text = re.sub(r'\s+', ' ', text)
+    return text
+
+def validate_email_column(df, email_column):
+    """
+    Validate email addresses in a specified column.
+    """
+    if email_column not in df.columns:
+        raise ValueError(f"Column '{email_column}' not found in DataFrame")
+    
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    df['email_valid'] = df[email_column].apply(lambda x: bool(re.match(pattern, str(x))) if pd.notna(x) else False)
+    
+    valid_count = df['email_valid'].sum()
+    total_count = len(df)
+    print(f"Valid emails: {valid_count}/{total_count} ({valid_count/total_count*100:.1f}%)")
+    
+    return df
