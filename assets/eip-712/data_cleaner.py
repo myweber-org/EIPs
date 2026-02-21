@@ -886,4 +886,73 @@ if __name__ == "__main__":
     print(cleaned)
     
     is_valid, message = validate_dataframe(cleaned, required_columns=['A', 'B'])
-    print(f"\nValidation: {message}")
+    print(f"\nValidation: {message}")import numpy as np
+import pandas as pd
+
+def detect_outliers_iqr(data, column):
+    """
+    Detect outliers using the Interquartile Range method.
+    Returns a boolean mask where True indicates an outlier.
+    """
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return (data[column] < lower_bound) | (data[column] > upper_bound)
+
+def remove_outliers(data, columns):
+    """
+    Remove outliers from specified columns using IQR method.
+    Returns a cleaned DataFrame.
+    """
+    clean_data = data.copy()
+    for col in columns:
+        if col in clean_data.columns:
+            outliers = detect_outliers_iqr(clean_data, col)
+            clean_data = clean_data[~outliers]
+    return clean_data.reset_index(drop=True)
+
+def normalize_minmax(data, columns):
+    """
+    Apply Min-Max normalization to specified columns.
+    Returns DataFrame with normalized columns.
+    """
+    normalized_data = data.copy()
+    for col in columns:
+        if col in normalized_data.columns:
+            min_val = normalized_data[col].min()
+            max_val = normalized_data[col].max()
+            if max_val != min_val:
+                normalized_data[col] = (normalized_data[col] - min_val) / (max_val - min_val)
+    return normalized_data
+
+def clean_dataset(df, numeric_columns):
+    """
+    Main cleaning pipeline: remove outliers and normalize numeric columns.
+    Returns cleaned and normalized DataFrame.
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    if not numeric_columns:
+        return df
+    
+    cleaned_df = remove_outliers(df, numeric_columns)
+    normalized_df = normalize_minmax(cleaned_df, numeric_columns)
+    return normalized_df
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'feature1': np.random.normal(100, 15, 200),
+        'feature2': np.random.exponential(50, 200),
+        'category': np.random.choice(['A', 'B', 'C'], 200)
+    })
+    
+    sample_data.loc[10, 'feature1'] = 500
+    sample_data.loc[50, 'feature2'] = 1000
+    
+    print("Original data shape:", sample_data.shape)
+    cleaned = clean_dataset(sample_data, ['feature1', 'feature2'])
+    print("Cleaned data shape:", cleaned.shape)
+    print("Feature1 range after normalization:", cleaned['feature1'].min(), "-", cleaned['feature1'].max())
