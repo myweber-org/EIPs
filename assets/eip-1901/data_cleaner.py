@@ -379,3 +379,99 @@ if __name__ == "__main__":
         os.remove(test_file)
     if output_file and os.path.exists(output_file):
         os.remove(output_file)
+import pandas as pd
+import numpy as np
+import argparse
+import sys
+
+def load_csv(file_path):
+    try:
+        df = pd.read_csv(file_path)
+        print(f"Loaded {len(df)} rows and {len(df.columns)} columns from {file_path}")
+        return df
+    except FileNotFoundError:
+        print(f"Error: File '{file_path}' not found.")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error loading CSV: {e}")
+        sys.exit(1)
+
+def analyze_missing_data(df):
+    missing_counts = df.isnull().sum()
+    missing_percentage = (missing_counts / len(df)) * 100
+    
+    missing_summary = pd.DataFrame({
+        'missing_count': missing_counts,
+        'missing_percentage': missing_percentage
+    })
+    
+    return missing_summary[missing_summary['missing_count'] > 0]
+
+def handle_missing_values(df, strategy='mean', columns=None):
+    df_clean = df.copy()
+    
+    if columns is None:
+        columns = df_clean.select_dtypes(include=[np.number]).columns
+    else:
+        columns = [col for col in columns if col in df_clean.columns]
+    
+    for column in columns:
+        if column in df_clean.columns and df_clean[column].dtype in [np.float64, np.int64]:
+            if strategy == 'mean':
+                fill_value = df_clean[column].mean()
+            elif strategy == 'median':
+                fill_value = df_clean[column].median()
+            elif strategy == 'mode':
+                fill_value = df_clean[column].mode()[0]
+            elif strategy == 'zero':
+                fill_value = 0
+            else:
+                print(f"Warning: Unknown strategy '{strategy}' for column '{column}'. Skipping.")
+                continue
+            
+            missing_count = df_clean[column].isnull().sum()
+            if missing_count > 0:
+                df_clean[column].fillna(fill_value, inplace=True)
+                print(f"Filled {missing_count} missing values in '{column}' with {strategy} value: {fill_value}")
+    
+    return df_clean
+
+def save_cleaned_data(df, input_path):
+    output_path = input_path.replace('.csv', '_cleaned.csv')
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to: {output_path}")
+    return output_path
+
+def main():
+    parser = argparse.ArgumentParser(description='Clean missing values in CSV files')
+    parser.add_argument('input_file', help='Path to input CSV file')
+    parser.add_argument('--strategy', default='mean', 
+                       choices=['mean', 'median', 'mode', 'zero'],
+                       help='Strategy for handling missing values (default: mean)')
+    parser.add_argument('--columns', nargs='+', 
+                       help='Specific columns to clean (default: all numeric columns)')
+    
+    args = parser.parse_args()
+    
+    print(f"Processing file: {args.input_file}")
+    print(f"Using strategy: {args.strategy}")
+    
+    df = load_csv(args.input_file)
+    
+    print("\n=== Missing Data Analysis ===")
+    missing_summary = analyze_missing_data(df)
+    if len(missing_summary) > 0:
+        print(missing_summary)
+    else:
+        print("No missing values found in the dataset.")
+    
+    df_clean = handle_missing_values(df, strategy=args.strategy, columns=args.columns)
+    
+    output_file = save_cleaned_data(df_clean, args.input_file)
+    
+    print(f"\nData cleaning completed successfully.")
+    print(f"Original shape: {df.shape}")
+    print(f"Cleaned shape: {df_clean.shape}")
+
+if __name__ == "__main__":
+    main()
