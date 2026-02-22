@@ -436,3 +436,83 @@ def clean_csv_file(input_path: str, output_path: str, **kwargs) -> Dict:
     except Exception as e:
         print(f"Error cleaning file: {e}")
         return {}
+import numpy as np
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specified column using the Interquartile Range method.
+    
+    Args:
+        data (np.ndarray): Input data array
+        column (int): Index of column to clean
+    
+    Returns:
+        np.ndarray: Data with outliers removed
+    """
+    if data.size == 0:
+        return data
+    
+    column_data = data[:, column]
+    q1 = np.percentile(column_data, 25)
+    q3 = np.percentile(column_data, 75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - 1.5 * iqr
+    upper_bound = q3 + 1.5 * iqr
+    
+    mask = (column_data >= lower_bound) & (column_data <= upper_bound)
+    return data[mask]
+
+def clean_dataset(data, columns_to_clean=None):
+    """
+    Clean multiple columns in a dataset by removing outliers.
+    
+    Args:
+        data (np.ndarray): Input data array
+        columns_to_clean (list): List of column indices to clean
+    
+    Returns:
+        np.ndarray: Cleaned dataset
+    """
+    if columns_to_clean is None:
+        columns_to_clean = list(range(data.shape[1]))
+    
+    cleaned_data = data.copy()
+    for column in columns_to_clean:
+        if column < data.shape[1]:
+            cleaned_data = remove_outliers_iqr(cleaned_data, column)
+    
+    return cleaned_data
+
+def validate_data(data, require_positive=False):
+    """
+    Validate data by checking for NaN values and optionally positive values.
+    
+    Args:
+        data (np.ndarray): Data to validate
+        require_positive (bool): Whether to require all values to be positive
+    
+    Returns:
+        bool: True if data is valid, False otherwise
+    """
+    if np.any(np.isnan(data)):
+        return False
+    
+    if require_positive and np.any(data < 0):
+        return False
+    
+    return True
+
+if __name__ == "__main__":
+    sample_data = np.array([
+        [1.0, 2.0, 3.0],
+        [2.0, 3.0, 4.0],
+        [100.0, 2.0, 3.0],
+        [3.0, 2.0, 1.0],
+        [4.0, 5.0, 6.0]
+    ])
+    
+    print("Original data shape:", sample_data.shape)
+    cleaned = clean_dataset(sample_data, columns_to_clean=[0])
+    print("Cleaned data shape:", cleaned.shape)
+    print("Validation result:", validate_data(cleaned))
