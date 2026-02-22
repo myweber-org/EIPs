@@ -495,3 +495,101 @@ def clean_dataset(df, outlier_threshold=3, normalize=True, fill_missing=True):
         cleaner.normalize_minmax()
     
     return cleaner.get_cleaned_data(), cleaner.get_summary()
+import pandas as pd
+import numpy as np
+from typing import Optional
+
+def clean_csv_data(file_path: str, 
+                   missing_strategy: str = 'mean',
+                   output_path: Optional[str] = None) -> pd.DataFrame:
+    """
+    Load and clean CSV data by handling missing values.
+    
+    Parameters:
+    -----------
+    file_path : str
+        Path to the CSV file
+    missing_strategy : str
+        Strategy for handling missing values: 'mean', 'median', 'drop', or 'zero'
+    output_path : Optional[str]
+        If provided, save cleaned data to this path
+    
+    Returns:
+    --------
+    pd.DataFrame
+        Cleaned DataFrame
+    """
+    
+    df = pd.read_csv(file_path)
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    
+    if missing_strategy == 'mean':
+        df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
+    elif missing_strategy == 'median':
+        df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].median())
+    elif missing_strategy == 'drop':
+        df = df.dropna(subset=numeric_cols)
+    elif missing_strategy == 'zero':
+        df[numeric_cols] = df[numeric_cols].fillna(0)
+    else:
+        raise ValueError(f"Unknown strategy: {missing_strategy}")
+    
+    if output_path:
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to: {output_path}")
+    
+    return df
+
+def remove_outliers_iqr(df: pd.DataFrame, 
+                        columns: list,
+                        multiplier: float = 1.5) -> pd.DataFrame:
+    """
+    Remove outliers using IQR method.
+    
+    Parameters:
+    -----------
+    df : pd.DataFrame
+        Input DataFrame
+    columns : list
+        List of column names to process
+    multiplier : float
+        IQR multiplier for outlier detection
+    
+    Returns:
+    --------
+    pd.DataFrame
+        DataFrame with outliers removed
+    """
+    
+    df_clean = df.copy()
+    
+    for col in columns:
+        if col in df.columns:
+            Q1 = df[col].quantile(0.25)
+            Q3 = df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            
+            lower_bound = Q1 - multiplier * IQR
+            upper_bound = Q3 + multiplier * IQR
+            
+            mask = (df[col] >= lower_bound) & (df[col] <= upper_bound)
+            df_clean = df_clean[mask]
+    
+    return df_clean
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, np.nan, 4, 5, 100],
+        'B': [10, 20, 30, np.nan, 50, 60],
+        'C': ['x', 'y', 'z', 'x', 'y', 'z']
+    }
+    
+    test_df = pd.DataFrame(sample_data)
+    test_df.to_csv('test_data.csv', index=False)
+    
+    cleaned = clean_csv_data('test_data.csv', missing_strategy='median')
+    print("Cleaned data shape:", cleaned.shape)
+    
+    no_outliers = remove_outliers_iqr(cleaned, columns=['A', 'B'])
+    print("Data without outliers shape:", no_outliers.shape)
