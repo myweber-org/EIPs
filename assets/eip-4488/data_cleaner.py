@@ -350,4 +350,83 @@ if __name__ == "__main__":
         validate_data(cleaned_df, required_columns=['id', 'value'], min_rows=3)
         print("Data validation passed.")
     except ValueError as e:
-        print(f"Data validation failed: {e}")
+        print(f"Data validation failed: {e}")import pandas as pd
+
+def clean_dataset(df, subset=None, fill_method='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicate rows and handling missing values.
+
+    Parameters:
+    df (pd.DataFrame): The input DataFrame to clean.
+    subset (list, optional): Column labels to consider for identifying duplicates.
+                             If None, all columns are used.
+    fill_method (str or scalar): Method to fill missing values.
+                                 Can be 'mean', 'median', 'mode', or a constant value.
+
+    Returns:
+    pd.DataFrame: A cleaned DataFrame with duplicates removed and missing values filled.
+    """
+    # Create a copy to avoid modifying the original DataFrame
+    cleaned_df = df.copy()
+
+    # Remove duplicate rows
+    cleaned_df = cleaned_df.drop_duplicates(subset=subset, keep='first')
+
+    # Handle missing values
+    if fill_method == 'mean':
+        cleaned_df = cleaned_df.fillna(cleaned_df.mean(numeric_only=True))
+    elif fill_method == 'median':
+        cleaned_df = cleaned_df.fillna(cleaned_df.median(numeric_only=True))
+    elif fill_method == 'mode':
+        # For mode, we take the first mode if multiple exist
+        cleaned_df = cleaned_df.fillna(cleaned_df.mode().iloc[0])
+    else:
+        # Assume fill_method is a scalar value
+        cleaned_df = cleaned_df.fillna(fill_method)
+
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate the DataFrame structure and content.
+
+    Parameters:
+    df (pd.DataFrame): The DataFrame to validate.
+    required_columns (list, optional): List of column names that must be present.
+
+    Returns:
+    tuple: (is_valid, message) where is_valid is a boolean and message is a string.
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+
+    if df.empty:
+        return False, "DataFrame is empty"
+
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+
+    return True, "DataFrame is valid"
+
+# Example usage (commented out for production)
+# if __name__ == "__main__":
+#     # Create a sample DataFrame with duplicates and missing values
+#     data = {
+#         'A': [1, 2, 2, 4, None],
+#         'B': [5, None, 5, 8, 9],
+#         'C': ['x', 'y', 'x', 'z', 'w']
+#     }
+#     df = pd.DataFrame(data)
+#     
+#     # Clean the data
+#     cleaned = clean_dataset(df, subset=['A', 'C'], fill_method='mean')
+#     print("Original DataFrame:")
+#     print(df)
+#     print("\nCleaned DataFrame:")
+#     print(cleaned)
+#     
+#     # Validate the cleaned data
+#     is_valid, message = validate_dataframe(cleaned, required_columns=['A', 'B', 'C'])
+#     print(f"\nValidation: {is_valid}, Message: {message}")
