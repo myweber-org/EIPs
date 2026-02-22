@@ -872,3 +872,128 @@ def validate_dataframe(dataframe, required_columns):
         raise ValueError("DataFrame is empty")
     
     return True
+import pandas as pd
+import numpy as np
+from typing import Optional, List, Union
+
+class DataCleaner:
+    def __init__(self, df: pd.DataFrame):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_duplicates(self, subset: Optional[List[str]] = None) -> 'DataCleaner':
+        self.df = self.df.drop_duplicates(subset=subset, keep='first')
+        return self
+        
+    def handle_missing_values(self, 
+                             strategy: str = 'mean',
+                             columns: Optional[List[str]] = None) -> 'DataCleaner':
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns.tolist()
+            
+        for col in columns:
+            if col in self.df.columns:
+                if strategy == 'mean':
+                    self.df[col].fillna(self.df[col].mean(), inplace=True)
+                elif strategy == 'median':
+                    self.df[col].fillna(self.df[col].median(), inplace=True)
+                elif strategy == 'mode':
+                    self.df[col].fillna(self.df[col].mode()[0], inplace=True)
+                elif strategy == 'drop':
+                    self.df = self.df.dropna(subset=[col])
+                elif isinstance(strategy, (int, float)):
+                    self.df[col].fillna(strategy, inplace=True)
+                    
+        return self
+        
+    def remove_outliers(self, 
+                       method: str = 'iqr',
+                       threshold: float = 1.5,
+                       columns: Optional[List[str]] = None) -> 'DataCleaner':
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns.tolist()
+            
+        for col in columns:
+            if col in self.df.columns:
+                if method == 'iqr':
+                    Q1 = self.df[col].quantile(0.25)
+                    Q3 = self.df[col].quantile(0.75)
+                    IQR = Q3 - Q1
+                    lower_bound = Q1 - threshold * IQR
+                    upper_bound = Q3 + threshold * IQR
+                    self.df = self.df[(self.df[col] >= lower_bound) & 
+                                     (self.df[col] <= upper_bound)]
+                    
+        return self
+        
+    def normalize_data(self, 
+                      method: str = 'minmax',
+                      columns: Optional[List[str]] = None) -> 'DataCleaner':
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns.tolist()
+            
+        for col in columns:
+            if col in self.df.columns:
+                if method == 'minmax':
+                    min_val = self.df[col].min()
+                    max_val = self.df[col].max()
+                    if max_val != min_val:
+                        self.df[col] = (self.df[col] - min_val) / (max_val - min_val)
+                elif method == 'zscore':
+                    mean_val = self.df[col].mean()
+                    std_val = self.df[col].std()
+                    if std_val != 0:
+                        self.df[col] = (self.df[col] - mean_val) / std_val
+                        
+        return self
+        
+    def get_cleaned_data(self) -> pd.DataFrame:
+        return self.df.copy()
+        
+    def get_cleaning_report(self) -> dict:
+        final_shape = self.df.shape
+        rows_removed = self.original_shape[0] - final_shape[0]
+        cols_removed = self.original_shape[1] - final_shape[1]
+        
+        return {
+            'original_shape': self.original_shape,
+            'final_shape': final_shape,
+            'rows_removed': rows_removed,
+            'columns_removed': cols_removed,
+            'missing_values': self.df.isnull().sum().to_dict(),
+            'data_types': self.df.dtypes.to_dict()
+        }
+
+def clean_csv_file(input_path: str,
+                  output_path: str,
+                  missing_strategy: str = 'mean',
+                  remove_outliers: bool = True,
+                  normalize: bool = False) -> dict:
+    try:
+        df = pd.read_csv(input_path)
+        cleaner = DataCleaner(df)
+        
+        cleaner.remove_duplicates()
+        cleaner.handle_missing_values(strategy=missing_strategy)
+        
+        if remove_outliers:
+            cleaner.remove_outliers()
+            
+        if normalize:
+            cleaner.normalize_data()
+            
+        cleaned_df = cleaner.get_cleaned_data()
+        cleaned_df.to_csv(output_path, index=False)
+        
+        report = cleaner.get_cleaning_report()
+        report['status'] = 'success'
+        report['output_file'] = output_path
+        
+        return report
+        
+    except Exception as e:
+        return {
+            'status': 'error',
+            'error_message': str(e),
+            'output_file': None
+        }
