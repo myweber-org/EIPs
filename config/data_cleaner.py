@@ -516,3 +516,11 @@ if __name__ == "__main__":
     cleaned = clean_dataset(sample_data, columns_to_clean=[0])
     print("Cleaned data shape:", cleaned.shape)
     print("Validation result:", validate_data(cleaned))
+def remove_duplicates_preserve_order(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
