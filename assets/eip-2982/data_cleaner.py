@@ -263,4 +263,110 @@ if __name__ == "__main__":
     
     print("\nCleaned data shape:", cleaned_data.shape)
     print("\nCleaned summary statistics:")
-    print(get_summary_statistics(cleaned_data, ['feature1', 'feature2', 'feature3']))
+    print(get_summary_statistics(cleaned_data, ['feature1', 'feature2', 'feature3']))import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column, threshold=1.5):
+    """
+    Remove outliers from a pandas Series using the IQR method.
+    """
+    if not isinstance(data, pd.Series):
+        series = pd.Series(data)
+    else:
+        series = data.copy()
+    
+    Q1 = series.quantile(0.25)
+    Q3 = series.quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - threshold * IQR
+    upper_bound = Q3 + threshold * IQR
+    
+    filtered_series = series[(series >= lower_bound) & (series <= upper_bound)]
+    return filtered_series
+
+def normalize_minmax(data):
+    """
+    Normalize data to [0, 1] range using min-max scaling.
+    """
+    data_array = np.array(data)
+    if len(data_array) == 0:
+        return data_array
+    
+    min_val = np.min(data_array)
+    max_val = np.max(data_array)
+    
+    if max_val == min_val:
+        return np.zeros_like(data_array)
+    
+    normalized = (data_array - min_val) / (max_val - min_val)
+    return normalized
+
+def standardize_zscore(data):
+    """
+    Standardize data to have zero mean and unit variance.
+    """
+    data_array = np.array(data)
+    if len(data_array) == 0:
+        return data_array
+    
+    mean_val = np.mean(data_array)
+    std_val = np.std(data_array)
+    
+    if std_val == 0:
+        return np.zeros_like(data_array)
+    
+    standardized = (data_array - mean_val) / std_val
+    return standardized
+
+def clean_dataframe(df, numeric_columns=None, outlier_threshold=1.5):
+    """
+    Clean a DataFrame by removing outliers and normalizing numeric columns.
+    """
+    cleaned_df = df.copy()
+    
+    if numeric_columns is None:
+        numeric_columns = cleaned_df.select_dtypes(include=[np.number]).columns
+    
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            original_data = cleaned_df[col].dropna()
+            if len(original_data) > 0:
+                cleaned_series = remove_outliers_iqr(original_data, col, outlier_threshold)
+                cleaned_df.loc[cleaned_df[col].notna(), col] = cleaned_series.reindex(cleaned_df[cleaned_df[col].notna()].index)
+    
+    return cleaned_df
+
+def process_dataset(file_path, output_path=None):
+    """
+    Load, clean, and optionally save a dataset from a CSV file.
+    """
+    try:
+        df = pd.read_csv(file_path)
+        print(f"Loaded dataset with shape: {df.shape}")
+        
+        cleaned_df = clean_dataframe(df)
+        print(f"Cleaned dataset shape: {cleaned_df.shape}")
+        
+        if output_path:
+            cleaned_df.to_csv(output_path, index=False)
+            print(f"Saved cleaned data to: {output_path}")
+        
+        return cleaned_df
+    except Exception as e:
+        print(f"Error processing dataset: {e}")
+        return None
+
+if __name__ == "__main__":
+    sample_data = np.random.normal(100, 15, 1000)
+    sample_data_with_outliers = np.append(sample_data, [500, -200, 1000])
+    
+    print("Original data shape:", sample_data_with_outliers.shape)
+    cleaned = remove_outliers_iqr(sample_data_with_outliers, 'sample', threshold=1.5)
+    print("Cleaned data shape:", cleaned.shape)
+    
+    normalized = normalize_minmax(cleaned)
+    print("Normalized data range: [{:.3f}, {:.3f}]".format(np.min(normalized), np.max(normalized)))
+    
+    standardized = standardize_zscore(cleaned)
+    print("Standardized data stats - Mean: {:.3f}, Std: {:.3f}".format(np.mean(standardized), np.std(standardized)))
