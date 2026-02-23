@@ -450,3 +450,33 @@ def clean_dataset(data, columns_to_clean):
             }
     
     return cleaned_data, statistics
+import pandas as pd
+
+def clean_missing_values(df, strategy='mean'):
+    """
+    Clean missing values in a pandas DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame with potential missing values.
+    strategy (str): Imputation strategy - 'mean', 'median', or 'mode'.
+    
+    Returns:
+    pd.DataFrame: DataFrame with missing values imputed.
+    """
+    df_cleaned = df.copy()
+    
+    for column in df_cleaned.columns:
+        if df_cleaned[column].isnull().any():
+            if strategy == 'mean' and pd.api.types.is_numeric_dtype(df_cleaned[column]):
+                fill_value = df_cleaned[column].mean()
+            elif strategy == 'median' and pd.api.types.is_numeric_dtype(df_cleaned[column]):
+                fill_value = df_cleaned[column].median()
+            elif strategy == 'mode':
+                fill_value = df_cleaned[column].mode()[0] if not df_cleaned[column].mode().empty else None
+            else:
+                fill_value = None
+            
+            if fill_value is not None:
+                df_cleaned[column].fillna(fill_value, inplace=True)
+    
+    return df_cleaned
