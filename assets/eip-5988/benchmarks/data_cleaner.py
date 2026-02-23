@@ -341,3 +341,126 @@ def clean_dataset(input_file, output_file):
 
 if __name__ == "__main__":
     clean_dataset("raw_data.csv", "cleaned_data.csv")
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column, factor=1.5):
+    """
+    Remove outliers using IQR method
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - factor * IQR
+    upper_bound = Q3 + factor * IQR
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    removed_count = len(data) - len(filtered_data)
+    
+    return filtered_data, removed_count
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using min-max scaling
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return data[column].apply(lambda x: 0.5)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def z_score_normalize(data, column):
+    """
+    Normalize data using z-score method
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return data[column].apply(lambda x: 0)
+    
+    normalized = (data[column] - mean_val) / std_val
+    return normalized
+
+def handle_missing_values(data, strategy='mean'):
+    """
+    Handle missing values in numeric columns
+    """
+    numeric_cols = data.select_dtypes(include=[np.number]).columns
+    
+    if strategy == 'mean':
+        for col in numeric_cols:
+            data[col] = data[col].fillna(data[col].mean())
+    elif strategy == 'median':
+        for col in numeric_cols:
+            data[col] = data[col].fillna(data[col].median())
+    elif strategy == 'mode':
+        for col in numeric_cols:
+            data[col] = data[col].fillna(data[col].mode()[0])
+    elif strategy == 'drop':
+        data = data.dropna(subset=numeric_cols)
+    else:
+        raise ValueError("Strategy must be 'mean', 'median', 'mode', or 'drop'")
+    
+    return data
+
+def clean_dataset(data, numeric_columns=None, outlier_factor=1.5, 
+                  normalize_method='minmax', missing_strategy='mean'):
+    """
+    Complete data cleaning pipeline
+    """
+    if numeric_columns is None:
+        numeric_columns = data.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_data = data.copy()
+    
+    # Handle missing values
+    cleaned_data = handle_missing_values(cleaned_data, strategy=missing_strategy)
+    
+    # Remove outliers for each numeric column
+    total_removed = 0
+    for col in numeric_columns:
+        if col in cleaned_data.columns:
+            cleaned_data, removed = remove_outliers_iqr(cleaned_data, col, outlier_factor)
+            total_removed += removed
+    
+    # Normalize numeric columns
+    for col in numeric_columns:
+        if col in cleaned_data.columns:
+            if normalize_method == 'minmax':
+                cleaned_data[f'{col}_normalized'] = normalize_minmax(cleaned_data, col)
+            elif normalize_method == 'zscore':
+                cleaned_data[f'{col}_normalized'] = z_score_normalize(cleaned_data, col)
+    
+    return cleaned_data, total_removed
+
+def validate_data(data, required_columns, min_rows=10):
+    """
+    Validate dataset structure and content
+    """
+    missing_cols = [col for col in required_columns if col not in data.columns]
+    
+    if missing_cols:
+        raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    if len(data) < min_rows:
+        raise ValueError(f"Dataset must have at least {min_rows} rows")
+    
+    if data.isnull().sum().sum() > 0:
+        print("Warning: Dataset contains missing values")
+    
+    return True
