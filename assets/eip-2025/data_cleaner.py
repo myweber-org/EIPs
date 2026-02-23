@@ -480,3 +480,11 @@ def clean_missing_values(df, strategy='mean'):
                 df_cleaned[column].fillna(fill_value, inplace=True)
     
     return df_cleaned
+def deduplicate_list(original_list):
+    seen = set()
+    deduplicated = []
+    for item in original_list:
+        if item not in seen:
+            seen.add(item)
+            deduplicated.append(item)
+    return deduplicated
