@@ -370,3 +370,11 @@ if __name__ == "__main__":
     
     standardized = standardize_zscore(cleaned)
     print("Standardized data stats - Mean: {:.3f}, Std: {:.3f}".format(np.mean(standardized), np.std(standardized)))
+def remove_duplicates_preserve_order(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
