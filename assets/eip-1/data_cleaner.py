@@ -694,3 +694,182 @@ if __name__ == "__main__":
         print("Data cleaning completed successfully")
     else:
         print("Data cleaning completed but validation failed")
+import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a DataFrame column using the Interquartile Range method.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to process
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df
+
+def calculate_summary_statistics(df):
+    """
+    Calculate summary statistics for numeric columns.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    
+    Returns:
+    pd.DataFrame: Summary statistics
+    """
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    
+    if len(numeric_cols) == 0:
+        return pd.DataFrame()
+    
+    summary = df[numeric_cols].agg(['mean', 'median', 'std', 'min', 'max'])
+    
+    return summary
+
+def handle_missing_values(df, strategy='mean'):
+    """
+    Handle missing values in numeric columns.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    strategy (str): Strategy for handling missing values ('mean', 'median', 'drop')
+    
+    Returns:
+    pd.DataFrame: DataFrame with handled missing values
+    """
+    if strategy not in ['mean', 'median', 'drop']:
+        raise ValueError("Strategy must be 'mean', 'median', or 'drop'")
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    
+    if strategy == 'drop':
+        return df.dropna(subset=numeric_cols)
+    
+    for col in numeric_cols:
+        if strategy == 'mean':
+            fill_value = df[col].mean()
+        else:
+            fill_value = df[col].median()
+        
+        df[col] = df[col].fillna(fill_value)
+    
+    return df
+
+def normalize_data(df, columns=None):
+    """
+    Normalize specified columns using min-max scaling.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    columns (list): List of columns to normalize. If None, normalize all numeric columns.
+    
+    Returns:
+    pd.DataFrame: DataFrame with normalized columns
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    normalized_df = df.copy()
+    
+    for col in columns:
+        if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
+            col_min = df[col].min()
+            col_max = df[col].max()
+            
+            if col_max != col_min:
+                normalized_df[col] = (df[col] - col_min) / (col_max - col_min)
+            else:
+                normalized_df[col] = 0
+    
+    return normalized_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of required column names
+    
+    Returns:
+    dict: Validation results
+    """
+    validation_results = {
+        'is_valid': True,
+        'errors': [],
+        'warnings': []
+    }
+    
+    if not isinstance(df, pd.DataFrame):
+        validation_results['is_valid'] = False
+        validation_results['errors'].append('Input is not a pandas DataFrame')
+        return validation_results
+    
+    if df.empty:
+        validation_results['warnings'].append('DataFrame is empty')
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            validation_results['is_valid'] = False
+            validation_results['errors'].append(f'Missing required columns: {missing_columns}')
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        if df[col].isnull().any():
+            validation_results['warnings'].append(f'Column {col} contains missing values')
+    
+    return validation_results
+
+def example_usage():
+    """
+    Example usage of the data cleaning utilities.
+    """
+    np.random.seed(42)
+    
+    data = {
+        'id': range(100),
+        'value': np.random.normal(100, 15, 100),
+        'category': np.random.choice(['A', 'B', 'C'], 100)
+    }
+    
+    df = pd.DataFrame(data)
+    
+    df.loc[10:15, 'value'] = np.nan
+    df.loc[95, 'value'] = 500
+    
+    print("Original DataFrame shape:", df.shape)
+    
+    validation = validate_dataframe(df, required_columns=['id', 'value'])
+    print("Validation results:", validation)
+    
+    cleaned_df = handle_missing_values(df, strategy='mean')
+    cleaned_df = remove_outliers_iqr(cleaned_df, 'value')
+    
+    print("Cleaned DataFrame shape:", cleaned_df.shape)
+    
+    summary = calculate_summary_statistics(cleaned_df)
+    print("Summary statistics:")
+    print(summary)
+    
+    normalized_df = normalize_data(cleaned_df, columns=['value'])
+    print("Normalized 'value' column sample:")
+    print(normalized_df['value'].head())
+
+if __name__ == "__main__":
+    example_usage()
