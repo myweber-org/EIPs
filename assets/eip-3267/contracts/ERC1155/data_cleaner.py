@@ -811,3 +811,11 @@ def process_data_file(file_path, **kwargs):
     except Exception as e:
         print(f"Error processing file: {e}")
         return None
+def remove_duplicates_preserve_order(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
