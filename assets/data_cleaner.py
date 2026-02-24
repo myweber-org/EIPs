@@ -1443,3 +1443,37 @@ if __name__ == "__main__":
     
     is_valid = validate_dataframe(cleaned, required_columns=['name', 'age'])
     print(f"\nDataFrame validation result: {is_valid}")
+import re
+
+def clean_string(text):
+    """
+    Clean a string by removing extra whitespace and converting to lowercase.
+    
+    Args:
+        text (str): The input string to clean.
+    
+    Returns:
+        str: The cleaned string.
+    """
+    if not isinstance(text, str):
+        raise TypeError("Input must be a string")
+    
+    cleaned = re.sub(r'\s+', ' ', text.strip())
+    return cleaned.lower()
+
+def normalize_data(data_list):
+    """
+    Normalize a list of strings using the clean_string function.
+    
+    Args:
+        data_list (list): A list of strings to normalize.
+    
+    Returns:
+        list: A list of cleaned strings.
+    """
+    return [clean_string(item) for item in data_list]
+
+if __name__ == "__main__":
+    sample_data = ["  Hello  World  ", "PYTHON  ", "  Data  Science  "]
+    normalized = normalize_data(sample_data)
+    print(normalized)
