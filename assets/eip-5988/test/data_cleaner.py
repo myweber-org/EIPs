@@ -293,3 +293,89 @@ if __name__ == "__main__":
     cleaned_df = clean_dataset(df, ['A', 'B', 'C'])
     print("\nCleaned dataset shape:", cleaned_df.shape)
     print("Cleaned statistics for column 'A':", calculate_statistics(cleaned_df, 'A'))
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_duplicates=True, fill_missing=True, convert_types=True):
+    """
+    Clean a pandas DataFrame by removing duplicates, handling missing values,
+    and converting data types where appropriate.
+    """
+    df_clean = df.copy()
+    
+    if drop_duplicates:
+        initial_rows = df_clean.shape[0]
+        df_clean = df_clean.drop_duplicates()
+        removed = initial_rows - df_clean.shape[0]
+        print(f"Removed {removed} duplicate rows.")
+    
+    if fill_missing:
+        numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            if df_clean[col].isnull().any():
+                df_clean[col] = df_clean[col].fillna(df_clean[col].median())
+        
+        object_cols = df_clean.select_dtypes(include=['object']).columns
+        for col in object_cols:
+            if df_clean[col].isnull().any():
+                df_clean[col] = df_clean[col].fillna('Unknown')
+    
+    if convert_types:
+        for col in df_clean.columns:
+            if df_clean[col].dtype == 'object':
+                try:
+                    df_clean[col] = pd.to_datetime(df_clean[col])
+                    print(f"Converted column '{col}' to datetime.")
+                except (ValueError, TypeError):
+                    pass
+    
+    return df_clean
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame.")
+    
+    if df.empty:
+        raise ValueError("DataFrame is empty.")
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    return True
+
+def sample_data_cleaning():
+    """
+    Example usage of the data cleaning functions.
+    """
+    data = {
+        'id': [1, 2, 2, 3, 4, 5],
+        'value': [10.5, 20.3, 20.3, None, 40.1, 50.0],
+        'category': ['A', 'B', 'B', None, 'A', 'C'],
+        'date': ['2023-01-01', '2023-01-02', '2023-01-02', '2023-01-03', None, '2023-01-05']
+    }
+    
+    df = pd.DataFrame(data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nDataFrame info:")
+    print(df.info())
+    
+    cleaned_df = clean_dataset(df)
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    
+    try:
+        validate_dataframe(cleaned_df, required_columns=['id', 'value'])
+        print("\nData validation passed.")
+    except Exception as e:
+        print(f"\nData validation failed: {e}")
+    
+    return cleaned_df
+
+if __name__ == "__main__":
+    cleaned_data = sample_data_cleaning()
