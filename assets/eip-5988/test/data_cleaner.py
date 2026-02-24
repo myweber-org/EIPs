@@ -413,3 +413,17 @@ if __name__ == "__main__":
     cleaned = clean_dataset(df, ['A', 'B', 'C'])
     print("Cleaned shape:", cleaned.shape)
     print("Outliers removed:", df.shape[0] - cleaned.shape[0])
+def remove_duplicates(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+if __name__ == "__main__":
+    sample_list = [1, 2, 2, 3, 4, 4, 5, 1, 6]
+    cleaned_list = remove_duplicates(sample_list)
+    print(f"Original list: {sample_list}")
+    print(f"List after removing duplicates: {cleaned_list}")
