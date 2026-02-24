@@ -160,3 +160,88 @@ if __name__ == "__main__":
     
     is_valid, message = validate_dataframe(cleaned, required_columns=['A', 'B'])
     print(f"\nValidation: {message}")
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, missing_strategy='mean', outlier_threshold=3):
+    """
+    Clean a dataset by handling missing values and removing outliers.
+    
+    Args:
+        df: pandas DataFrame to clean
+        missing_strategy: Strategy for handling missing values ('mean', 'median', 'mode', 'drop')
+        outlier_threshold: Z-score threshold for outlier detection
+    
+    Returns:
+        Cleaned pandas DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    # Handle missing values
+    numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+    
+    if missing_strategy == 'mean':
+        for col in numeric_cols:
+            cleaned_df[col].fillna(cleaned_df[col].mean(), inplace=True)
+    elif missing_strategy == 'median':
+        for col in numeric_cols:
+            cleaned_df[col].fillna(cleaned_df[col].median(), inplace=True)
+    elif missing_strategy == 'mode':
+        for col in numeric_cols:
+            cleaned_df[col].fillna(cleaned_df[col].mode()[0], inplace=True)
+    elif missing_strategy == 'drop':
+        cleaned_df.dropna(inplace=True)
+    
+    # Remove outliers using Z-score method
+    if outlier_threshold > 0:
+        z_scores = np.abs((cleaned_df[numeric_cols] - cleaned_df[numeric_cols].mean()) / cleaned_df[numeric_cols].std())
+        outlier_mask = (z_scores < outlier_threshold).all(axis=1)
+        cleaned_df = cleaned_df[outlier_mask]
+    
+    # Reset index after cleaning
+    cleaned_df.reset_index(drop=True, inplace=True)
+    
+    return cleaned_df
+
+def validate_data(df, required_columns=None, min_rows=10):
+    """
+    Validate dataset structure and content.
+    
+    Args:
+        df: pandas DataFrame to validate
+        required_columns: List of required column names
+        min_rows: Minimum number of rows required
+    
+    Returns:
+        Boolean indicating if data is valid
+    """
+    if len(df) < min_rows:
+        return False
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            return False
+    
+    return True
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'feature1': [1, 2, np.nan, 4, 5, 100],
+        'feature2': [10, 20, 30, np.nan, 50, 60],
+        'target': [0, 1, 0, 1, 0, 1]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original dataset:")
+    print(df)
+    print("\nDataset info:")
+    print(df.info())
+    
+    cleaned = clean_dataset(df, missing_strategy='mean', outlier_threshold=2)
+    print("\nCleaned dataset:")
+    print(cleaned)
+    
+    is_valid = validate_data(cleaned, required_columns=['feature1', 'feature2', 'target'])
+    print(f"\nData validation result: {is_valid}")
