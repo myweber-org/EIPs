@@ -632,3 +632,27 @@ def validate_cleaning(df_before, df_after, column):
         'max': df_after[column].max()
     }
     return stats_before, stats_after
+import pandas as pd
+import numpy as np
+
+def clean_csv_data(input_file, output_file):
+    df = pd.read_csv(input_file)
+    
+    df.replace('', np.nan, inplace=True)
+    df.fillna(method='ffill', inplace=True)
+    df.fillna(method='bfill', inplace=True)
+    
+    numeric_columns = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_columns:
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+    
+    df.drop_duplicates(inplace=True)
+    
+    df.to_csv(output_file, index=False)
+    return df.shape
+
+if __name__ == "__main__":
+    input_path = "raw_data.csv"
+    output_path = "cleaned_data.csv"
+    result_shape = clean_csv_data(input_path, output_path)
+    print(f"Data cleaned successfully. Output shape: {result_shape}")
