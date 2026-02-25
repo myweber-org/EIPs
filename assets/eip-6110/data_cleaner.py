@@ -199,3 +199,85 @@ class DataCleaner:
             'current_cols': final_shape[1],
             'cols_removed': cols_removed
         }
+import numpy as np
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a dataset using the Interquartile Range method.
+    
+    Parameters:
+    data (np.ndarray): Input data array
+    column (int): Column index to check for outliers
+    
+    Returns:
+    np.ndarray: Data with outliers removed
+    """
+    if not isinstance(data, np.ndarray):
+        raise TypeError("Input data must be a numpy array")
+    
+    if column >= data.shape[1]:
+        raise IndexError("Column index out of bounds")
+    
+    q1 = np.percentile(data[:, column], 25)
+    q3 = np.percentile(data[:, column], 75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - 1.5 * iqr
+    upper_bound = q3 + 1.5 * iqr
+    
+    mask = (data[:, column] >= lower_bound) & (data[:, column] <= upper_bound)
+    return data[mask]
+
+def calculate_statistics(data):
+    """
+    Calculate basic statistics for each column in the dataset.
+    
+    Parameters:
+    data (np.ndarray): Input data array
+    
+    Returns:
+    dict: Dictionary containing mean, median, and std for each column
+    """
+    stats = {
+        'mean': np.mean(data, axis=0),
+        'median': np.median(data, axis=0),
+        'std': np.std(data, axis=0),
+        'min': np.min(data, axis=0),
+        'max': np.max(data, axis=0)
+    }
+    return stats
+
+def normalize_data(data, method='minmax'):
+    """
+    Normalize data using specified method.
+    
+    Parameters:
+    data (np.ndarray): Input data array
+    method (str): Normalization method ('minmax' or 'zscore')
+    
+    Returns:
+    np.ndarray: Normalized data
+    """
+    if method == 'minmax':
+        data_min = np.min(data, axis=0)
+        data_max = np.max(data, axis=0)
+        return (data - data_min) / (data_max - data_min + 1e-8)
+    elif method == 'zscore':
+        mean = np.mean(data, axis=0)
+        std = np.std(data, axis=0)
+        return (data - mean) / (std + 1e-8)
+    else:
+        raise ValueError("Method must be 'minmax' or 'zscore'")
+
+if __name__ == "__main__":
+    sample_data = np.random.randn(100, 3)
+    sample_data[0, 0] = 100
+    
+    print("Original data shape:", sample_data.shape)
+    print("Sample statistics:", calculate_statistics(sample_data))
+    
+    cleaned_data = remove_outliers_iqr(sample_data, 0)
+    print("Cleaned data shape:", cleaned_data.shape)
+    
+    normalized_data = normalize_data(cleaned_data, method='zscore')
+    print("Normalized data mean:", np.mean(normalized_data, axis=0))
