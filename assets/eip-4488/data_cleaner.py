@@ -258,3 +258,73 @@ if __name__ == "__main__":
     
     print("\nCleaned DataFrame:")
     print(validate_dataframe(cleaned_df))
+import pandas as pd
+import re
+
+def clean_dataframe(df, columns_to_clean=None):
+    """
+    Clean a pandas DataFrame by removing duplicate rows and normalizing string columns.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        columns_to_clean (list, optional): List of column names to apply string normalization.
+            If None, all object dtype columns are cleaned.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    # Remove duplicate rows
+    df_cleaned = df.drop_duplicates().reset_index(drop=True)
+    
+    # Identify columns to normalize
+    if columns_to_clean is None:
+        columns_to_clean = df_cleaned.select_dtypes(include=['object']).columns.tolist()
+    
+    # Apply string normalization to specified columns
+    for col in columns_to_clean:
+        if col in df_cleaned.columns:
+            df_cleaned[col] = df_cleaned[col].apply(_normalize_string)
+    
+    return df_cleaned
+
+def _normalize_string(value):
+    """
+    Normalize a string by converting to lowercase, removing extra whitespace,
+    and stripping special characters from the edges.
+    
+    Args:
+        value: Input value, can be any type.
+    
+    Returns:
+        Normalized string if input is string, otherwise original value.
+    """
+    if isinstance(value, str):
+        # Convert to lowercase
+        normalized = value.lower()
+        # Replace multiple spaces with single space
+        normalized = re.sub(r'\s+', ' ', normalized)
+        # Strip whitespace and common punctuation
+        normalized = normalized.strip(' \t\n\r.,;!?')
+        return normalized
+    return value
+
+def validate_email_column(df, email_column):
+    """
+    Validate email addresses in a specified column using a simple regex pattern.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        email_column (str): Name of the column containing email addresses.
+    
+    Returns:
+        pd.DataFrame: DataFrame with an additional boolean column indicating valid emails.
+    """
+    if email_column not in df.columns:
+        raise ValueError(f"Column '{email_column}' not found in DataFrame")
+    
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    df['email_valid'] = df[email_column].apply(
+        lambda x: bool(re.match(email_pattern, str(x))) if pd.notnull(x) else False
+    )
+    
+    return df
