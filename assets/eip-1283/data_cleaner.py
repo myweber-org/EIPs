@@ -1,69 +1,113 @@
 
-import pandas as pd
 import numpy as np
+import pandas as pd
+from scipy import stats
 
-def remove_outliers_iqr(df, column):
-    """
-    Remove outliers from a specified column in a DataFrame using the IQR method.
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_outliers_iqr(self, columns=None, threshold=1.5):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+        
+        df_clean = self.df.copy()
+        for col in columns:
+            if col in self.df.columns and pd.api.types.is_numeric_dtype(self.df[col]):
+                Q1 = self.df[col].quantile(0.25)
+                Q3 = self.df[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - threshold * IQR
+                upper_bound = Q3 + threshold * IQR
+                
+                mask = (self.df[col] >= lower_bound) & (self.df[col] <= upper_bound)
+                df_clean = df_clean[mask]
+        
+        self.df = df_clean.reset_index(drop=True)
+        return self
     
-    Parameters:
-    df (pd.DataFrame): The input DataFrame.
-    column (str): The column name to process.
+    def remove_outliers_zscore(self, columns=None, threshold=3):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+        
+        df_clean = self.df.copy()
+        for col in columns:
+            if col in self.df.columns and pd.api.types.is_numeric_dtype(self.df[col]):
+                z_scores = np.abs(stats.zscore(self.df[col].fillna(self.df[col].mean())))
+                mask = z_scores < threshold
+                df_clean = df_clean[mask]
+        
+        self.df = df_clean.reset_index(drop=True)
+        return self
     
-    Returns:
-    pd.DataFrame: DataFrame with outliers removed.
-    """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    def normalize_minmax(self, columns=None):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+        
+        df_normalized = self.df.copy()
+        for col in columns:
+            if col in self.df.columns and pd.api.types.is_numeric_dtype(self.df[col]):
+                min_val = self.df[col].min()
+                max_val = self.df[col].max()
+                if max_val > min_val:
+                    df_normalized[col] = (self.df[col] - min_val) / (max_val - min_val)
+        
+        self.df = df_normalized
+        return self
     
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
+    def normalize_zscore(self, columns=None):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+        
+        df_normalized = self.df.copy()
+        for col in columns:
+            if col in self.df.columns and pd.api.types.is_numeric_dtype(self.df[col]):
+                mean_val = self.df[col].mean()
+                std_val = self.df[col].std()
+                if std_val > 0:
+                    df_normalized[col] = (self.df[col] - mean_val) / std_val
+        
+        self.df = df_normalized
+        return self
     
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
+    def fill_missing(self, strategy='mean', columns=None):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+        
+        df_filled = self.df.copy()
+        for col in columns:
+            if col in self.df.columns and self.df[col].isnull().any():
+                if strategy == 'mean':
+                    fill_value = self.df[col].mean()
+                elif strategy == 'median':
+                    fill_value = self.df[col].median()
+                elif strategy == 'mode':
+                    fill_value = self.df[col].mode()[0]
+                elif strategy == 'zero':
+                    fill_value = 0
+                else:
+                    fill_value = self.df[col].mean()
+                
+                df_filled[col] = self.df[col].fillna(fill_value)
+        
+        self.df = df_filled
+        return self
     
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    def get_cleaned_data(self):
+        return self.df
     
-    return filtered_df
-
-def clean_numeric_data(df, columns=None):
-    """
-    Clean numeric data by removing outliers from specified columns.
-    If columns is None, clean all numeric columns.
+    def get_removed_count(self):
+        return self.original_shape[0] - self.df.shape[0]
     
-    Parameters:
-    df (pd.DataFrame): The input DataFrame.
-    columns (list): List of column names to clean.
-    
-    Returns:
-    pd.DataFrame: Cleaned DataFrame.
-    """
-    if columns is None:
-        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-        columns = numeric_cols
-    
-    cleaned_df = df.copy()
-    for col in columns:
-        if col in cleaned_df.columns:
-            try:
-                cleaned_df = remove_outliers_iqr(cleaned_df, col)
-            except Exception as e:
-                print(f"Warning: Could not clean column '{col}': {e}")
-    
-    return cleaned_df
-
-if __name__ == "__main__":
-    sample_data = {
-        'temperature': [22, 23, 24, 25, 26, 100, 27, 28, 29, -10],
-        'humidity': [45, 46, 47, 48, 49, 50, 51, 52, 53, 54],
-        'pressure': [1013, 1014, 1015, 1016, 1017, 1018, 1019, 1020, 1021, 1022]
-    }
-    
-    df = pd.DataFrame(sample_data)
-    print("Original data:")
-    print(df)
-    
-    cleaned_df = clean_numeric_data(df, columns=['temperature'])
-    print("\nCleaned data (temperature outliers removed):")
-    print(cleaned_df)
+    def summary(self):
+        print(f"Original data shape: {self.original_shape}")
+        print(f"Cleaned data shape: {self.df.shape}")
+        print(f"Rows removed: {self.get_removed_count()}")
+        print(f"Columns: {list(self.df.columns)}")
+        
+        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+        if len(numeric_cols) > 0:
+            print("\nNumeric columns summary:")
+            for col in numeric_cols[:5]:
+                print(f"  {col}: mean={self.df[col].mean():.2f}, std={self.df[col].std():.2f}")
