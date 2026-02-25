@@ -669,3 +669,124 @@ if __name__ == "__main__":
     report = generate_cleaning_report(df, cleaned_df)
     print("\nCleaning Report:")
     print(report.to_string())
+import pandas as pd
+import numpy as np
+
+def clean_dataframe(df, column_mapping=None, drop_duplicates=True):
+    """
+    Clean a pandas DataFrame by standardizing column names and removing duplicates.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean
+        column_mapping (dict): Optional dictionary mapping old column names to new ones
+        drop_duplicates (bool): Whether to remove duplicate rows
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    # Standardize column names
+    if column_mapping:
+        cleaned_df = cleaned_df.rename(columns=column_mapping)
+    
+    # Convert column names to lowercase and replace spaces with underscores
+    cleaned_df.columns = cleaned_df.columns.str.lower().str.replace(' ', '_')
+    
+    # Remove duplicate rows if specified
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    # Replace NaN values with None for consistency
+    cleaned_df = cleaned_df.replace({np.nan: None})
+    
+    # Reset index after cleaning
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+        required_columns (list): List of required column names
+    
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "DataFrame is valid"
+
+def process_csv_file(input_path, output_path, **kwargs):
+    """
+    Process a CSV file through the data cleaning pipeline.
+    
+    Args:
+        input_path (str): Path to input CSV file
+        output_path (str): Path to save cleaned CSV file
+        **kwargs: Additional arguments passed to clean_dataframe
+    
+    Returns:
+        bool: True if processing succeeded, False otherwise
+    """
+    try:
+        # Read input CSV
+        df = pd.read_csv(input_path)
+        
+        # Clean the data
+        cleaned_df = clean_dataframe(df, **kwargs)
+        
+        # Validate the cleaned data
+        is_valid, message = validate_dataframe(cleaned_df)
+        
+        if not is_valid:
+            print(f"Validation failed: {message}")
+            return False
+        
+        # Save cleaned data
+        cleaned_df.to_csv(output_path, index=False)
+        print(f"Successfully cleaned data saved to: {output_path}")
+        print(f"Original shape: {df.shape}, Cleaned shape: {cleaned_df.shape}")
+        
+        return True
+        
+    except FileNotFoundError:
+        print(f"Input file not found: {input_path}")
+        return False
+    except pd.errors.EmptyDataError:
+        print(f"Input file is empty: {input_path}")
+        return False
+    except Exception as e:
+        print(f"Error processing file: {str(e)}")
+        return False
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'Customer ID': [1, 2, 2, 3, 4],
+        'First Name': ['John', 'Jane', 'Jane', 'Bob', 'Alice'],
+        'Last Name': ['Doe', 'Smith', 'Smith', 'Johnson', 'Brown'],
+        'Email': ['john@example.com', 'jane@example.com', 'jane@example.com', 'bob@example.com', 'alice@example.com'],
+        'Purchase Amount': [100.50, 200.75, 200.75, 150.00, 300.25]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    # Clean the data
+    column_mapping = {'Customer ID': 'customer_id', 'Purchase Amount': 'amount'}
+    cleaned_df = clean_dataframe(df, column_mapping=column_mapping)
+    
+    print("Cleaned DataFrame:")
+    print(cleaned_df)
