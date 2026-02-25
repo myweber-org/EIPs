@@ -1,81 +1,84 @@
-import pandas as pd
 
-def remove_duplicates(df, subset=None, keep='first'):
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_duplicates=True, fill_missing=True, fill_strategy='mean'):
     """
-    Remove duplicate rows from a DataFrame.
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
     
-    Args:
-        df (pd.DataFrame): Input DataFrame.
-        subset (list, optional): Column labels to consider for duplicates.
-        keep (str, optional): Which duplicates to keep.
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    drop_duplicates (bool): Whether to drop duplicate rows.
+    fill_missing (bool): Whether to fill missing values.
+    fill_strategy (str): Strategy for filling missing values ('mean', 'median', 'mode', 'zero').
     
     Returns:
-        pd.DataFrame: DataFrame with duplicates removed.
+    pd.DataFrame: Cleaned DataFrame.
     """
-    if df.empty:
-        return df
+    cleaned_df = df.copy()
     
-    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+    if drop_duplicates:
+        initial_rows = len(cleaned_df)
+        cleaned_df = cleaned_df.drop_duplicates()
+        removed = initial_rows - len(cleaned_df)
+        print(f"Removed {removed} duplicate rows.")
+    
+    if fill_missing:
+        for column in cleaned_df.columns:
+            if cleaned_df[column].isnull().any():
+                if cleaned_df[column].dtype in ['int64', 'float64']:
+                    if fill_strategy == 'mean':
+                        fill_value = cleaned_df[column].mean()
+                    elif fill_strategy == 'median':
+                        fill_value = cleaned_df[column].median()
+                    elif fill_strategy == 'zero':
+                        fill_value = 0
+                    else:
+                        fill_value = cleaned_df[column].mode()[0] if not cleaned_df[column].mode().empty else 0
+                    cleaned_df[column].fillna(fill_value, inplace=True)
+                else:
+                    cleaned_df[column].fillna(cleaned_df[column].mode()[0] if not cleaned_df[column].mode().empty else 'Unknown', inplace=True)
+    
     return cleaned_df
 
-def clean_numeric_column(df, column_name):
+def validate_data(df, required_columns=None, min_rows=1):
     """
-    Clean a numeric column by removing non-numeric characters.
+    Validate DataFrame structure and content.
     
-    Args:
-        df (pd.DataFrame): Input DataFrame.
-        column_name (str): Name of column to clean.
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+    required_columns (list): List of required column names.
+    min_rows (int): Minimum number of rows required.
     
     Returns:
-        pd.DataFrame: DataFrame with cleaned column.
+    bool: True if validation passes, False otherwise.
     """
-    if column_name not in df.columns:
-        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            print(f"Missing required columns: {missing_columns}")
+            return False
     
-    df[column_name] = pd.to_numeric(df[column_name], errors='coerce')
-    return df
+    if len(df) < min_rows:
+        print(f"DataFrame has fewer than {min_rows} rows.")
+        return False
+    
+    return True
 
-def validate_email_format(df, email_column):
-    """
-    Validate email addresses in a column using basic regex pattern.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame.
-        email_column (str): Name of email column.
-    
-    Returns:
-        pd.DataFrame: DataFrame with validation results.
-    """
-    import re
-    
-    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    
-    if email_column not in df.columns:
-        raise ValueError(f"Column '{email_column}' not found in DataFrame")
-    
-    df['email_valid'] = df[email_column].apply(
-        lambda x: bool(re.match(pattern, str(x))) if pd.notnull(x) else False
-    )
-    
-    return df
-
-def get_cleaning_summary(df_before, df_after):
-    """
-    Generate a summary of cleaning operations performed.
-    
-    Args:
-        df_before (pd.DataFrame): Original DataFrame.
-        df_after (pd.DataFrame): Cleaned DataFrame.
-    
-    Returns:
-        dict: Summary statistics.
-    """
-    summary = {
-        'original_rows': len(df_before),
-        'cleaned_rows': len(df_after),
-        'rows_removed': len(df_before) - len(df_after),
-        'columns_before': list(df_before.columns),
-        'columns_after': list(df_after.columns)
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, 2, 4, None],
+        'B': [5, None, 7, 8, 9],
+        'C': ['x', 'y', 'y', None, 'z']
     }
     
-    return summary
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned = clean_dataset(df, fill_strategy='median')
+    print("\nCleaned DataFrame:")
+    print(cleaned)
+    
+    is_valid = validate_data(cleaned, required_columns=['A', 'B', 'C'])
+    print(f"\nData validation passed: {is_valid}")
