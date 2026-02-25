@@ -75,3 +75,13 @@ def get_cleaning_report(original_df, cleaned_df):
         'removed_rows': removed_rows,
         'removal_percentage': round(removal_percentage, 2)
     }
+import numpy as np
+
+def remove_outliers_iqr(data, column):
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
