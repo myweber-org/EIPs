@@ -53,3 +53,11 @@ def get_summary_statistics(df):
             'missing': df[col].isnull().sum()
         }
     return pd.DataFrame(summary).T
+def remove_duplicates_preserve_order(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
