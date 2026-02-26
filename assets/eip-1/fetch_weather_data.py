@@ -179,3 +179,77 @@ def main():
 
 if __name__ == "__main__":
     main()
+import requests
+import json
+from datetime import datetime
+import sys
+
+class WeatherFetcher:
+    API_BASE_URL = "https://api.openweathermap.org/data/2.5/weather"
+    
+    def __init__(self, api_key):
+        self.api_key = api_key
+        
+    def get_weather(self, city_name, units="metric"):
+        params = {
+            "q": city_name,
+            "appid": self.api_key,
+            "units": units
+        }
+        
+        try:
+            response = requests.get(self.API_BASE_URL, params=params, timeout=10)
+            response.raise_for_status()
+            return self._parse_weather_data(response.json())
+        except requests.exceptions.RequestException as e:
+            return {"error": f"Failed to fetch weather data: {str(e)}"}
+        except KeyError as e:
+            return {"error": f"Invalid response format: {str(e)}"}
+    
+    def _parse_weather_data(self, data):
+        return {
+            "city": data.get("name", "Unknown"),
+            "country": data.get("sys", {}).get("country", "Unknown"),
+            "temperature": data.get("main", {}).get("temp", 0),
+            "feels_like": data.get("main", {}).get("feels_like", 0),
+            "humidity": data.get("main", {}).get("humidity", 0),
+            "pressure": data.get("main", {}).get("pressure", 0),
+            "weather": data.get("weather", [{}])[0].get("description", "Unknown"),
+            "wind_speed": data.get("wind", {}).get("speed", 0),
+            "wind_direction": data.get("wind", {}).get("deg", 0),
+            "visibility": data.get("visibility", 0),
+            "cloudiness": data.get("clouds", {}).get("all", 0),
+            "sunrise": self._format_timestamp(data.get("sys", {}).get("sunrise", 0)),
+            "sunset": self._format_timestamp(data.get("sys", {}).get("sunset", 0)),
+            "timestamp": datetime.now().isoformat()
+        }
+    
+    def _format_timestamp(self, timestamp):
+        if timestamp:
+            return datetime.fromtimestamp(timestamp).strftime("%H:%M:%S")
+        return "Unknown"
+
+def main():
+    if len(sys.argv) < 3:
+        print("Usage: python fetch_weather_data.py <api_key> <city_name>")
+        sys.exit(1)
+    
+    api_key = sys.argv[1]
+    city_name = " ".join(sys.argv[2:])
+    
+    fetcher = WeatherFetcher(api_key)
+    weather_data = fetcher.get_weather(city_name)
+    
+    if "error" in weather_data:
+        print(f"Error: {weather_data['error']}")
+        sys.exit(1)
+    
+    print(json.dumps(weather_data, indent=2))
+    
+    with open(f"weather_{city_name.replace(' ', '_')}.json", "w") as f:
+        json.dump(weather_data, f, indent=2)
+    
+    print(f"\nWeather data saved to weather_{city_name.replace(' ', '_')}.json")
+
+if __name__ == "__main__":
+    main()
