@@ -843,3 +843,88 @@ def remove_duplicates_preserve_order(input_list):
             seen.add(item)
             result.append(item)
     return result
+import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a specified column in a DataFrame using the IQR method.
+    
+    Parameters:
+    df (pd.DataFrame): The input DataFrame.
+    column (str): The column name to process.
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed.
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df.reset_index(drop=True)
+
+def clean_numeric_data(df, columns=None):
+    """
+    Clean numeric data by removing outliers from specified columns.
+    If no columns specified, clean all numeric columns.
+    
+    Parameters:
+    df (pd.DataFrame): The input DataFrame.
+    columns (list): List of column names to clean. Defaults to all numeric columns.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    if columns is None:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        columns = numeric_cols
+    
+    cleaned_df = df.copy()
+    for col in columns:
+        if col in cleaned_df.columns:
+            original_len = len(cleaned_df)
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+            removed_count = original_len - len(cleaned_df)
+            print(f"Removed {removed_count} outliers from column '{col}'")
+    
+    return cleaned_df
+
+def save_cleaned_data(df, input_path, suffix='_cleaned'):
+    """
+    Save cleaned DataFrame to a new CSV file.
+    
+    Parameters:
+    df (pd.DataFrame): The cleaned DataFrame.
+    input_path (str): Path to the original input file.
+    suffix (str): Suffix to append to the original filename.
+    
+    Returns:
+    str: Path to the saved file.
+    """
+    if input_path.endswith('.csv'):
+        output_path = input_path.replace('.csv', f'{suffix}.csv')
+    else:
+        output_path = f"{input_path}{suffix}.csv"
+    
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to: {output_path}")
+    return output_path
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'A': np.random.normal(100, 15, 1000),
+        'B': np.random.exponential(50, 1000),
+        'C': np.random.uniform(0, 1, 1000)
+    })
+    
+    print("Original data shape:", sample_data.shape)
+    cleaned_data = clean_numeric_data(sample_data)
+    print("Cleaned data shape:", cleaned_data.shape)
