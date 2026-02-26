@@ -196,3 +196,111 @@ if __name__ == "__main__":
     print("\nCleaned DataFrame shape:", cleaned_df.shape)
     print("\nCleaned summary for column 'A':")
     print(calculate_summary_stats(cleaned_df, 'A'))
+import pandas as pd
+import numpy as np
+
+def clean_missing_values(df, strategy='mean', columns=None):
+    """
+    Handle missing values in a DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        strategy (str): Strategy for imputation ('mean', 'median', 'mode', 'drop')
+        columns (list): Specific columns to clean, if None clean all columns
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    df_clean = df.copy()
+    
+    if columns is None:
+        columns = df_clean.columns
+    
+    for col in columns:
+        if col in df_clean.columns:
+            if strategy == 'drop':
+                df_clean = df_clean.dropna(subset=[col])
+            elif strategy == 'mean':
+                df_clean[col] = df_clean[col].fillna(df_clean[col].mean())
+            elif strategy == 'median':
+                df_clean[col] = df_clean[col].fillna(df_clean[col].median())
+            elif strategy == 'mode':
+                df_clean[col] = df_clean[col].fillna(df_clean[col].mode()[0])
+    
+    return df_clean
+
+def remove_outliers_iqr(df, columns=None, factor=1.5):
+    """
+    Remove outliers using IQR method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns (list): Columns to check for outliers
+        factor (float): IQR multiplier
+    
+    Returns:
+        pd.DataFrame: DataFrame with outliers removed
+    """
+    df_clean = df.copy()
+    
+    if columns is None:
+        columns = df_clean.select_dtypes(include=[np.number]).columns
+    
+    for col in columns:
+        if col in df_clean.columns and df_clean[col].dtype in [np.float64, np.int64]:
+            Q1 = df_clean[col].quantile(0.25)
+            Q3 = df_clean[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - factor * IQR
+            upper_bound = Q3 + factor * IQR
+            
+            df_clean = df_clean[(df_clean[col] >= lower_bound) & 
+                               (df_clean[col] <= upper_bound)]
+    
+    return df_clean
+
+def standardize_columns(df, columns=None):
+    """
+    Standardize numerical columns to have zero mean and unit variance.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns (list): Columns to standardize
+    
+    Returns:
+        pd.DataFrame: Standardized DataFrame
+    """
+    df_std = df.copy()
+    
+    if columns is None:
+        columns = df_std.select_dtypes(include=[np.number]).columns
+    
+    for col in columns:
+        if col in df_std.columns and df_std[col].dtype in [np.float64, np.int64]:
+            mean_val = df_std[col].mean()
+            std_val = df_std[col].std()
+            if std_val > 0:
+                df_std[col] = (df_std[col] - mean_val) / std_val
+    
+    return df_std
+
+def get_data_summary(df):
+    """
+    Generate summary statistics for DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+    
+    Returns:
+        dict: Summary statistics
+    """
+    summary = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_values': df.isnull().sum().sum(),
+        'numeric_columns': list(df.select_dtypes(include=[np.number]).columns),
+        'categorical_columns': list(df.select_dtypes(include=['object']).columns),
+        'memory_usage': df.memory_usage(deep=True).sum() / 1024 / 1024  # MB
+    }
+    
+    return summary
