@@ -203,3 +203,33 @@ if __name__ == "__main__":
         print(cleaned_df)
     else:
         print("Data validation failed.")
+import pandas as pd
+
+def clean_dataframe(df):
+    """
+    Remove rows with null values and standardize column names.
+    """
+    # Drop rows with any null values
+    df_cleaned = df.dropna()
+    
+    # Standardize column names: lowercase and replace spaces with underscores
+    df_cleaned.columns = df_cleaned.columns.str.lower().str.replace(' ', '_')
+    
+    return df_cleaned
+
+def filter_numeric_columns(df):
+    """
+    Return only numeric columns from the dataframe.
+    """
+    numeric_df = df.select_dtypes(include=['number'])
+    return numeric_df
+
+def remove_duplicates(df, subset=None):
+    """
+    Remove duplicate rows from the dataframe.
+    """
+    if subset:
+        df_unique = df.drop_duplicates(subset=subset)
+    else:
+        df_unique = df.drop_duplicates()
+    return df_unique
