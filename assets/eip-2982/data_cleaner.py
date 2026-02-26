@@ -1036,3 +1036,11 @@ class DataCleaner:
             'removed_rows': removed_rows,
             'removal_percentage': removal_percentage
         }
+def remove_duplicates_preserve_order(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
