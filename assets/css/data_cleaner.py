@@ -231,4 +231,59 @@ if __name__ == "__main__":
     print("Missing values after cleaning:")
     print(cleaned_df.isnull().sum())
     print("\nFirst 5 rows of cleaned data:")
-    print(cleaned_df.head())
+    print(cleaned_df.head())import pandas as pd
+import numpy as np
+
+def clean_dataset(df):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    """
+    # Remove duplicate rows
+    df_cleaned = df.drop_duplicates()
+
+    # Handle missing values: fill numeric columns with median, categorical with mode
+    for column in df_cleaned.columns:
+        if df_cleaned[column].dtype in [np.float64, np.int64]:
+            # Fill numeric missing values with column median
+            median_value = df_cleaned[column].median()
+            df_cleaned[column].fillna(median_value, inplace=True)
+        else:
+            # Fill categorical missing values with column mode
+            mode_value = df_cleaned[column].mode()[0] if not df_cleaned[column].mode().empty else 'Unknown'
+            df_cleaned[column].fillna(mode_value, inplace=True)
+
+    # Reset index after cleaning
+    df_cleaned.reset_index(drop=True, inplace=True)
+    return df_cleaned
+
+def validate_data(df):
+    """
+    Perform basic validation on the cleaned DataFrame.
+    """
+    validation_results = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_values': df.isnull().sum().sum(),
+        'duplicate_rows': df.duplicated().sum()
+    }
+    return validation_results
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'A': [1, 2, np.nan, 4, 4],
+        'B': [5, np.nan, 7, 8, 8],
+        'C': ['x', 'y', 'z', np.nan, 'x']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nValidation before cleaning:")
+    print(validate_data(df))
+    
+    cleaned_df = clean_dataset(df)
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    print("\nValidation after cleaning:")
+    print(validate_data(cleaned_df))
