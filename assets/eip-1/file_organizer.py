@@ -232,3 +232,62 @@ def organize_files_by_extension(directory_path):
 if __name__ == "__main__":
     target_directory = input("Enter directory path to organize: ").strip()
     organize_files_by_extension(target_directory)
+import os
+import shutil
+from pathlib import Path
+
+def organize_files(directory="."):
+    """Organize files in the given directory by their extensions."""
+    base_path = Path(directory)
+    
+    # Define categories and their associated file extensions
+    categories = {
+        "Images": [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".svg"],
+        "Documents": [".pdf", ".docx", ".txt", ".xlsx", ".pptx", ".md"],
+        "Audio": [".mp3", ".wav", ".flac", ".aac"],
+        "Video": [".mp4", ".avi", ".mov", ".mkv"],
+        "Archives": [".zip", ".rar", ".tar", ".gz"],
+        "Code": [".py", ".js", ".html", ".css", ".java", ".cpp"],
+        "Executables": [".exe", ".msi", ".sh", ".bat"]
+    }
+    
+    # Create category folders if they don't exist
+    for category in categories:
+        (base_path / category).mkdir(exist_ok=True)
+    
+    # Create an 'Others' folder for uncategorized files
+    others_folder = base_path / "Others"
+    others_folder.mkdir(exist_ok=True)
+    
+    # Track moved files
+    moved_files = []
+    
+    # Iterate over all items in the directory
+    for item in base_path.iterdir():
+        if item.is_file():
+            file_ext = item.suffix.lower()
+            moved = False
+            
+            # Find the appropriate category
+            for category, extensions in categories.items():
+                if file_ext in extensions:
+                    target_folder = base_path / category
+                    shutil.move(str(item), str(target_folder / item.name))
+                    moved_files.append((item.name, category))
+                    moved = True
+                    break
+            
+            # If no category matched, move to 'Others'
+            if not moved:
+                shutil.move(str(item), str(others_folder / item.name))
+                moved_files.append((item.name, "Others"))
+    
+    # Print summary
+    print(f"Organized {len(moved_files)} files:")
+    for filename, category in moved_files:
+        print(f"  {filename} -> {category}")
+    
+    return moved_files
+
+if __name__ == "__main__":
+    organize_files()
