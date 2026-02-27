@@ -594,4 +594,70 @@ def clean_dataset(df, outlier_threshold=3, normalize=True):
     if normalize:
         cleaner.normalize_data(method='minmax')
     
-    return cleaner.get_cleaned_data(), cleaner.get_cleaning_report()
+    return cleaner.get_cleaned_data(), cleaner.get_cleaning_report()import pandas as pd
+import numpy as np
+
+def clean_csv_data(file_path, missing_strategy='mean', columns_to_drop=None):
+    """
+    Load and clean CSV data by handling missing values and optionally dropping columns.
+    
+    Parameters:
+    file_path (str): Path to the CSV file.
+    missing_strategy (str): Strategy for handling missing values ('mean', 'median', 'mode', 'drop').
+    columns_to_drop (list): List of column names to drop from the dataset.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    try:
+        df = pd.read_csv(file_path)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found at path: {file_path}")
+    
+    original_shape = df.shape
+    
+    if columns_to_drop:
+        df = df.drop(columns=columns_to_drop, errors='ignore')
+    
+    if missing_strategy == 'drop':
+        df = df.dropna()
+    elif missing_strategy in ['mean', 'median']:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        if missing_strategy == 'mean':
+            df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
+        else:
+            df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].median())
+    elif missing_strategy == 'mode':
+        for col in df.columns:
+            if df[col].dtype == 'object':
+                df[col] = df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else 'Unknown')
+    
+    print(f"Data cleaned: {original_shape} -> {df.shape}")
+    print(f"Missing values handled using '{missing_strategy}' strategy")
+    
+    return df
+
+def export_cleaned_data(df, output_path):
+    """
+    Export cleaned DataFrame to a new CSV file.
+    
+    Parameters:
+    df (pd.DataFrame): Cleaned DataFrame.
+    output_path (str): Path for the output CSV file.
+    """
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data exported to: {output_path}")
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, np.nan, 4, 5],
+        'B': [np.nan, 2, 3, 4, 5],
+        'C': ['x', 'y', np.nan, 'z', 'x'],
+        'D': [10, 20, 30, 40, 50]
+    }
+    
+    test_df = pd.DataFrame(sample_data)
+    test_df.to_csv('test_data.csv', index=False)
+    
+    cleaned_df = clean_csv_data('test_data.csv', missing_strategy='mean', columns_to_drop=['D'])
+    export_cleaned_data(cleaned_df, 'cleaned_test_data.csv')
