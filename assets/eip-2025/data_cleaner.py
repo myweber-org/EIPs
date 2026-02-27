@@ -155,4 +155,11 @@ def save_cleaned_data(df, input_path, output_suffix="_cleaned"):
         df.to_csv(output_path, index=False)
         print(f"Cleaned data saved to: {output_path}")
     else:
-        print("Only CSV files are supported for saving")
+        print("Only CSV files are supported for saving")def remove_duplicates_preserve_order(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
