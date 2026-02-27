@@ -304,3 +304,78 @@ def get_data_summary(df):
     }
     
     return summary
+import pandas as pd
+import numpy as np
+
+def clean_data(df, missing_strategy='mean', outlier_method='iqr'):
+    """
+    Clean a pandas DataFrame by handling missing values and outliers.
+    """
+    df_clean = df.copy()
+    
+    # Handle missing values
+    if missing_strategy == 'mean':
+        df_clean = df_clean.fillna(df_clean.mean())
+    elif missing_strategy == 'median':
+        df_clean = df_clean.fillna(df_clean.median())
+    elif missing_strategy == 'mode':
+        df_clean = df_clean.fillna(df_clean.mode().iloc[0])
+    elif missing_strategy == 'drop':
+        df_clean = df_clean.dropna()
+    else:
+        raise ValueError("Invalid missing_strategy. Choose from 'mean', 'median', 'mode', or 'drop'.")
+    
+    # Handle outliers using IQR method
+    if outlier_method == 'iqr':
+        numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            Q1 = df_clean[col].quantile(0.25)
+            Q3 = df_clean[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - 1.5 * IQR
+            upper_bound = Q3 + 1.5 * IQR
+            
+            # Cap outliers
+            df_clean[col] = np.where(df_clean[col] < lower_bound, lower_bound, df_clean[col])
+            df_clean[col] = np.where(df_clean[col] > upper_bound, upper_bound, df_clean[col])
+    
+    return df_clean
+
+def validate_data(df):
+    """
+    Perform basic data validation checks.
+    """
+    validation_results = {}
+    validation_results['total_rows'] = len(df)
+    validation_results['total_columns'] = len(df.columns)
+    validation_results['missing_values'] = df.isnull().sum().sum()
+    validation_results['duplicate_rows'] = df.duplicated().sum()
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        validation_results[f'{col}_mean'] = df[col].mean()
+        validation_results[f'{col}_std'] = df[col].std()
+        validation_results[f'{col}_min'] = df[col].min()
+        validation_results[f'{col}_max'] = df[col].max()
+    
+    return validation_results
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'A': [1, 2, np.nan, 4, 5, 100],
+        'B': [10, 20, 30, np.nan, 50, 60],
+        'C': [100, 200, 300, 400, 500, 600]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nValidation results:")
+    print(validate_data(df))
+    
+    cleaned_df = clean_data(df, missing_strategy='mean', outlier_method='iqr')
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    print("\nValidation results after cleaning:")
+    print(validate_data(cleaned_df))
