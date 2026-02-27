@@ -244,3 +244,70 @@ def get_summary_statistics(dataframe):
     }
     
     return summary
+import pandas as pd
+import re
+
+def clean_dataframe(df):
+    """
+    Clean a pandas DataFrame by handling missing values and standardizing text.
+    """
+    # Create a copy to avoid modifying the original
+    df_clean = df.copy()
+    
+    # Fill numeric nulls with column mean
+    numeric_cols = df_clean.select_dtypes(include=['number']).columns
+    for col in numeric_cols:
+        df_clean[col].fillna(df_clean[col].mean(), inplace=True)
+    
+    # Fill text nulls with 'Unknown'
+    text_cols = df_clean.select_dtypes(include=['object']).columns
+    for col in text_cols:
+        df_clean[col].fillna('Unknown', inplace=True)
+    
+    # Standardize text: lowercase and remove extra whitespace
+    for col in text_cols:
+        df_clean[col] = df_clean[col].astype(str).str.lower()
+        df_clean[col] = df_clean[col].apply(lambda x: re.sub(r'\s+', ' ', x).strip())
+    
+    # Remove duplicate rows
+    df_clean.drop_duplicates(inplace=True)
+    
+    # Reset index after cleaning
+    df_clean.reset_index(drop=True, inplace=True)
+    
+    return df_clean
+
+def validate_dataframe(df):
+    """
+    Validate that DataFrame meets basic quality standards.
+    """
+    checks = {
+        'has_nulls': df.isnull().sum().sum() == 0,
+        'has_duplicates': not df.duplicated().any(),
+        'row_count': len(df) > 0,
+        'column_count': len(df.columns) > 0
+    }
+    
+    return all(checks.values()), checks
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'name': ['Alice', 'Bob', None, 'Charlie', 'Alice'],
+        'age': [25, None, 30, 35, 25],
+        'email': ['ALICE@test.com', 'bob@test.com', 'charlie@test.com', None, 'alice@test.com']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nNull counts:")
+    print(df.isnull().sum())
+    
+    cleaned_df = clean_dataframe(df)
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    
+    is_valid, validation_results = validate_dataframe(cleaned_df)
+    print(f"\nData validation passed: {is_valid}")
+    print(f"Validation details: {validation_results}")
