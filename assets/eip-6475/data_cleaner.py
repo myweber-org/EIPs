@@ -185,3 +185,51 @@ def validate_data(df, required_columns):
     if missing_cols:
         raise ValueError(f"Missing required columns: {missing_cols}")
     return True
+import pandas as pd
+
+def clean_dataframe(df, column_mapping=None, drop_duplicates=True):
+    """
+    Clean a pandas DataFrame by standardizing column names and removing duplicates.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        column_mapping (dict, optional): Dictionary mapping original column names 
+                                         to standardized names. Defaults to None.
+        drop_duplicates (bool, optional): Whether to remove duplicate rows. 
+                                          Defaults to True.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    if column_mapping:
+        cleaned_df.rename(columns=column_mapping, inplace=True)
+    
+    if drop_duplicates:
+        cleaned_df.drop_duplicates(inplace=True)
+    
+    cleaned_df.reset_index(drop=True, inplace=True)
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate that a DataFrame contains required columns and has no empty values.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list, optional): List of column names that must be present.
+    
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    return True, "DataFrame is valid"
