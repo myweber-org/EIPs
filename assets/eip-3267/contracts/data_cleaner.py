@@ -233,3 +233,103 @@ def remove_duplicates(df, subset=None):
     else:
         df_unique = df.drop_duplicates()
     return df_unique
+import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(dataframe, column):
+    """
+    Remove outliers from a specified column using the Interquartile Range method.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input dataframe
+    column (str): Column name to process
+    
+    Returns:
+    pd.DataFrame: Dataframe with outliers removed
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    Q1 = dataframe[column].quantile(0.25)
+    Q3 = dataframe[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
+                           (dataframe[column] <= upper_bound)]
+    
+    return filtered_df.reset_index(drop=True)
+
+def calculate_basic_stats(dataframe, column):
+    """
+    Calculate basic statistics for a column after outlier removal.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input dataframe
+    column (str): Column name to analyze
+    
+    Returns:
+    dict: Dictionary containing statistical measures
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    stats = {
+        'mean': dataframe[column].mean(),
+        'median': dataframe[column].median(),
+        'std': dataframe[column].std(),
+        'min': dataframe[column].min(),
+        'max': dataframe[column].max(),
+        'count': len(dataframe)
+    }
+    
+    return stats
+
+def process_numerical_columns(dataframe, columns=None):
+    """
+    Process multiple numerical columns for outlier removal.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input dataframe
+    columns (list): List of column names to process. If None, processes all numerical columns.
+    
+    Returns:
+    pd.DataFrame: Processed dataframe with outliers removed from specified columns
+    """
+    if columns is None:
+        columns = dataframe.select_dtypes(include=[np.number]).columns.tolist()
+    
+    processed_df = dataframe.copy()
+    
+    for col in columns:
+        if col in dataframe.columns and pd.api.types.is_numeric_dtype(dataframe[col]):
+            print(f"Processing column: {col}")
+            original_count = len(processed_df)
+            processed_df = remove_outliers_iqr(processed_df, col)
+            removed_count = original_count - len(processed_df)
+            print(f"  Removed {removed_count} outliers from {col}")
+    
+    return processed_df
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'A': np.random.normal(100, 15, 1000),
+        'B': np.random.exponential(50, 1000),
+        'C': np.random.uniform(0, 200, 1000)
+    }
+    
+    df = pd.DataFrame(sample_data)
+    df.loc[::100, 'A'] = 500  # Add some outliers
+    
+    print("Original dataframe shape:", df.shape)
+    print("\nOriginal statistics for column A:")
+    print(calculate_basic_stats(df, 'A'))
+    
+    cleaned_df = process_numerical_columns(df, ['A', 'B'])
+    
+    print("\nCleaned dataframe shape:", cleaned_df.shape)
+    print("\nCleaned statistics for column A:")
+    print(calculate_basic_stats(cleaned_df, 'A'))
