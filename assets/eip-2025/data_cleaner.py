@@ -312,3 +312,65 @@ def get_summary_statistics(data):
     })
     
     return summary.T
+import numpy as np
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specified column using the Interquartile Range method.
+    
+    Parameters:
+    data (list or array-like): The dataset containing the column to clean.
+    column (int or str): Index or name of the column to process.
+    
+    Returns:
+    tuple: (cleaned_data, outlier_indices)
+    """
+    if isinstance(data, list):
+        data_array = np.array(data)
+    else:
+        data_array = data
+    
+    if isinstance(column, str):
+        raise ValueError("Column names not supported with array input. Use index.")
+    
+    column_data = data_array[:, column].astype(float)
+    
+    Q1 = np.percentile(column_data, 25)
+    Q3 = np.percentile(column_data, 75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    outlier_mask = (column_data < lower_bound) | (column_data > upper_bound)
+    outlier_indices = np.where(outlier_mask)[0]
+    
+    cleaned_data = data_array[~outlier_mask]
+    
+    return cleaned_data, outlier_indices
+
+def example_usage():
+    sample_data = [
+        [1, 150.5],
+        [2, 165.2],
+        [3, 172.8],
+        [4, 158.1],
+        [5, 210.0],
+        [6, 155.7],
+        [7, 900.0],
+        [8, 162.3],
+        [9, 168.9],
+        [10, 152.4]
+    ]
+    
+    cleaned, outliers = remove_outliers_iqr(sample_data, column=1)
+    
+    print(f"Original data shape: {np.array(sample_data).shape}")
+    print(f"Cleaned data shape: {cleaned.shape}")
+    print(f"Outlier indices: {outliers}")
+    print(f"Outlier values: {np.array(sample_data)[outliers, 1]}")
+    
+    return cleaned
+
+if __name__ == "__main__":
+    example_usage()
