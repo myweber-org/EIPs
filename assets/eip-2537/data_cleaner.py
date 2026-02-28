@@ -268,4 +268,11 @@ if __name__ == "__main__":
     cleaned_data = clean_data(data, numeric_cols)
     save_cleaned_data(cleaned_data, output_file)
     
-    print(f"Data cleaning completed. Cleaned data saved to {output_file}")
+    print(f"Data cleaning completed. Cleaned data saved to {output_file}")def deduplicate_list(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
