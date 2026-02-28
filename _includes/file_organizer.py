@@ -103,3 +103,77 @@ if __name__ == "__main__":
     # Example usage: organize files in the current directory
     current_directory = os.getcwd()
     organize_files_by_extension(current_directory)
+import os
+import shutil
+from pathlib import Path
+
+def organize_files(source_dir, target_dir=None):
+    """
+    Organize files in source directory into subdirectories based on file extensions.
+    If target_dir is not provided, uses source_dir as the base.
+    """
+    if target_dir is None:
+        target_dir = source_dir
+    
+    source_path = Path(source_dir)
+    target_path = Path(target_dir)
+    
+    if not source_path.exists():
+        print(f"Source directory does not exist: {source_dir}")
+        return
+    
+    target_path.mkdir(parents=True, exist_ok=True)
+    
+    extension_categories = {
+        'images': ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg'],
+        'documents': ['.pdf', '.doc', '.docx', '.txt', '.rtf', '.odt'],
+        'spreadsheets': ['.xls', '.xlsx', '.csv'],
+        'presentations': ['.ppt', '.pptx', '.key'],
+        'archives': ['.zip', '.tar', '.gz', '.rar', '.7z'],
+        'code': ['.py', '.js', '.html', '.css', '.java', '.cpp', '.c'],
+        'audio': ['.mp3', '.wav', '.flac', '.aac', '.ogg'],
+        'video': ['.mp4', '.avi', '.mov', '.mkv', '.wmv']
+    }
+    
+    other_dir = target_path / 'other'
+    other_dir.mkdir(exist_ok=True)
+    
+    for file_path in source_path.iterdir():
+        if file_path.is_file():
+            file_extension = file_path.suffix.lower()
+            moved = False
+            
+            for category, extensions in extension_categories.items():
+                if file_extension in extensions:
+                    category_dir = target_path / category
+                    category_dir.mkdir(exist_ok=True)
+                    
+                    try:
+                        shutil.move(str(file_path), str(category_dir / file_path.name))
+                        print(f"Moved {file_path.name} to {category}/")
+                        moved = True
+                        break
+                    except Exception as e:
+                        print(f"Error moving {file_path.name}: {e}")
+            
+            if not moved:
+                try:
+                    shutil.move(str(file_path), str(other_dir / file_path.name))
+                    print(f"Moved {file_path.name} to other/")
+                except Exception as e:
+                    print(f"Error moving {file_path.name}: {e}")
+    
+    print("File organization completed.")
+
+if __name__ == "__main__":
+    import sys
+    
+    if len(sys.argv) > 1:
+        source_directory = sys.argv[1]
+        target_directory = sys.argv[2] if len(sys.argv) > 2 else None
+    else:
+        source_directory = input("Enter source directory path: ").strip()
+        target_input = input("Enter target directory path (press Enter to use source): ").strip()
+        target_directory = target_input if target_input else None
+    
+    organize_files(source_directory, target_directory)
