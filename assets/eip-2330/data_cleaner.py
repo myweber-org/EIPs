@@ -299,3 +299,89 @@ if __name__ == "__main__":
     print(cleaned_data)
     print("\nCleaned statistics:")
     print(calculate_summary_statistics(cleaned_data, 'values'))
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+def normalize_column(data, column_name, method='minmax'):
+    if column_name not in data.columns:
+        raise ValueError(f"Column '{column_name}' not found in data")
+    
+    column_data = data[column_name].astype(float)
+    
+    if method == 'minmax':
+        min_val = column_data.min()
+        max_val = column_data.max()
+        if max_val == min_val:
+            return column_data
+        normalized = (column_data - min_val) / (max_val - min_val)
+    elif method == 'zscore':
+        mean_val = column_data.mean()
+        std_val = column_data.std()
+        if std_val == 0:
+            return column_data
+        normalized = (column_data - mean_val) / std_val
+    else:
+        raise ValueError("Method must be 'minmax' or 'zscore'")
+    
+    return normalized
+
+def remove_outliers_iqr(data, column_name):
+    if column_name not in data.columns:
+        raise ValueError(f"Column '{column_name}' not found in data")
+    
+    column_data = data[column_name].astype(float)
+    Q1 = column_data.quantile(0.25)
+    Q3 = column_data.quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_data = data[(column_data >= lower_bound) & (column_data <= upper_bound)]
+    return filtered_data
+
+def clean_dataset(data, numeric_columns=None, normalization_method='minmax'):
+    if numeric_columns is None:
+        numeric_columns = data.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_data = data.copy()
+    
+    for column in numeric_columns:
+        if column in cleaned_data.columns:
+            cleaned_data[column] = normalize_column(cleaned_data, column, normalization_method)
+            cleaned_data = remove_outliers_iqr(cleaned_data, column)
+    
+    return cleaned_data.reset_index(drop=True)
+
+def calculate_statistics(data, column_name):
+    if column_name not in data.columns:
+        raise ValueError(f"Column '{column_name}' not found in data")
+    
+    column_data = data[column_name].astype(float)
+    
+    stats_dict = {
+        'mean': column_data.mean(),
+        'median': column_data.median(),
+        'std': column_data.std(),
+        'min': column_data.min(),
+        'max': column_data.max(),
+        'q1': column_data.quantile(0.25),
+        'q3': column_data.quantile(0.75)
+    }
+    
+    return stats_dict
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'feature1': np.random.normal(100, 15, 1000),
+        'feature2': np.random.exponential(50, 1000),
+        'category': np.random.choice(['A', 'B', 'C'], 1000)
+    })
+    
+    print("Original data shape:", sample_data.shape)
+    print("Original statistics:", calculate_statistics(sample_data, 'feature1'))
+    
+    cleaned = clean_dataset(sample_data, ['feature1', 'feature2'])
+    print("Cleaned data shape:", cleaned.shape)
+    print("Cleaned statistics:", calculate_statistics(cleaned, 'feature1'))
