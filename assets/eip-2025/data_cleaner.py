@@ -373,4 +373,78 @@ def example_usage():
     return cleaned
 
 if __name__ == "__main__":
-    example_usage()
+    example_usage()import pandas as pd
+import numpy as np
+
+def clean_csv_data(filepath, strategy='mean', fill_value=None):
+    """
+    Load a CSV file and handle missing values based on specified strategy.
+    
+    Parameters:
+    filepath (str): Path to the CSV file.
+    strategy (str): Method for handling missing values. 
+                    Options: 'mean', 'median', 'mode', 'constant', 'drop'.
+    fill_value: Value to use when strategy is 'constant'.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    try:
+        df = pd.read_csv(filepath)
+        print(f"Loaded data with shape: {df.shape}")
+        
+        if df.isnull().sum().sum() == 0:
+            print("No missing values found.")
+            return df
+        
+        print(f"Missing values before cleaning:\n{df.isnull().sum()}")
+        
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        categorical_cols = df.select_dtypes(exclude=[np.number]).columns
+        
+        if strategy == 'mean':
+            df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
+        elif strategy == 'median':
+            df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].median())
+        elif strategy == 'mode':
+            for col in df.columns:
+                df[col] = df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else None)
+        elif strategy == 'constant':
+            if fill_value is None:
+                raise ValueError("fill_value must be provided for constant strategy")
+            df = df.fillna(fill_value)
+        elif strategy == 'drop':
+            df = df.dropna()
+        else:
+            raise ValueError(f"Unknown strategy: {strategy}")
+        
+        print(f"Missing values after cleaning:\n{df.isnull().sum()}")
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: File not found at {filepath}")
+        return None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None
+
+def save_cleaned_data(df, output_path):
+    """
+    Save cleaned DataFrame to CSV.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to save.
+    output_path (str): Path for output CSV file.
+    """
+    if df is not None:
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to: {output_path}")
+
+if __name__ == "__main__":
+    input_file = "sample_data.csv"
+    output_file = "cleaned_data.csv"
+    
+    cleaned_df = clean_csv_data(input_file, strategy='median')
+    
+    if cleaned_df is not None:
+        save_cleaned_data(cleaned_df, output_file)
