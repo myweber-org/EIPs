@@ -225,4 +225,95 @@ if __name__ == "__main__":
     
     print("\nCleaned DataFrame shape:", cleaned_df.shape)
     print("Cleaned value statistics:")
-    print(cleaned_df['value'].describe())
+    print(cleaned_df['value'].describe())import pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_duplicates=True, fillna_strategy='mean', columns_to_clean=None):
+    """
+    Clean a pandas DataFrame by handling duplicates and missing values.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    drop_duplicates (bool): Whether to drop duplicate rows.
+    fillna_strategy (str): Strategy for filling missing values ('mean', 'median', 'mode', or 'drop').
+    columns_to_clean (list): Specific columns to apply cleaning. If None, all columns are cleaned.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    df_clean = df.copy()
+    
+    if columns_to_clean is None:
+        columns_to_clean = df_clean.columns.tolist()
+    
+    if drop_duplicates:
+        df_clean = df_clean.drop_duplicates().reset_index(drop=True)
+    
+    for col in columns_to_clean:
+        if col in df_clean.columns:
+            if df_clean[col].dtype in ['int64', 'float64']:
+                if fillna_strategy == 'mean':
+                    df_clean[col].fillna(df_clean[col].mean(), inplace=True)
+                elif fillna_strategy == 'median':
+                    df_clean[col].fillna(df_clean[col].median(), inplace=True)
+                elif fillna_strategy == 'mode':
+                    df_clean[col].fillna(df_clean[col].mode()[0], inplace=True)
+                elif fillna_strategy == 'drop':
+                    df_clean = df_clean.dropna(subset=[col])
+            else:
+                if fillna_strategy == 'mode':
+                    df_clean[col].fillna(df_clean[col].mode()[0], inplace=True)
+                elif fillna_strategy == 'drop':
+                    df_clean = df_clean.dropna(subset=[col])
+                else:
+                    df_clean[col].fillna('Unknown', inplace=True)
+    
+    return df_clean
+
+def remove_outliers_iqr(df, column, multiplier=1.5):
+    """
+    Remove outliers from a specific column using the Interquartile Range (IQR) method.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    column (str): Column name to process.
+    multiplier (float): IQR multiplier for outlier detection.
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed.
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - multiplier * IQR
+    upper_bound = Q3 + multiplier * IQR
+    
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)].reset_index(drop=True)
+
+def standardize_columns(df, columns=None):
+    """
+    Standardize numerical columns to have zero mean and unit variance.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    columns (list): List of columns to standardize. If None, all numerical columns are used.
+    
+    Returns:
+    pd.DataFrame: DataFrame with standardized columns.
+    """
+    df_std = df.copy()
+    
+    if columns is None:
+        columns = df_std.select_dtypes(include=[np.number]).columns.tolist()
+    
+    for col in columns:
+        if col in df_std.columns and df_std[col].dtype in ['int64', 'float64']:
+            mean = df_std[col].mean()
+            std = df_std[col].std()
+            if std > 0:
+                df_std[col] = (df_std[col] - mean) / std
+    
+    return df_std
