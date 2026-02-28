@@ -189,3 +189,54 @@ def validate_data(data, required_columns, numeric_columns):
                 }
     
     return validation_result
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    """
+    # Remove duplicate rows
+    df_cleaned = df.drop_duplicates()
+    
+    # Handle missing values: fill numeric columns with median, categorical with mode
+    for column in df_cleaned.columns:
+        if df_cleaned[column].dtype in [np.float64, np.int64]:
+            median_value = df_cleaned[column].median()
+            df_cleaned[column].fillna(median_value, inplace=True)
+        else:
+            mode_value = df_cleaned[column].mode()[0] if not df_cleaned[column].mode().empty else 'Unknown'
+            df_cleaned[column].fillna(mode_value, inplace=True)
+    
+    return df_cleaned
+
+def validate_data(df, required_columns):
+    """
+    Validate that the DataFrame contains all required columns.
+    """
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        raise ValueError(f"Missing required columns: {missing_columns}")
+    return True
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'id': [1, 2, 2, 3, 4, 5],
+        'name': ['Alice', 'Bob', 'Bob', None, 'Eve', 'Frank'],
+        'age': [25, 30, 30, None, 35, 40],
+        'score': [85.5, 92.0, 92.0, 78.5, None, 88.0]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nCleaned DataFrame:")
+    cleaned_df = clean_dataset(df)
+    print(cleaned_df)
+    
+    try:
+        validate_data(cleaned_df, ['id', 'name', 'age'])
+        print("\nData validation passed.")
+    except ValueError as e:
+        print(f"\nData validation failed: {e}")
