@@ -381,3 +381,134 @@ if __name__ == "__main__":
         print(f"\n{col}:")
         for key, value in stats.items():
             print(f"  {key}: {value:.2f}")
+import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(dataframe, column, multiplier=1.5):
+    """
+    Remove outliers from a DataFrame column using the Interquartile Range method.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input DataFrame
+    column (str): Column name to process
+    multiplier (float): IQR multiplier for outlier detection
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = dataframe[column].quantile(0.25)
+    Q3 = dataframe[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - multiplier * IQR
+    upper_bound = Q3 + multiplier * IQR
+    
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
+                           (dataframe[column] <= upper_bound)]
+    
+    return filtered_df.copy()
+
+def normalize_minmax(dataframe, columns=None):
+    """
+    Normalize specified columns using Min-Max scaling.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input DataFrame
+    columns (list): List of column names to normalize. If None, normalize all numeric columns.
+    
+    Returns:
+    pd.DataFrame: DataFrame with normalized columns
+    """
+    df_copy = dataframe.copy()
+    
+    if columns is None:
+        numeric_cols = df_copy.select_dtypes(include=[np.number]).columns.tolist()
+        columns = numeric_cols
+    
+    for col in columns:
+        if col not in df_copy.columns:
+            raise ValueError(f"Column '{col}' not found in DataFrame")
+        
+        if not np.issubdtype(df_copy[col].dtype, np.number):
+            raise ValueError(f"Column '{col}' is not numeric")
+        
+        col_min = df_copy[col].min()
+        col_max = df_copy[col].max()
+        
+        if col_max == col_min:
+            df_copy[col] = 0.5
+        else:
+            df_copy[col] = (df_copy[col] - col_min) / (col_max - col_min)
+    
+    return df_copy
+
+def handle_missing_values(dataframe, strategy='mean', columns=None):
+    """
+    Handle missing values in specified columns.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input DataFrame
+    strategy (str): Imputation strategy ('mean', 'median', 'mode', or 'drop')
+    columns (list): List of column names to process. If None, process all columns.
+    
+    Returns:
+    pd.DataFrame: DataFrame with handled missing values
+    """
+    df_copy = dataframe.copy()
+    
+    if columns is None:
+        columns = df_copy.columns.tolist()
+    
+    for col in columns:
+        if col not in df_copy.columns:
+            continue
+        
+        if df_copy[col].isnull().sum() == 0:
+            continue
+        
+        if strategy == 'drop':
+            df_copy = df_copy.dropna(subset=[col])
+        elif strategy == 'mean':
+            if np.issubdtype(df_copy[col].dtype, np.number):
+                df_copy[col] = df_copy[col].fillna(df_copy[col].mean())
+        elif strategy == 'median':
+            if np.issubdtype(df_copy[col].dtype, np.number):
+                df_copy[col] = df_copy[col].fillna(df_copy[col].median())
+        elif strategy == 'mode':
+            mode_value = df_copy[col].mode()
+            if not mode_value.empty:
+                df_copy[col] = df_copy[col].fillna(mode_value.iloc[0])
+        else:
+            raise ValueError(f"Unknown strategy: {strategy}")
+    
+    return df_copy
+
+def clean_dataset(dataframe, outlier_columns=None, normalize_columns=None, missing_strategy='mean'):
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input DataFrame
+    outlier_columns (list): Columns for outlier removal
+    normalize_columns (list): Columns for normalization
+    missing_strategy (str): Strategy for handling missing values
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    df_clean = dataframe.copy()
+    
+    df_clean = handle_missing_values(df_clean, strategy=missing_strategy)
+    
+    if outlier_columns:
+        for col in outlier_columns:
+            if col in df_clean.columns:
+                df_clean = remove_outliers_iqr(df_clean, col)
+    
+    if normalize_columns:
+        df_clean = normalize_minmax(df_clean, normalize_columns)
+    
+    return df_clean.reset_index(drop=True)
