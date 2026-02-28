@@ -359,3 +359,92 @@ def clean_dataset(df, missing_strategy='mean', outlier_method='zscore'):
     cleaner.handle_missing_values(strategy=missing_strategy)
     cleaner.remove_outliers(method=outlier_method)
     return cleaner.get_cleaned_data()
+import pandas as pd
+import numpy as np
+
+def clean_csv_data(input_file, output_file, strategy='mean'):
+    """
+    Clean a CSV file by handling missing values.
+    
+    Args:
+        input_file (str): Path to input CSV file.
+        output_file (str): Path to save cleaned CSV file.
+        strategy (str): Strategy for handling missing values.
+                        Options: 'mean', 'median', 'drop', 'zero'.
+    """
+    try:
+        df = pd.read_csv(input_file)
+        
+        numeric_columns = df.select_dtypes(include=[np.number]).columns
+        
+        if strategy == 'mean':
+            for col in numeric_columns:
+                df[col].fillna(df[col].mean(), inplace=True)
+        elif strategy == 'median':
+            for col in numeric_columns:
+                df[col].fillna(df[col].median(), inplace=True)
+        elif strategy == 'drop':
+            df.dropna(subset=numeric_columns, inplace=True)
+        elif strategy == 'zero':
+            df.fillna(0, inplace=True)
+        else:
+            raise ValueError(f"Unknown strategy: {strategy}")
+        
+        df.to_csv(output_file, index=False)
+        print(f"Cleaned data saved to: {output_file}")
+        print(f"Original rows: {len(pd.read_csv(input_file))}, Cleaned rows: {len(df)}")
+        
+    except FileNotFoundError:
+        print(f"Error: Input file '{input_file}' not found.")
+    except pd.errors.EmptyDataError:
+        print("Error: Input file is empty.")
+    except Exception as e:
+        print(f"Error during cleaning: {str(e)}")
+
+def validate_csv_structure(file_path, required_columns=None):
+    """
+    Validate the structure of a CSV file.
+    
+    Args:
+        file_path (str): Path to CSV file.
+        required_columns (list): List of required column names.
+    
+    Returns:
+        bool: True if valid, False otherwise.
+    """
+    try:
+        df = pd.read_csv(file_path)
+        
+        if required_columns:
+            missing_columns = [col for col in required_columns if col not in df.columns]
+            if missing_columns:
+                print(f"Missing required columns: {missing_columns}")
+                return False
+        
+        if df.empty:
+            print("File is empty.")
+            return False
+        
+        return True
+        
+    except Exception as e:
+        print(f"Validation error: {str(e)}")
+        return False
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, np.nan, 4, 5],
+        'B': [np.nan, 2, 3, np.nan, 5],
+        'C': [1, 2, 3, 4, 5]
+    }
+    
+    test_df = pd.DataFrame(sample_data)
+    test_df.to_csv('test_data.csv', index=False)
+    
+    clean_csv_data('test_data.csv', 'cleaned_data.csv', strategy='mean')
+    
+    import os
+    if os.path.exists('test_data.csv'):
+        os.remove('test_data.csv')
+    if os.path.exists('cleaned_data.csv'):
+        os.remove('cleaned_data.csv')
