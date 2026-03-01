@@ -273,3 +273,108 @@ def clean_dataset(input_path, output_path):
 
 if __name__ == "__main__":
     clean_dataset('raw_data.csv', 'cleaned_data.csv')
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+def detect_outliers_iqr(data, column, threshold=1.5):
+    """
+    Detect outliers using IQR method
+    """
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    outliers = data[(data[column] < lower_bound) | (data[column] > upper_bound)]
+    return outliers, lower_bound, upper_bound
+
+def remove_outliers_zscore(data, column, z_threshold=3):
+    """
+    Remove outliers using Z-score method
+    """
+    z_scores = np.abs(stats.zscore(data[column].dropna()))
+    filtered_data = data[(z_scores < z_threshold)]
+    return filtered_data
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using Min-Max scaling
+    """
+    min_val = data[column].min()
+    max_val = data[column].max()
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def clean_dataset(df, numeric_columns, outlier_method='iqr', normalize=True):
+    """
+    Main cleaning function for numeric columns
+    """
+    cleaned_df = df.copy()
+    
+    for col in numeric_columns:
+        if col not in cleaned_df.columns:
+            continue
+            
+        # Handle missing values
+        cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].median())
+        
+        # Remove outliers
+        if outlier_method == 'zscore':
+            cleaned_df = remove_outliers_zscore(cleaned_df, col)
+        elif outlier_method == 'iqr':
+            outliers, _, _ = detect_outliers_iqr(cleaned_df, col)
+            cleaned_df = cleaned_df[~cleaned_df.index.isin(outliers.index)]
+        
+        # Normalize if requested
+        if normalize:
+            cleaned_df[f'{col}_normalized'] = normalize_minmax(cleaned_df, col)
+    
+    return cleaned_df
+
+def validate_cleaning(original_df, cleaned_df, numeric_columns):
+    """
+    Validate cleaning results
+    """
+    validation_report = {}
+    
+    for col in numeric_columns:
+        if col not in original_df.columns or col not in cleaned_df.columns:
+            continue
+            
+        orig_stats = {
+            'mean': original_df[col].mean(),
+            'std': original_df[col].std(),
+            'min': original_df[col].min(),
+            'max': original_df[col].max(),
+            'missing': original_df[col].isnull().sum()
+        }
+        
+        clean_stats = {
+            'mean': cleaned_df[col].mean(),
+            'std': cleaned_df[col].std(),
+            'min': cleaned_df[col].min(),
+            'max': cleaned_df[col].max(),
+            'missing': cleaned_df[col].isnull().sum()
+        }
+        
+        validation_report[col] = {
+            'original': orig_stats,
+            'cleaned': clean_stats,
+            'rows_removed': len(original_df) - len(cleaned_df)
+        }
+    
+    return validation_report
+
+def save_cleaned_data(df, output_path, format='csv'):
+    """
+    Save cleaned data to file
+    """
+    if format == 'csv':
+        df.to_csv(output_path, index=False)
+    elif format == 'parquet':
+        df.to_parquet(output_path, index=False)
+    elif format == 'excel':
+        df.to_excel(output_path, index=False)
+    else:
+        raise ValueError(f"Unsupported format: {format}")
