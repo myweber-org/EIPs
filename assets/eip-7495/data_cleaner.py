@@ -1119,3 +1119,45 @@ if __name__ == "__main__":
     print("\nCleaned data shape:", cleaned_df.shape)
     print("Cleaned data summary:")
     print(cleaned_df.describe())
+import pandas as pd
+import numpy as np
+
+def clean_csv_data(file_path, output_path):
+    """
+    Load, clean, and save CSV data.
+    """
+    try:
+        df = pd.read_csv(file_path)
+        
+        # Remove duplicate rows
+        df = df.drop_duplicates()
+        
+        # Fill missing numeric values with column mean
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
+        
+        # Fill missing categorical values with mode
+        categorical_cols = df.select_dtypes(include=['object']).columns
+        for col in categorical_cols:
+            df[col] = df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else 'Unknown')
+        
+        # Remove rows where critical column is null
+        if 'critical_column' in df.columns:
+            df = df.dropna(subset=['critical_column'])
+        
+        # Save cleaned data
+        df.to_csv(output_path, index=False)
+        print(f"Data cleaned and saved to {output_path}")
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: File {file_path} not found.")
+        return None
+    except Exception as e:
+        print(f"Error during data cleaning: {e}")
+        return None
+
+if __name__ == "__main__":
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    clean_csv_data(input_file, output_file)
