@@ -391,3 +391,111 @@ def example_usage():
 
 if __name__ == "__main__":
     cleaned_data = example_usage()
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, columns_to_check=None):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    """
+    # Create a copy to avoid modifying the original DataFrame
+    cleaned_df = df.copy()
+    
+    # Remove duplicate rows
+    initial_rows = cleaned_df.shape[0]
+    cleaned_df = cleaned_df.drop_duplicates()
+    duplicates_removed = initial_rows - cleaned_df.shape[0]
+    
+    # Handle missing values
+    if columns_to_check is None:
+        columns_to_check = cleaned_df.columns
+    
+    missing_info = {}
+    for column in columns_to_check:
+        if column in cleaned_df.columns:
+            missing_count = cleaned_df[column].isnull().sum()
+            if missing_count > 0:
+                # For numeric columns, fill with median
+                if pd.api.types.is_numeric_dtype(cleaned_df[column]):
+                    median_value = cleaned_df[column].median()
+                    cleaned_df[column] = cleaned_df[column].fillna(median_value)
+                    missing_info[column] = f"filled with median: {median_value}"
+                # For categorical columns, fill with mode
+                else:
+                    mode_value = cleaned_df[column].mode()[0] if not cleaned_df[column].mode().empty else "Unknown"
+                    cleaned_df[column] = cleaned_df[column].fillna(mode_value)
+                    missing_info[column] = f"filled with mode: {mode_value}"
+    
+    # Log cleaning summary
+    print(f"Data cleaning completed:")
+    print(f"  - Removed {duplicates_removed} duplicate rows")
+    print(f"  - Total rows after cleaning: {cleaned_df.shape[0]}")
+    print(f"  - Total columns: {cleaned_df.shape[1]}")
+    
+    if missing_info:
+        print("  - Missing values handled:")
+        for column, action in missing_info.items():
+            print(f"    - {column}: {action}")
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate that the DataFrame meets basic requirements.
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    if df.empty:
+        raise ValueError("DataFrame is empty")
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            raise ValueError(f"Missing required columns: {missing_columns}")
+    
+    return True
+
+def save_cleaned_data(df, output_path, format='csv'):
+    """
+    Save the cleaned DataFrame to a file.
+    """
+    if format.lower() == 'csv':
+        df.to_csv(output_path, index=False)
+    elif format.lower() == 'excel':
+        df.to_excel(output_path, index=False)
+    elif format.lower() == 'parquet':
+        df.to_parquet(output_path, index=False)
+    else:
+        raise ValueError(f"Unsupported format: {format}")
+    
+    print(f"Cleaned data saved to: {output_path}")
+
+# Example usage
+if __name__ == "__main__":
+    # Create sample data with some issues
+    sample_data = {
+        'id': [1, 2, 3, 3, 4, 5, 6],
+        'name': ['Alice', 'Bob', 'Charlie', 'Charlie', None, 'Eve', 'Frank'],
+        'age': [25, 30, None, 35, 28, 22, 40],
+        'score': [85.5, 92.0, 78.5, 78.5, 88.0, None, 95.5]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    # Clean the data
+    cleaned_df = clean_dataset(df)
+    
+    print("\n" + "="*50 + "\n")
+    print("Cleaned DataFrame:")
+    print(cleaned_df)
+    
+    # Validate the cleaned data
+    try:
+        validate_dataframe(cleaned_df, required_columns=['id', 'name', 'age', 'score'])
+        print("\nData validation passed!")
+    except Exception as e:
+        print(f"\nData validation failed: {e}")
