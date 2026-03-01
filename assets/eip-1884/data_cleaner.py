@@ -367,4 +367,128 @@ if __name__ == "__main__":
     
     stats = calculate_statistics(cleaned_data)
     for key, value in stats.items():
-        print(f"{key}: {value}")
+        print(f"{key}: {value}")import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column, multiplier=1.5):
+    """
+    Remove outliers from a DataFrame column using the IQR method.
+    
+    Args:
+        data: pandas DataFrame
+        column: Column name to process
+        multiplier: IQR multiplier (default 1.5)
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - multiplier * iqr
+    upper_bound = q3 + multiplier * iqr
+    
+    return data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+
+def zscore_normalize(data, column):
+    """
+    Normalize a column using z-score normalization.
+    
+    Args:
+        data: pandas DataFrame
+        column: Column name to normalize
+    
+    Returns:
+        Series with normalized values
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return pd.Series([0] * len(data), index=data.index)
+    
+    return (data[column] - mean_val) / std_val
+
+def minmax_normalize(data, column, feature_range=(0, 1)):
+    """
+    Normalize a column using min-max normalization.
+    
+    Args:
+        data: pandas DataFrame
+        column: Column name to normalize
+        feature_range: Desired range of transformed data (default 0-1)
+    
+    Returns:
+        Series with normalized values
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return pd.Series([feature_range[0]] * len(data), index=data.index)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    scaled = normalized * (feature_range[1] - feature_range[0]) + feature_range[0]
+    
+    return scaled
+
+def detect_skewed_columns(data, threshold=0.5):
+    """
+    Detect columns with significant skewness.
+    
+    Args:
+        data: pandas DataFrame
+        threshold: Absolute skewness threshold (default 0.5)
+    
+    Returns:
+        Dictionary of column names and their skewness values
+    """
+    skewed_cols = {}
+    
+    for col in data.select_dtypes(include=[np.number]).columns:
+        skewness = stats.skew(data[col].dropna())
+        if abs(skewness) > threshold:
+            skewed_cols[col] = skewness
+    
+    return skewed_cols
+
+def clean_dataset(data, numeric_columns=None, outlier_multiplier=1.5, normalize_method='zscore'):
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Args:
+        data: pandas DataFrame
+        numeric_columns: List of numeric columns to process (default: all numeric)
+        outlier_multiplier: IQR multiplier for outlier removal
+        normalize_method: 'zscore', 'minmax', or None
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    cleaned_data = data.copy()
+    
+    if numeric_columns is None:
+        numeric_columns = cleaned_data.select_dtypes(include=[np.number]).columns.tolist()
+    
+    for col in numeric_columns:
+        if col in cleaned_data.columns:
+            # Remove outliers
+            cleaned_data = remove_outliers_iqr(cleaned_data, col, outlier_multiplier)
+            
+            # Normalize if requested
+            if normalize_method == 'zscore':
+                cleaned_data[f'{col}_normalized'] = zscore_normalize(cleaned_data, col)
+            elif normalize_method == 'minmax':
+                cleaned_data[f'{col}_normalized'] = minmax_normalize(cleaned_data, col)
+    
+    return cleaned_data
