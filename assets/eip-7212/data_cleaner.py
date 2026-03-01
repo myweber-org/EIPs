@@ -499,3 +499,63 @@ if __name__ == "__main__":
         print("\nData validation passed!")
     except Exception as e:
         print(f"\nData validation failed: {e}")
+import pandas as pd
+import re
+
+def clean_dataframe(df, columns_to_clean=None):
+    """
+    Clean a pandas DataFrame by removing duplicates and normalizing string columns.
+    """
+    # Remove duplicate rows
+    df_cleaned = df.drop_duplicates().reset_index(drop=True)
+    
+    if columns_to_clean is None:
+        # Automatically identify string columns
+        columns_to_clean = df_cleaned.select_dtypes(include=['object']).columns.tolist()
+    
+    for column in columns_to_clean:
+        if column in df_cleaned.columns:
+            df_cleaned[column] = df_cleaned[column].apply(normalize_string)
+    
+    return df_cleaned
+
+def normalize_string(value):
+    """
+    Normalize a string by converting to lowercase, removing extra whitespace,
+    and stripping special characters.
+    """
+    if pd.isna(value):
+        return value
+    
+    if isinstance(value, str):
+        # Convert to lowercase
+        normalized = value.lower()
+        # Remove extra whitespace
+        normalized = re.sub(r'\s+', ' ', normalized).strip()
+        # Remove special characters (keep alphanumeric and spaces)
+        normalized = re.sub(r'[^a-z0-9\s]', '', normalized)
+        return normalized
+    
+    return value
+
+def validate_email(email):
+    """
+    Validate email format using regex pattern.
+    """
+    if pd.isna(email):
+        return False
+    
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, str(email)))
+
+def remove_outliers_iqr(df, column, multiplier=1.5):
+    """
+    Remove outliers from a column using the Interquartile Range (IQR) method.
+    """
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - multiplier * IQR
+    upper_bound = Q3 + multiplier * IQR
+    
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
