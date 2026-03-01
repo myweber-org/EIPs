@@ -659,3 +659,142 @@ if __name__ == "__main__":
     print("\nValidation Results:")
     for key, value in validation.items():
         print(f"{key}: {value}")
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column, factor=1.5):
+    """
+    Remove outliers using IQR method
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - factor * IQR
+    upper_bound = Q3 + factor * IQR
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    removed_count = len(data) - len(filtered_data)
+    
+    return filtered_data, removed_count
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using min-max scaling
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return data[column].apply(lambda x: 0.5)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def normalize_zscore(data, column):
+    """
+    Normalize data using z-score standardization
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return data[column].apply(lambda x: 0)
+    
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
+
+def clean_dataset(df, numeric_columns=None, outlier_factor=1.5, normalization_method='zscore'):
+    """
+    Main function to clean dataset by removing outliers and normalizing numeric columns
+    """
+    if numeric_columns is None:
+        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_df = df.copy()
+    removal_stats = {}
+    
+    for col in numeric_columns:
+        if col in df.columns:
+            cleaned_df, removed = remove_outliers_iqr(cleaned_df, col, outlier_factor)
+            removal_stats[col] = removed
+            
+            if normalization_method == 'minmax':
+                cleaned_df[f'{col}_normalized'] = normalize_minmax(cleaned_df, col)
+            elif normalization_method == 'zscore':
+                cleaned_df[f'{col}_normalized'] = normalize_zscore(cleaned_df, col)
+    
+    return cleaned_df, removal_stats
+
+def validate_data(df, required_columns, min_rows=10):
+    """
+    Validate dataset structure and content
+    """
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    
+    if missing_columns:
+        raise ValueError(f"Missing required columns: {missing_columns}")
+    
+    if len(df) < min_rows:
+        raise ValueError(f"Dataset has only {len(df)} rows, minimum required is {min_rows}")
+    
+    null_counts = df[required_columns].isnull().sum()
+    high_null_columns = null_counts[null_counts > len(df) * 0.1].index.tolist()
+    
+    validation_result = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_columns': missing_columns,
+        'high_null_columns': high_null_columns,
+        'null_counts': null_counts.to_dict()
+    }
+    
+    return validation_result
+
+def example_usage():
+    """
+    Example usage of the data cleaning functions
+    """
+    np.random.seed(42)
+    
+    sample_data = {
+        'id': range(100),
+        'feature_a': np.random.normal(50, 15, 100),
+        'feature_b': np.random.exponential(10, 100),
+        'category': np.random.choice(['A', 'B', 'C'], 100)
+    }
+    
+    df = pd.DataFrame(sample_data)
+    df.loc[10:15, 'feature_a'] = 200
+    df.loc[20:25, 'feature_b'] = 150
+    
+    print("Original dataset shape:", df.shape)
+    
+    validation = validate_data(df, ['feature_a', 'feature_b'], min_rows=5)
+    print("Validation result:", validation)
+    
+    cleaned_df, stats = clean_dataset(
+        df, 
+        numeric_columns=['feature_a', 'feature_b'],
+        outlier_factor=1.5,
+        normalization_method='zscore'
+    )
+    
+    print("Cleaned dataset shape:", cleaned_df.shape)
+    print("Outliers removed:", stats)
+    print("New columns:", [col for col in cleaned_df.columns if 'normalized' in col])
+    
+    return cleaned_df
+
+if __name__ == "__main__":
+    result_df = example_usage()
