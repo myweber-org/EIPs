@@ -1,112 +1,94 @@
 
 import pandas as pd
+import numpy as np
 
-def clean_dataset(df, drop_duplicates=True, fill_missing=True, fill_value=0):
+def clean_dataframe(df, drop_duplicates=True, fill_missing='mean'):
     """
     Clean a pandas DataFrame by removing duplicates and handling missing values.
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame to clean.
-    drop_duplicates (bool): Whether to drop duplicate rows.
-    fill_missing (bool): Whether to fill missing values.
-    fill_value: Value to use for filling missing data.
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        drop_duplicates (bool): Whether to drop duplicate rows.
+        fill_missing (str): Method to fill missing values ('mean', 'median', 'mode', or 'drop').
     
     Returns:
-    pd.DataFrame: Cleaned DataFrame.
+        pd.DataFrame: Cleaned DataFrame.
     """
     cleaned_df = df.copy()
     
     if drop_duplicates:
+        initial_rows = len(cleaned_df)
         cleaned_df = cleaned_df.drop_duplicates()
+        removed = initial_rows - len(cleaned_df)
+        print(f"Removed {removed} duplicate rows.")
     
-    if fill_missing:
-        cleaned_df = cleaned_df.fillna(fill_value)
-    
-    return cleaned_df
-
-def validate_data(df, required_columns=None):
-    """
-    Validate that the DataFrame meets basic requirements.
-    
-    Parameters:
-    df (pd.DataFrame): DataFrame to validate.
-    required_columns (list): List of required column names.
-    
-    Returns:
-    bool: True if validation passes, False otherwise.
-    """
-    if df.empty:
-        return False
-    
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            return False
-    
-    return True
-
-def process_data(file_path, output_path=None):
-    """
-    Load, clean, and optionally save a dataset.
-    
-    Parameters:
-    file_path (str): Path to input data file.
-    output_path (str): Optional path to save cleaned data.
-    
-    Returns:
-    pd.DataFrame: Cleaned DataFrame.
-    """
-    try:
-        df = pd.read_csv(file_path)
-    except FileNotFoundError:
-        raise ValueError(f"File not found: {file_path}")
-    
-    if not validate_data(df):
-        raise ValueError("Data validation failed")
-    
-    cleaned_df = clean_dataset(df)
-    
-    if output_path:
-        cleaned_df.to_csv(output_path, index=False)
+    if fill_missing == 'drop':
+        cleaned_df = cleaned_df.dropna()
+        print("Dropped rows with missing values.")
+    elif fill_missing in ['mean', 'median']:
+        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            if fill_missing == 'mean':
+                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mean())
+            elif fill_missing == 'median':
+                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].median())
+        print(f"Filled missing numeric values with {fill_missing}.")
+    elif fill_missing == 'mode':
+        for col in cleaned_df.columns:
+            mode_val = cleaned_df[col].mode()
+            if not mode_val.empty:
+                cleaned_df[col] = cleaned_df[col].fillna(mode_val.iloc[0])
+        print("Filled missing values with mode.")
     
     return cleaned_df
-def remove_duplicates(data_list):
-    """
-    Remove duplicate entries from a list while preserving order.
-    Returns a new list with unique elements.
-    """
-    seen = set()
-    unique_list = []
-    for item in data_list:
-        if item not in seen:
-            seen.add(item)
-            unique_list.append(item)
-    return unique_list
 
-def clean_numeric_data(values, default=0):
+def validate_dataframe(df, check_nulls=True, check_types=True):
     """
-    Clean numeric data by converting strings to floats,
-    handling None values, and replacing invalid entries with default.
+    Validate DataFrame for common data quality issues.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        check_nulls (bool): Check for null values.
+        check_types (bool): Check column data types.
+    
+    Returns:
+        dict: Dictionary with validation results.
     """
-    cleaned = []
-    for val in values:
-        if val is None:
-            cleaned.append(default)
-        elif isinstance(val, str):
-            try:
-                cleaned.append(float(val))
-            except ValueError:
-                cleaned.append(default)
-        else:
-            cleaned.append(float(val))
-    return cleaned
+    validation_results = {}
+    
+    if check_nulls:
+        null_counts = df.isnull().sum()
+        total_nulls = null_counts.sum()
+        validation_results['null_counts'] = null_counts.to_dict()
+        validation_results['total_nulls'] = int(total_nulls)
+    
+    if check_types:
+        dtypes = df.dtypes.astype(str).to_dict()
+        validation_results['dtypes'] = dtypes
+    
+    validation_results['shape'] = df.shape
+    validation_results['columns'] = list(df.columns)
+    
+    return validation_results
 
 if __name__ == "__main__":
-    # Example usage
-    sample_data = [1, 2, 2, 3, 4, 4, 5]
-    print("Original:", sample_data)
-    print("Cleaned:", remove_duplicates(sample_data))
+    sample_data = {
+        'A': [1, 2, 2, 4, 5, None, 7],
+        'B': [10, 20, 20, None, 50, 60, 70],
+        'C': ['x', 'y', 'y', 'z', None, 'x', 'x']
+    }
     
-    numeric_data = ["1.5", "invalid", None, 3.2, "4.7"]
-    print("Numeric data:", numeric_data)
-    print("Cleaned numeric:", clean_numeric_data(numeric_data))
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    cleaned = clean_dataframe(df, fill_missing='mean')
+    print("Cleaned DataFrame:")
+    print(cleaned)
+    print("\n" + "="*50 + "\n")
+    
+    validation = validate_dataframe(cleaned)
+    print("Validation Results:")
+    for key, value in validation.items():
+        print(f"{key}: {value}")
