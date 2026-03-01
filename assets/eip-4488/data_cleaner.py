@@ -608,3 +608,98 @@ def example_usage():
 if __name__ == "__main__":
     result = example_usage()
     print("Cleaned data shape:", result.shape)
+import numpy as np
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specified column using the Interquartile Range method.
+    
+    Args:
+        data (list or np.array): Input data array
+        column (int): Index of column to process (for 2D arrays)
+        
+    Returns:
+        np.array: Data with outliers removed
+    """
+    if isinstance(data, list):
+        data = np.array(data)
+    
+    # Handle 2D arrays
+    if data.ndim == 2:
+        column_data = data[:, column]
+    else:
+        column_data = data
+    
+    # Calculate IQR
+    q1 = np.percentile(column_data, 25)
+    q3 = np.percentile(column_data, 75)
+    iqr = q3 - q1
+    
+    # Define outlier bounds
+    lower_bound = q1 - 1.5 * iqr
+    upper_bound = q3 + 1.5 * iqr
+    
+    # Filter data
+    if data.ndim == 2:
+        mask = (data[:, column] >= lower_bound) & (data[:, column] <= upper_bound)
+        return data[mask]
+    else:
+        mask = (data >= lower_bound) & (data <= upper_bound)
+        return data[mask]
+
+def validate_data(data, min_value=None, max_value=None):
+    """
+    Validate data against optional minimum and maximum constraints.
+    
+    Args:
+        data (np.array): Input data array
+        min_value (float): Minimum allowed value
+        max_value (float): Maximum allowed value
+        
+    Returns:
+        bool: True if data passes validation
+    """
+    if min_value is not None and np.any(data < min_value):
+        return False
+    if max_value is not None and np.any(data > max_value):
+        return False
+    return True
+
+def clean_dataset(data, column_index=0, min_val=None, max_val=None):
+    """
+    Complete data cleaning pipeline.
+    
+    Args:
+        data (list or np.array): Input dataset
+        column_index (int): Column to check for outliers
+        min_val (float): Minimum valid value
+        max_val (float): Maximum valid value
+        
+    Returns:
+        np.array: Cleaned dataset or None if validation fails
+    """
+    # Remove outliers
+    cleaned = remove_outliers_iqr(data, column_index)
+    
+    # Validate against constraints
+    if validate_data(cleaned, min_val, max_val):
+        return cleaned
+    else:
+        print("Data validation failed")
+        return None
+
+# Example usage
+if __name__ == "__main__":
+    # Create sample data with outliers
+    np.random.seed(42)
+    sample_data = np.random.randn(100, 3) * 10 + 50
+    sample_data[0, 0] = 200  # Add outlier
+    
+    print(f"Original shape: {sample_data.shape}")
+    
+    # Clean the data
+    cleaned_data = clean_dataset(sample_data, column_index=0, min_val=0, max_val=150)
+    
+    if cleaned_data is not None:
+        print(f"Cleaned shape: {cleaned_data.shape}")
+        print(f"Outliers removed: {sample_data.shape[0] - cleaned_data.shape[0]}")
