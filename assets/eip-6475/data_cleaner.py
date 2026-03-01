@@ -351,3 +351,73 @@ if __name__ == "__main__":
     
     print("\nFirst 5 rows of cleaned data:")
     print(cleaned_df.head())
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_outliers_iqr(self, column, multiplier=1.5):
+        Q1 = self.df[column].quantile(0.25)
+        Q3 = self.df[column].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - multiplier * IQR
+        upper_bound = Q3 + multiplier * IQR
+        
+        mask = (self.df[column] >= lower_bound) & (self.df[column] <= upper_bound)
+        self.df = self.df[mask]
+        removed_count = len(mask) - mask.sum()
+        return removed_count
+    
+    def fill_missing_with_strategy(self, column, strategy='median'):
+        if strategy == 'mean':
+            fill_value = self.df[column].mean()
+        elif strategy == 'median':
+            fill_value = self.df[column].median()
+        elif strategy == 'mode':
+            fill_value = self.df[column].mode()[0]
+        else:
+            fill_value = 0
+            
+        missing_count = self.df[column].isnull().sum()
+        self.df[column] = self.df[column].fillna(fill_value)
+        return missing_count
+    
+    def detect_skewed_columns(self, threshold=0.5):
+        skewed_cols = []
+        for col in self.df.select_dtypes(include=[np.number]).columns:
+            skewness = stats.skew(self.df[col].dropna())
+            if abs(skewness) > threshold:
+                skewed_cols.append((col, skewness))
+        return sorted(skewed_cols, key=lambda x: abs(x[1]), reverse=True)
+    
+    def apply_log_transform(self, column):
+        if self.df[column].min() <= 0:
+            shift = abs(self.df[column].min()) + 1
+            self.df[column] = np.log(self.df[column] + shift)
+        else:
+            self.df[column] = np.log(self.df[column])
+        return self.df
+    
+    def get_cleaning_report(self):
+        current_shape = self.df.shape
+        rows_removed = self.original_shape[0] - current_shape[0]
+        cols_removed = self.original_shape[1] - current_shape[1]
+        
+        report = {
+            'original_rows': self.original_shape[0],
+            'current_rows': current_shape[0],
+            'rows_removed': rows_removed,
+            'original_columns': self.original_shape[1],
+            'current_columns': current_shape[1],
+            'columns_removed': cols_removed,
+            'missing_values': self.df.isnull().sum().sum(),
+            'duplicate_rows': self.df.duplicated().sum()
+        }
+        return report
+    
+    def get_cleaned_data(self):
+        return self.df.copy()
