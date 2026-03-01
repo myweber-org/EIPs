@@ -143,3 +143,112 @@ if __name__ == "__main__":
     
     print("\nFirst 5 rows of cleaned data:")
     print(cleaned_data.head())
+import pandas as pd
+import numpy as np
+from typing import Optional, List
+
+def clean_csv_data(
+    input_path: str,
+    output_path: str,
+    missing_strategy: str = 'mean',
+    columns_to_drop: Optional[List[str]] = None,
+    fill_value: Optional[float] = None
+) -> pd.DataFrame:
+    """
+    Clean CSV data by handling missing values and dropping specified columns.
+    
+    Args:
+        input_path: Path to input CSV file
+        output_path: Path where cleaned CSV will be saved
+        missing_strategy: Strategy for handling missing values ('mean', 'median', 'mode', 'constant')
+        columns_to_drop: List of column names to drop
+        fill_value: Value to use when missing_strategy is 'constant'
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    try:
+        df = pd.read_csv(input_path)
+        
+        original_shape = df.shape
+        print(f"Original data shape: {original_shape}")
+        
+        if columns_to_drop:
+            df = df.drop(columns=columns_to_drop, errors='ignore')
+            print(f"Dropped columns: {columns_to_drop}")
+        
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        
+        for col in numeric_cols:
+            if df[col].isnull().any():
+                if missing_strategy == 'mean':
+                    df[col].fillna(df[col].mean(), inplace=True)
+                elif missing_strategy == 'median':
+                    df[col].fillna(df[col].median(), inplace=True)
+                elif missing_strategy == 'mode':
+                    df[col].fillna(df[col].mode()[0], inplace=True)
+                elif missing_strategy == 'constant' and fill_value is not None:
+                    df[col].fillna(fill_value, inplace=True)
+                else:
+                    df[col].fillna(0, inplace=True)
+        
+        df.to_csv(output_path, index=False)
+        
+        final_shape = df.shape
+        print(f"Cleaned data shape: {final_shape}")
+        print(f"Rows removed: {original_shape[0] - final_shape[0]}")
+        print(f"Columns removed: {original_shape[1] - final_shape[1]}")
+        print(f"Cleaned data saved to: {output_path}")
+        
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: File not found at {input_path}")
+        raise
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        raise
+
+def validate_dataframe(df: pd.DataFrame, min_rows: int = 1) -> bool:
+    """
+    Validate DataFrame meets minimum requirements.
+    
+    Args:
+        df: DataFrame to validate
+        min_rows: Minimum number of rows required
+    
+    Returns:
+        Boolean indicating if DataFrame is valid
+    """
+    if df.empty:
+        print("DataFrame is empty")
+        return False
+    
+    if len(df) < min_rows:
+        print(f"DataFrame has fewer than {min_rows} rows")
+        return False
+    
+    if df.isnull().sum().sum() > 0:
+        print("Warning: DataFrame contains missing values")
+    
+    return True
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, np.nan, 4, 5],
+        'B': [5, np.nan, 7, 8, 9],
+        'C': ['x', 'y', 'z', 'x', 'y'],
+        'D': [10, 11, 12, np.nan, 14]
+    }
+    
+    test_df = pd.DataFrame(sample_data)
+    test_df.to_csv('test_input.csv', index=False)
+    
+    cleaned_df = clean_csv_data(
+        input_path='test_input.csv',
+        output_path='test_output.csv',
+        missing_strategy='mean',
+        columns_to_drop=['C']
+    )
+    
+    print("Data cleaning completed successfully")
