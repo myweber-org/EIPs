@@ -218,3 +218,84 @@ def validate_dataframe(df, required_columns=None, min_rows=1):
 #     
 #     is_valid, message = validate_dataframe(cleaned, required_columns=['A', 'B'])
 #     print(f"\nValidation: {is_valid}, Message: {message}")
+import pandas as pd
+import numpy as np
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.numeric_columns = df.select_dtypes(include=[np.number]).columns
+        self.categorical_columns = df.select_dtypes(exclude=[np.number]).columns
+
+    def fill_missing_numeric(self, strategy='mean'):
+        if strategy == 'mean':
+            fill_values = self.df[self.numeric_columns].mean()
+        elif strategy == 'median':
+            fill_values = self.df[self.numeric_columns].median()
+        elif strategy == 'mode':
+            fill_values = self.df[self.numeric_columns].mode().iloc[0]
+        else:
+            raise ValueError("Strategy must be 'mean', 'median', or 'mode'")
+        
+        self.df[self.numeric_columns] = self.df[self.numeric_columns].fillna(fill_values)
+        return self
+
+    def fill_missing_categorical(self, fill_value='Unknown'):
+        self.df[self.categorical_columns] = self.df[self.categorical_columns].fillna(fill_value)
+        return self
+
+    def remove_outliers_iqr(self, columns=None, multiplier=1.5):
+        if columns is None:
+            columns = self.numeric_columns
+        
+        for col in columns:
+            if col in self.numeric_columns:
+                Q1 = self.df[col].quantile(0.25)
+                Q3 = self.df[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - multiplier * IQR
+                upper_bound = Q3 + multiplier * IQR
+                
+                self.df = self.df[(self.df[col] >= lower_bound) & (self.df[col] <= upper_bound)]
+        
+        return self
+
+    def get_cleaned_data(self):
+        return self.df
+
+    def summary(self):
+        print("DataFrame Shape:", self.df.shape)
+        print("\nMissing Values:")
+        print(self.df.isnull().sum())
+        print("\nData Types:")
+        print(self.df.dtypes)
+        print("\nNumeric Columns Summary:")
+        print(self.df[self.numeric_columns].describe())
+
+def example_usage():
+    data = {
+        'A': [1, 2, np.nan, 4, 100],
+        'B': [5, 6, 7, np.nan, 9],
+        'C': ['X', 'Y', np.nan, 'Z', 'X'],
+        'D': [10, 20, 30, 40, 50]
+    }
+    
+    df = pd.DataFrame(data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaner = DataCleaner(df)
+    cleaned_df = (cleaner
+                  .fill_missing_numeric(strategy='mean')
+                  .fill_missing_categorical()
+                  .remove_outliers_iqr(multiplier=1.5)
+                  .get_cleaned_data())
+    
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    
+    print("\nCleaning Summary:")
+    cleaner.summary()
+
+if __name__ == "__main__":
+    example_usage()
