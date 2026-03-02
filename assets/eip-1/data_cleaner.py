@@ -745,3 +745,100 @@ def clean_numeric_data(df, columns=None):
             print(f"Removed {removed_count} outliers from column '{column}'")
     
     return cleaned_df
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column, factor=1.5):
+    """
+    Remove outliers using IQR method
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - factor * IQR
+    upper_bound = Q3 + factor * IQR
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data.copy()
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using min-max scaling
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return data[column].copy()
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def standardize_zscore(data, column):
+    """
+    Standardize data using z-score normalization
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return data[column].copy()
+    
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
+
+def handle_missing_values(data, strategy='mean', columns=None):
+    """
+    Handle missing values with different strategies
+    """
+    if columns is None:
+        columns = data.columns
+    
+    data_copy = data.copy()
+    
+    for col in columns:
+        if col not in data.columns:
+            continue
+            
+        if data[col].isnull().any():
+            if strategy == 'mean':
+                fill_value = data[col].mean()
+            elif strategy == 'median':
+                fill_value = data[col].median()
+            elif strategy == 'mode':
+                fill_value = data[col].mode()[0]
+            elif strategy == 'constant':
+                fill_value = 0
+            else:
+                raise ValueError(f"Unknown strategy: {strategy}")
+            
+            data_copy[col] = data[col].fillna(fill_value)
+    
+    return data_copy
+
+def detect_skewness(data, column, threshold=0.5):
+    """
+    Detect skewness in data
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    skewness = data[column].skew()
+    is_skewed = abs(skewness) > threshold
+    
+    return {
+        'skewness': skewness,
+        'is_skewed': is_skewed,
+        'skew_direction': 'positive' if skewness > 0 else 'negative' if skewness < 0 else 'none'
+    }
