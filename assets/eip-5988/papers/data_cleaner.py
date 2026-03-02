@@ -579,3 +579,43 @@ def clean_dataset(df, missing_strategy='mean', outlier_method='zscore'):
     cleaner.handle_missing_values(strategy=missing_strategy)
     cleaner.remove_outliers(method=outlier_method)
     return cleaner.get_cleaned_data()
+import pandas as pd
+
+def clean_dataframe(df, drop_duplicates=True, fill_missing=None):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+
+    Parameters:
+    df (pd.DataFrame): The input DataFrame to clean.
+    drop_duplicates (bool): If True, remove duplicate rows.
+    fill_missing (str or dict): Method to fill missing values.
+        If 'mean', fill with column mean (numeric only).
+        If 'median', fill with column median (numeric only).
+        If 'mode', fill with column mode.
+        If dict, fill with specified values per column.
+        If None, do not fill missing values.
+
+    Returns:
+    pd.DataFrame: The cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+
+    if fill_missing is not None:
+        if fill_missing == 'mean':
+            for col in cleaned_df.select_dtypes(include='number').columns:
+                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mean())
+        elif fill_missing == 'median':
+            for col in cleaned_df.select_dtypes(include='number').columns:
+                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].median())
+        elif fill_missing == 'mode':
+            for col in cleaned_df.columns:
+                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mode()[0] if not cleaned_df[col].mode().empty else None)
+        elif isinstance(fill_missing, dict):
+            cleaned_df = cleaned_df.fillna(fill_missing)
+        else:
+            raise ValueError("Invalid fill_missing argument. Use 'mean', 'median', 'mode', or a dict.")
+
+    return cleaned_df
