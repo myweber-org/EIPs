@@ -234,3 +234,129 @@ if __name__ == "__main__":
     print(cleaned_df)
     print("\nCleaned statistics:")
     print(calculate_statistics(cleaned_df))
+import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a specified column in a DataFrame using the IQR method.
+    
+    Parameters:
+    df (pd.DataFrame): The input DataFrame.
+    column (str): The column name to process.
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed.
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df.reset_index(drop=True)
+
+def calculate_summary_statistics(df):
+    """
+    Calculate summary statistics for numeric columns.
+    
+    Parameters:
+    df (pd.DataFrame): The input DataFrame.
+    
+    Returns:
+    pd.DataFrame: Summary statistics DataFrame.
+    """
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    if len(numeric_cols) == 0:
+        return pd.DataFrame()
+    
+    stats = df[numeric_cols].agg(['count', 'mean', 'std', 'min', 'max'])
+    return stats.T
+
+def clean_missing_values(df, strategy='mean'):
+    """
+    Handle missing values in numeric columns.
+    
+    Parameters:
+    df (pd.DataFrame): The input DataFrame.
+    strategy (str): Strategy for imputation ('mean', 'median', 'drop').
+    
+    Returns:
+    pd.DataFrame: DataFrame with missing values handled.
+    """
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    
+    if strategy == 'drop':
+        return df.dropna(subset=numeric_cols).reset_index(drop=True)
+    
+    for col in numeric_cols:
+        if df[col].isnull().any():
+            if strategy == 'mean':
+                fill_value = df[col].mean()
+            elif strategy == 'median':
+                fill_value = df[col].median()
+            else:
+                raise ValueError(f"Unsupported strategy: {strategy}")
+            
+            df[col] = df[col].fillna(fill_value)
+    
+    return df
+
+def normalize_data(df, columns=None):
+    """
+    Normalize specified columns using min-max scaling.
+    
+    Parameters:
+    df (pd.DataFrame): The input DataFrame.
+    columns (list): List of column names to normalize. If None, normalize all numeric columns.
+    
+    Returns:
+    pd.DataFrame: DataFrame with normalized columns.
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    normalized_df = df.copy()
+    
+    for col in columns:
+        if col in df.columns and np.issubdtype(df[col].dtype, np.number):
+            min_val = df[col].min()
+            max_val = df[col].max()
+            
+            if max_val > min_val:
+                normalized_df[col] = (df[col] - min_val) / (max_val - min_val)
+    
+    return normalized_df
+
+def process_dataset(df, outlier_columns=None, missing_strategy='mean', normalize_cols=None):
+    """
+    Complete data processing pipeline.
+    
+    Parameters:
+    df (pd.DataFrame): The input DataFrame.
+    outlier_columns (list): Columns to apply outlier removal.
+    missing_strategy (str): Strategy for handling missing values.
+    normalize_cols (list): Columns to normalize.
+    
+    Returns:
+    pd.DataFrame: Processed DataFrame.
+    """
+    processed_df = df.copy()
+    
+    if outlier_columns:
+        for col in outlier_columns:
+            if col in processed_df.columns:
+                processed_df = remove_outliers_iqr(processed_df, col)
+    
+    processed_df = clean_missing_values(processed_df, strategy=missing_strategy)
+    
+    if normalize_cols:
+        processed_df = normalize_data(processed_df, columns=normalize_cols)
+    
+    return processed_df
