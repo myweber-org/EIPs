@@ -435,3 +435,11 @@ def validate_data(data, required_columns=None, allow_nan=False):
             raise ValueError(f"Data contains {nan_count} NaN values")
     
     return True
+def remove_duplicates_preserve_order(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
