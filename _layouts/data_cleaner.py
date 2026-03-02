@@ -360,3 +360,111 @@ def process_dataset(df, outlier_columns=None, missing_strategy='mean', normalize
         processed_df = normalize_data(processed_df, columns=normalize_cols)
     
     return processed_df
+import pandas as pd
+import numpy as np
+
+def clean_missing_values(df, strategy='mean', columns=None):
+    """
+    Handle missing values in a DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        strategy (str): Strategy for imputation ('mean', 'median', 'mode', 'drop')
+        columns (list): List of columns to process, None for all columns
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    df_clean = df.copy()
+    
+    if columns is None:
+        columns = df_clean.columns
+    
+    for col in columns:
+        if df_clean[col].isnull().any():
+            if strategy == 'mean':
+                df_clean[col].fillna(df_clean[col].mean(), inplace=True)
+            elif strategy == 'median':
+                df_clean[col].fillna(df_clean[col].median(), inplace=True)
+            elif strategy == 'mode':
+                df_clean[col].fillna(df_clean[col].mode()[0], inplace=True)
+            elif strategy == 'drop':
+                df_clean.dropna(subset=[col], inplace=True)
+    
+    return df_clean
+
+def remove_outliers_iqr(df, columns=None, multiplier=1.5):
+    """
+    Remove outliers using the Interquartile Range method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns (list): List of columns to process, None for all numeric columns
+        multiplier (float): IQR multiplier for outlier detection
+    
+    Returns:
+        pd.DataFrame: DataFrame with outliers removed
+    """
+    df_clean = df.copy()
+    
+    if columns is None:
+        columns = df_clean.select_dtypes(include=[np.number]).columns
+    
+    for col in columns:
+        if col in df_clean.columns and df_clean[col].dtype in [np.float64, np.int64]:
+            Q1 = df_clean[col].quantile(0.25)
+            Q3 = df_clean[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - multiplier * IQR
+            upper_bound = Q3 + multiplier * IQR
+            
+            df_clean = df_clean[(df_clean[col] >= lower_bound) & (df_clean[col] <= upper_bound)]
+    
+    return df_clean
+
+def standardize_columns(df, columns=None):
+    """
+    Standardize numeric columns to have zero mean and unit variance.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns (list): List of columns to standardize, None for all numeric columns
+    
+    Returns:
+        pd.DataFrame: Standardized DataFrame
+    """
+    df_standardized = df.copy()
+    
+    if columns is None:
+        columns = df_standardized.select_dtypes(include=[np.number]).columns
+    
+    for col in columns:
+        if col in df_standardized.columns and df_standardized[col].dtype in [np.float64, np.int64]:
+            mean = df_standardized[col].mean()
+            std = df_standardized[col].std()
+            if std > 0:
+                df_standardized[col] = (df_standardized[col] - mean) / std
+    
+    return df_standardized
+
+def get_data_summary(df):
+    """
+    Generate a summary of data quality metrics.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+    
+    Returns:
+        dict: Dictionary containing data quality metrics
+    """
+    summary = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_values': df.isnull().sum().sum(),
+        'missing_percentage': (df.isnull().sum().sum() / (len(df) * len(df.columns))) * 100,
+        'numeric_columns': list(df.select_dtypes(include=[np.number]).columns),
+        'categorical_columns': list(df.select_dtypes(include=['object']).columns),
+        'duplicate_rows': df.duplicated().sum()
+    }
+    
+    return summary
