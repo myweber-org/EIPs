@@ -207,4 +207,98 @@ def example_usage():
     return cleaned_df
 
 if __name__ == "__main__":
-    cleaned_data = example_usage()
+    cleaned_data = example_usage()import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a pandas Series using the IQR method.
+    """
+    if not isinstance(data, pd.Series):
+        raise TypeError("Input data must be a pandas Series")
+    
+    Q1 = data.quantile(0.25)
+    Q3 = data.quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_data = data[(data >= lower_bound) & (data <= upper_bound)]
+    return filtered_data.dropna()
+
+def normalize_minmax(data):
+    """
+    Normalize data using min-max scaling to range [0, 1].
+    """
+    if not isinstance(data, (pd.Series, np.ndarray, list)):
+        raise TypeError("Input data must be Series, ndarray, or list")
+    
+    data_array = np.array(data)
+    if len(data_array) == 0:
+        return data_array
+    
+    min_val = np.min(data_array)
+    max_val = np.max(data_array)
+    
+    if max_val == min_val:
+        return np.zeros_like(data_array)
+    
+    normalized = (data_array - min_val) / (max_val - min_val)
+    return normalized
+
+def clean_dataset(df, numeric_columns=None):
+    """
+    Clean a DataFrame by removing outliers and normalizing numeric columns.
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    cleaned_df = df.copy()
+    
+    if numeric_columns is None:
+        numeric_columns = cleaned_df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            try:
+                cleaned_df[col] = remove_outliers_iqr(cleaned_df[col], col)
+                cleaned_df[col] = normalize_minmax(cleaned_df[col])
+            except Exception as e:
+                print(f"Warning: Could not process column {col}: {e}")
+    
+    cleaned_df = cleaned_df.dropna()
+    return cleaned_df.reset_index(drop=True)
+
+def calculate_statistics(data):
+    """
+    Calculate basic statistics for numeric data.
+    """
+    if not isinstance(data, (pd.Series, np.ndarray, list)):
+        raise TypeError("Input data must be Series, ndarray, or list")
+    
+    data_array = np.array(data)
+    stats = {
+        'mean': np.mean(data_array),
+        'median': np.median(data_array),
+        'std': np.std(data_array),
+        'min': np.min(data_array),
+        'max': np.max(data_array),
+        'count': len(data_array)
+    }
+    return stats
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'A': np.random.normal(100, 15, 50),
+        'B': np.random.exponential(2, 50),
+        'C': np.random.randint(1, 100, 50)
+    })
+    
+    print("Original dataset shape:", sample_data.shape)
+    print("Original statistics:")
+    print(sample_data.describe())
+    
+    cleaned_data = clean_dataset(sample_data)
+    print("\nCleaned dataset shape:", cleaned_data.shape)
+    print("Cleaned statistics:")
+    print(cleaned_data.describe())
