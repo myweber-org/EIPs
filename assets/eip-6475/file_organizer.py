@@ -80,3 +80,49 @@ if __name__ == "__main__":
     import sys
     target_directory = sys.argv[1] if len(sys.argv) > 1 else os.getcwd()
     organize_files(target_directory)
+import os
+import shutil
+from pathlib import Path
+
+def organize_files(source_dir, target_dir=None):
+    if target_dir is None:
+        target_dir = source_dir
+    
+    source_path = Path(source_dir)
+    target_path = Path(target_dir)
+    
+    if not source_path.exists():
+        print(f"Source directory {source_dir} does not exist.")
+        return
+    
+    target_path.mkdir(parents=True, exist_ok=True)
+    
+    extensions_folders = {
+        '.txt': 'TextFiles',
+        '.pdf': 'PDFs',
+        '.jpg': 'Images',
+        '.png': 'Images',
+        '.mp3': 'Audio',
+        '.mp4': 'Videos',
+        '.py': 'PythonScripts',
+        '.zip': 'Archives'
+    }
+    
+    for item in source_path.iterdir():
+        if item.is_file():
+            file_ext = item.suffix.lower()
+            folder_name = extensions_folders.get(file_ext, 'OtherFiles')
+            
+            dest_folder = target_path / folder_name
+            dest_folder.mkdir(exist_ok=True)
+            
+            try:
+                shutil.move(str(item), str(dest_folder / item.name))
+                print(f"Moved {item.name} to {folder_name}/")
+            except Exception as e:
+                print(f"Error moving {item.name}: {e}")
+    
+    print("File organization completed.")
+
+if __name__ == "__main__":
+    organize_files("./downloads")
