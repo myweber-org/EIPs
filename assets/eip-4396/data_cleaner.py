@@ -232,3 +232,110 @@ def create_data_summary(dataframe):
         summary['categorical_counts'][col] = dataframe[col].value_counts().to_dict()
     
     return summary
+import pandas as pd
+import numpy as np
+from typing import Optional
+
+def clean_csv_data(
+    input_path: str,
+    output_path: str,
+    missing_strategy: str = 'drop',
+    fill_value: Optional[float] = None
+) -> pd.DataFrame:
+    """
+    Clean CSV data by handling missing values and removing duplicates.
+    
+    Args:
+        input_path: Path to input CSV file
+        output_path: Path to save cleaned CSV file
+        missing_strategy: Strategy for handling missing values ('drop', 'fill', 'mean')
+        fill_value: Value to fill missing entries when strategy is 'fill'
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    try:
+        df = pd.read_csv(input_path)
+        
+        # Remove duplicate rows
+        df = df.drop_duplicates()
+        
+        # Handle missing values
+        if missing_strategy == 'drop':
+            df = df.dropna()
+        elif missing_strategy == 'fill':
+            if fill_value is not None:
+                df = df.fillna(fill_value)
+            else:
+                df = df.fillna(0)
+        elif missing_strategy == 'mean':
+            numeric_cols = df.select_dtypes(include=[np.number]).columns
+            df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
+        
+        # Reset index after cleaning
+        df = df.reset_index(drop=True)
+        
+        # Save cleaned data
+        df.to_csv(output_path, index=False)
+        
+        print(f"Data cleaning completed. Cleaned data saved to {output_path}")
+        print(f"Original shape: {pd.read_csv(input_path).shape}")
+        print(f"Cleaned shape: {df.shape}")
+        
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: File not found at {input_path}")
+        raise
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        raise
+
+def validate_dataframe(df: pd.DataFrame) -> bool:
+    """
+    Validate DataFrame for common data quality issues.
+    
+    Args:
+        df: DataFrame to validate
+    
+    Returns:
+        Boolean indicating if data passes validation
+    """
+    if df.empty:
+        print("Warning: DataFrame is empty")
+        return False
+    
+    # Check for infinite values
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    if not numeric_cols.empty:
+        if np.any(np.isinf(df[numeric_cols].values)):
+            print("Warning: DataFrame contains infinite values")
+            return False
+    
+    # Check for consistent data types
+    for col in df.columns:
+        if df[col].dtype == 'object':
+            unique_count = df[col].nunique()
+            if unique_count > len(df) * 0.5:
+                print(f"Warning: Column '{col}' has high cardinality ({unique_count} unique values)")
+    
+    return True
+
+if __name__ == "__main__":
+    # Example usage
+    sample_df = pd.DataFrame({
+        'A': [1, 2, np.nan, 4, 5],
+        'B': [5, np.nan, 7, 8, 9],
+        'C': ['x', 'y', 'z', 'x', 'y']
+    })
+    
+    sample_df.to_csv('sample_data.csv', index=False)
+    
+    cleaned_df = clean_csv_data(
+        input_path='sample_data.csv',
+        output_path='cleaned_data.csv',
+        missing_strategy='mean'
+    )
+    
+    is_valid = validate_dataframe(cleaned_df)
+    print(f"Data validation passed: {is_valid}")
