@@ -1,82 +1,125 @@
+
 import pandas as pd
+import numpy as np
+from pathlib import Path
 
-def clean_dataset(df, drop_duplicates=True, fill_missing=True, fill_value=0):
-    """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
+class DataCleaner:
+    def __init__(self, file_path):
+        self.file_path = Path(file_path)
+        self.df = None
+        
+    def load_data(self):
+        if not self.file_path.exists():
+            raise FileNotFoundError(f"File not found: {self.file_path}")
+        
+        if self.file_path.suffix == '.csv':
+            self.df = pd.read_csv(self.file_path)
+        elif self.file_path.suffix in ['.xlsx', '.xls']:
+            self.df = pd.read_excel(self.file_path)
+        else:
+            raise ValueError("Unsupported file format")
+            
+        print(f"Loaded {len(self.df)} rows and {len(self.df.columns)} columns")
+        return self.df
     
-    Args:
-        df (pd.DataFrame): Input DataFrame to clean.
-        drop_duplicates (bool): Whether to drop duplicate rows.
-        fill_missing (bool): Whether to fill missing values.
-        fill_value: Value to use for filling missing data.
+    def handle_missing_values(self, strategy='mean', columns=None):
+        if self.df is None:
+            raise ValueError("No data loaded. Call load_data() first.")
+        
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+        else:
+            columns = [col for col in columns if col in self.df.columns]
+        
+        for column in columns:
+            if self.df[column].isnull().any():
+                if strategy == 'mean':
+                    fill_value = self.df[column].mean()
+                elif strategy == 'median':
+                    fill_value = self.df[column].median()
+                elif strategy == 'mode':
+                    fill_value = self.df[column].mode()[0]
+                elif strategy == 'drop':
+                    self.df = self.df.dropna(subset=[column])
+                    continue
+                else:
+                    fill_value = strategy
+                
+                self.df[column] = self.df[column].fillna(fill_value)
+                print(f"Filled missing values in '{column}' using {strategy}")
+        
+        return self.df
     
-    Returns:
-        pd.DataFrame: Cleaned DataFrame.
-    """
-    cleaned_df = df.copy()
+    def remove_duplicates(self, subset=None, keep='first'):
+        if self.df is None:
+            raise ValueError("No data loaded. Call load_data() first.")
+        
+        initial_count = len(self.df)
+        self.df = self.df.drop_duplicates(subset=subset, keep=keep)
+        removed = initial_count - len(self.df)
+        
+        if removed > 0:
+            print(f"Removed {removed} duplicate rows")
+        
+        return self.df
     
-    if drop_duplicates:
-        cleaned_df = cleaned_df.drop_duplicates()
+    def standardize_text_columns(self, columns=None):
+        if self.df is None:
+            raise ValueError("No data loaded. Call load_data() first.")
+        
+        if columns is None:
+            columns = self.df.select_dtypes(include=['object']).columns
+        
+        for column in columns:
+            if column in self.df.columns:
+                self.df[column] = self.df[column].astype(str).str.strip().str.lower()
+                print(f"Standardized text column: '{column}'")
+        
+        return self.df
     
-    if fill_missing:
-        cleaned_df = cleaned_df.fillna(fill_value)
+    def save_cleaned_data(self, output_path=None):
+        if self.df is None:
+            raise ValueError("No data to save. Process data first.")
+        
+        if output_path is None:
+            output_path = self.file_path.parent / f"cleaned_{self.file_path.name}"
+        
+        output_path = Path(output_path)
+        
+        if output_path.suffix == '.csv':
+            self.df.to_csv(output_path, index=False)
+        elif output_path.suffix in ['.xlsx', '.xls']:
+            self.df.to_excel(output_path, index=False)
+        else:
+            raise ValueError("Unsupported output format")
+        
+        print(f"Saved cleaned data to: {output_path}")
+        return output_path
     
-    return cleaned_df
+    def get_summary(self):
+        if self.df is None:
+            raise ValueError("No data loaded. Call load_data() first.")
+        
+        summary = {
+            'total_rows': len(self.df),
+            'total_columns': len(self.df.columns),
+            'missing_values': self.df.isnull().sum().sum(),
+            'duplicate_rows': self.df.duplicated().sum(),
+            'data_types': self.df.dtypes.to_dict()
+        }
+        
+        return summary
 
-def validate_data(df, required_columns=None):
-    """
-    Validate DataFrame structure and content.
+def clean_csv_file(input_file, output_file=None):
+    cleaner = DataCleaner(input_file)
+    cleaner.load_data()
+    cleaner.handle_missing_values(strategy='mean')
+    cleaner.remove_duplicates()
+    cleaner.standardize_text_columns()
     
-    Args:
-        df (pd.DataFrame): DataFrame to validate.
-        required_columns (list): List of required column names.
-    
-    Returns:
-        tuple: (is_valid, error_message)
-    """
-    if df.empty:
-        return False, "DataFrame is empty"
-    
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            return False, f"Missing required columns: {missing_columns}"
-    
-    return True, "Data validation passed"
-
-def remove_outliers(df, column, method='iqr', threshold=1.5):
-    """
-    Remove outliers from a specific column using specified method.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame.
-        column (str): Column name to process.
-        method (str): Method for outlier detection ('iqr' or 'zscore').
-        threshold (float): Threshold for outlier detection.
-    
-    Returns:
-        pd.DataFrame: DataFrame with outliers removed.
-    """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    data = df[column].copy()
-    
-    if method == 'iqr':
-        Q1 = data.quantile(0.25)
-        Q3 = data.quantile(0.75)
-        IQR = Q3 - Q1
-        lower_bound = Q1 - threshold * IQR
-        upper_bound = Q3 + threshold * IQR
-        mask = (data >= lower_bound) & (data <= upper_bound)
-    
-    elif method == 'zscore':
-        mean = data.mean()
-        std = data.std()
-        z_scores = (data - mean) / std
-        mask = (z_scores.abs() <= threshold)
-    
+    if output_file:
+        cleaner.save_cleaned_data(output_file)
     else:
-        raise ValueError("Method must be 'iqr' or 'zscore'")
+        cleaner.save_cleaned_data()
     
-    return df[mask]
+    return cleaner.get_summary()
