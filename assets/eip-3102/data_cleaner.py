@@ -252,3 +252,76 @@ if __name__ == "__main__":
     )
     
     print("Data cleaning completed successfully")
+import pandas as pd
+import numpy as np
+from pathlib import Path
+
+def load_data(filepath):
+    """Load data from CSV file."""
+    try:
+        df = pd.read_csv(filepath)
+        print(f"Loaded {len(df)} records from {filepath}")
+        return df
+    except FileNotFoundError:
+        print(f"Error: File {filepath} not found")
+        return None
+
+def remove_duplicates(df, subset=None):
+    """Remove duplicate rows from DataFrame."""
+    initial_count = len(df)
+    df_clean = df.drop_duplicates(subset=subset, keep='first')
+    removed = initial_count - len(df_clean)
+    print(f"Removed {removed} duplicate records")
+    return df_clean
+
+def standardize_text_columns(df, columns):
+    """Standardize text columns to lowercase and strip whitespace."""
+    for col in columns:
+        if col in df.columns:
+            df[col] = df[col].astype(str).str.lower().str.strip()
+    print(f"Standardized text in columns: {columns}")
+    return df
+
+def handle_missing_values(df, strategy='drop', fill_value=None):
+    """Handle missing values in DataFrame."""
+    if strategy == 'drop':
+        initial_count = len(df)
+        df_clean = df.dropna()
+        removed = initial_count - len(df_clean)
+        print(f"Removed {removed} records with missing values")
+    elif strategy == 'fill':
+        df_clean = df.fillna(fill_value)
+        print(f"Filled missing values with: {fill_value}")
+    else:
+        df_clean = df.copy()
+        print("No missing value handling applied")
+    return df_clean
+
+def clean_data_pipeline(input_file, output_file=None):
+    """Main data cleaning pipeline."""
+    df = load_data(input_file)
+    if df is None:
+        return
+    
+    print("Starting data cleaning pipeline...")
+    
+    df = remove_duplicates(df)
+    df = standardize_text_columns(df, ['name', 'category', 'description'])
+    df = handle_missing_values(df, strategy='fill', fill_value='unknown')
+    
+    if output_file:
+        output_path = Path(output_file)
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to: {output_path}")
+    else:
+        input_path = Path(input_file)
+        output_path = input_path.parent / f"cleaned_{input_path.name}"
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to: {output_path}")
+    
+    print(f"Data cleaning complete. Final record count: {len(df)}")
+    return df
+
+if __name__ == "__main__":
+    input_csv = "raw_data.csv"
+    clean_data_pipeline(input_csv)
