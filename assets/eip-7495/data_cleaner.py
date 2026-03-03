@@ -1161,3 +1161,91 @@ if __name__ == "__main__":
     input_file = "raw_data.csv"
     output_file = "cleaned_data.csv"
     clean_csv_data(input_file, output_file)
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, strategy='mean', outlier_threshold=3):
+    """
+    Clean a pandas DataFrame by handling missing values and outliers.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    strategy (str): Strategy for filling missing values ('mean', 'median', 'mode').
+    outlier_threshold (float): Number of standard deviations to consider as outlier.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    # Handle missing values
+    for column in cleaned_df.select_dtypes(include=[np.number]).columns:
+        if cleaned_df[column].isnull().any():
+            if strategy == 'mean':
+                fill_value = cleaned_df[column].mean()
+            elif strategy == 'median':
+                fill_value = cleaned_df[column].median()
+            elif strategy == 'mode':
+                fill_value = cleaned_df[column].mode()[0]
+            else:
+                fill_value = 0
+            
+            cleaned_df[column].fillna(fill_value, inplace=True)
+    
+    # Handle outliers using z-score method
+    numeric_columns = cleaned_df.select_dtypes(include=[np.number]).columns
+    for column in numeric_columns:
+        z_scores = np.abs((cleaned_df[column] - cleaned_df[column].mean()) / cleaned_df[column].std())
+        outliers = z_scores > outlier_threshold
+        
+        if outliers.any():
+            # Replace outliers with column median
+            median_value = cleaned_df[column].median()
+            cleaned_df.loc[outliers, column] = median_value
+    
+    # Reset index after cleaning
+    cleaned_df.reset_index(drop=True, inplace=True)
+    
+    return cleaned_df
+
+def validate_dataframe(df):
+    """
+    Validate that the input is a pandas DataFrame and not empty.
+    
+    Parameters:
+    df: Input to validate.
+    
+    Returns:
+    bool: True if valid, False otherwise.
+    """
+    if not isinstance(df, pd.DataFrame):
+        print("Error: Input must be a pandas DataFrame")
+        return False
+    
+    if df.empty:
+        print("Warning: DataFrame is empty")
+        return False
+    
+    return True
+
+# Example usage
+if __name__ == "__main__":
+    # Create sample data with missing values and outliers
+    sample_data = {
+        'A': [1, 2, np.nan, 4, 100],  # Contains NaN and outlier
+        'B': [5, 6, 7, np.nan, 9],    # Contains NaN
+        'C': ['x', 'y', 'z', 'x', 'y'] # Categorical column
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nDataFrame info:")
+    print(df.info())
+    
+    if validate_dataframe(df):
+        cleaned = clean_dataset(df, strategy='median', outlier_threshold=2)
+        print("\nCleaned DataFrame:")
+        print(cleaned)
+        print("\nCleaned DataFrame info:")
+        print(cleaned.info())
