@@ -52,4 +52,39 @@ def main():
     display_weather(weather_data)
 
 if __name__ == "__main__":
-    main()
+    main()import requests
+import json
+import os
+
+def get_weather(city_name, api_key):
+    base_url = "http://api.openweathermap.org/data/2.5/weather?"
+    complete_url = f"{base_url}q={city_name}&appid={api_key}&units=metric"
+    response = requests.get(complete_url)
+    data = response.json()
+    if data["cod"] != "404":
+        main = data["main"]
+        temperature = main["temp"]
+        pressure = main["pressure"]
+        humidity = main["humidity"]
+        weather_desc = data["weather"][0]["description"]
+        print(f"Temperature: {temperature}°C")
+        print(f"Atmospheric Pressure: {pressure} hPa")
+        print(f"Humidity: {humidity}%")
+        print(f"Weather Description: {weather_desc}")
+        return {
+            "temperature": temperature,
+            "pressure": pressure,
+            "humidity": humidity,
+            "description": weather_desc
+        }
+    else:
+        print("City not found.")
+        return None
+
+if __name__ == "__main__":
+    API_KEY = os.environ.get("OPENWEATHER_API_KEY")
+    if not API_KEY:
+        print("Please set the OPENWEATHER_API_KEY environment variable.")
+    else:
+        city = "London"
+        weather_info = get_weather(city, API_KEY)
