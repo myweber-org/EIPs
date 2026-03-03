@@ -134,3 +134,101 @@ if __name__ == "__main__":
     cleaned_data = clean_dataset(sample_data, ['A', 'B', 'C'])
     print("Cleaned shape:", cleaned_data.shape)
     print("Outliers removed:", sample_data.shape[0] - cleaned_data.shape[0])
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(dataframe, column, threshold=1.5):
+    """
+    Remove outliers from specified column using IQR method.
+    Returns cleaned dataframe and outlier indices.
+    """
+    q1 = dataframe[column].quantile(0.25)
+    q3 = dataframe[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    
+    mask = (dataframe[column] >= lower_bound) & (dataframe[column] <= upper_bound)
+    outliers = dataframe[~mask].index.tolist()
+    
+    return dataframe[mask].copy(), outliers
+
+def normalize_minmax(dataframe, columns=None):
+    """
+    Apply min-max normalization to specified columns.
+    If columns is None, normalize all numeric columns.
+    """
+    if columns is None:
+        columns = dataframe.select_dtypes(include=[np.number]).columns
+    
+    normalized_df = dataframe.copy()
+    for col in columns:
+        if col in dataframe.columns:
+            col_min = dataframe[col].min()
+            col_max = dataframe[col].max()
+            if col_max != col_min:
+                normalized_df[col] = (dataframe[col] - col_min) / (col_max - col_min)
+    
+    return normalized_df
+
+def detect_skewed_columns(dataframe, threshold=0.5):
+    """
+    Identify columns with significant skewness.
+    Returns dictionary with column names and skewness values.
+    """
+    numeric_cols = dataframe.select_dtypes(include=[np.number]).columns
+    skewed_cols = {}
+    
+    for col in numeric_cols:
+        skewness = stats.skew(dataframe[col].dropna())
+        if abs(skewness) > threshold:
+            skewed_cols[col] = skewness
+    
+    return skewed_cols
+
+def clean_missing_values(dataframe, strategy='mean', columns=None):
+    """
+    Handle missing values using specified strategy.
+    Supported strategies: 'mean', 'median', 'mode', 'drop'
+    """
+    df_clean = dataframe.copy()
+    
+    if columns is None:
+        columns = df_clean.select_dtypes(include=[np.number]).columns
+    
+    if strategy == 'drop':
+        return df_clean.dropna(subset=columns)
+    
+    for col in columns:
+        if col in df_clean.columns and df_clean[col].isnull().any():
+            if strategy == 'mean':
+                fill_value = df_clean[col].mean()
+            elif strategy == 'median':
+                fill_value = df_clean[col].median()
+            elif strategy == 'mode':
+                fill_value = df_clean[col].mode()[0]
+            else:
+                raise ValueError(f"Unsupported strategy: {strategy}")
+            
+            df_clean[col] = df_clean[col].fillna(fill_value)
+    
+    return df_clean
+
+def create_data_summary(dataframe):
+    """
+    Generate comprehensive summary statistics for dataframe.
+    """
+    summary = {
+        'shape': dataframe.shape,
+        'missing_values': dataframe.isnull().sum().to_dict(),
+        'data_types': dataframe.dtypes.to_dict(),
+        'numeric_stats': dataframe.describe().to_dict() if not dataframe.select_dtypes(include=[np.number]).empty else {},
+        'categorical_counts': {}
+    }
+    
+    cat_cols = dataframe.select_dtypes(include=['object', 'category']).columns
+    for col in cat_cols:
+        summary['categorical_counts'][col] = dataframe[col].value_counts().to_dict()
+    
+    return summary
