@@ -727,3 +727,74 @@ def validate_dataframe(data, required_columns=None):
             return False, f"Missing required columns: {missing_cols}"
     
     return True, "DataFrame is valid"
+import numpy as np
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specified column using the Interquartile Range method.
+    
+    Args:
+        data (np.ndarray): Input data array
+        column (int): Index of column to clean
+    
+    Returns:
+        np.ndarray: Data with outliers removed
+    """
+    if not isinstance(data, np.ndarray):
+        raise TypeError("Input data must be a numpy array")
+    
+    if column >= data.shape[1]:
+        raise IndexError("Column index out of bounds")
+    
+    column_data = data[:, column]
+    
+    q1 = np.percentile(column_data, 25)
+    q3 = np.percentile(column_data, 75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - 1.5 * iqr
+    upper_bound = q3 + 1.5 * iqr
+    
+    mask = (column_data >= lower_bound) & (column_data <= upper_bound)
+    
+    return data[mask]
+
+def calculate_statistics(data):
+    """
+    Calculate basic statistics for the data.
+    
+    Args:
+        data (np.ndarray): Input data array
+    
+    Returns:
+        dict: Dictionary containing mean, median, and standard deviation
+    """
+    stats = {
+        'mean': np.mean(data, axis=0),
+        'median': np.median(data, axis=0),
+        'std': np.std(data, axis=0)
+    }
+    return stats
+
+def normalize_data(data):
+    """
+    Normalize data using min-max scaling.
+    
+    Args:
+        data (np.ndarray): Input data array
+    
+    Returns:
+        np.ndarray: Normalized data
+    """
+    if data.size == 0:
+        return data
+    
+    data_min = np.min(data, axis=0)
+    data_max = np.max(data, axis=0)
+    
+    # Avoid division by zero
+    range_vals = data_max - data_min
+    range_vals[range_vals == 0] = 1
+    
+    normalized = (data - data_min) / range_vals
+    return normalized
