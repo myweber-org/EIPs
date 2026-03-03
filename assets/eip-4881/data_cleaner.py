@@ -152,4 +152,77 @@ def validate_dataframe(df, required_columns=None, min_rows=1):
         if missing_columns:
             return False, f"Missing required columns: {missing_columns}"
     
-    return True, "DataFrame is valid"
+    return True, "DataFrame is valid"import pandas as pd
+
+def clean_dataset(df, column_mapping=None, drop_duplicates=True, fill_missing=None):
+    """
+    Clean a pandas DataFrame by standardizing columns, removing duplicates,
+    and handling missing values.
+    """
+    cleaned_df = df.copy()
+    
+    # Rename columns if mapping is provided
+    if column_mapping:
+        cleaned_df = cleaned_df.rename(columns=column_mapping)
+    
+    # Remove duplicate rows
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    # Fill missing values
+    if fill_missing:
+        for column, value in fill_missing.items():
+            if column in cleaned_df.columns:
+                cleaned_df[column] = cleaned_df[column].fillna(value)
+    
+    # Standardize string columns: trim whitespace and convert to lowercase
+    for column in cleaned_df.select_dtypes(include=['object']).columns:
+        cleaned_df[column] = cleaned_df[column].astype(str).str.strip().str.lower()
+    
+    # Reset index after cleaning
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    return cleaned_df
+
+def validate_data(df, required_columns=None, unique_columns=None):
+    """
+    Validate dataset structure and constraints.
+    """
+    validation_results = {
+        'is_valid': True,
+        'missing_columns': [],
+        'duplicate_values': {}
+    }
+    
+    # Check required columns
+    if required_columns:
+        missing = [col for col in required_columns if col not in df.columns]
+        if missing:
+            validation_results['missing_columns'] = missing
+            validation_results['is_valid'] = False
+    
+    # Check uniqueness constraints
+    if unique_columns:
+        for column in unique_columns:
+            if column in df.columns:
+                duplicates = df[df.duplicated(subset=[column], keep=False)]
+                if not duplicates.empty:
+                    validation_results['duplicate_values'][column] = len(duplicates)
+                    validation_results['is_valid'] = False
+    
+    return validation_results
+
+def export_cleaned_data(df, output_path, format='csv'):
+    """
+    Export cleaned DataFrame to specified format.
+    """
+    if format.lower() == 'csv':
+        df.to_csv(output_path, index=False)
+    elif format.lower() == 'excel':
+        df.to_excel(output_path, index=False)
+    elif format.lower() == 'json':
+        df.to_json(output_path, orient='records')
+    else:
+        raise ValueError(f"Unsupported format: {format}")
+    
+    return output_path
