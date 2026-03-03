@@ -118,3 +118,79 @@ def handle_missing_values(df, column, strategy='mean'):
     
     df_copy[column] = df_copy[column].fillna(fill_value)
     return df_copy
+import re
+import pandas as pd
+from typing import Union, List, Optional
+
+def clean_column_names(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Standardize column names: lowercase, replace spaces with underscores.
+    """
+    df.columns = [col.strip().lower().replace(' ', '_') for col in df.columns]
+    return df
+
+def remove_duplicates(df: pd.DataFrame, subset: Optional[List[str]] = None) -> pd.DataFrame:
+    """
+    Remove duplicate rows from DataFrame.
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def validate_email(email: str) -> bool:
+    """
+    Validate email format using regex.
+    """
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, email))
+
+def fill_missing_values(df: pd.DataFrame, column: str, value: Union[str, int, float]) -> pd.DataFrame:
+    """
+    Fill missing values in a specified column with a given value.
+    """
+    df[column] = df[column].fillna(value)
+    return df
+
+def convert_to_datetime(df: pd.DataFrame, column: str, format: str = '%Y-%m-%d') -> pd.DataFrame:
+    """
+    Convert a column to datetime format.
+    """
+    df[column] = pd.to_datetime(df[column], format=format, errors='coerce')
+    return df
+
+def filter_by_threshold(df: pd.DataFrame, column: str, threshold: float, keep: str = 'above') -> pd.DataFrame:
+    """
+    Filter rows based on a numeric threshold.
+    """
+    if keep == 'above':
+        return df[df[column] > threshold]
+    elif keep == 'below':
+        return df[df[column] < threshold]
+    else:
+        raise ValueError("keep parameter must be 'above' or 'below'")
+
+def main():
+    """
+    Example usage of data cleaning functions.
+    """
+    data = {
+        'Name': ['Alice', 'Bob', 'Charlie', None],
+        'Email': ['alice@example.com', 'invalid-email', 'charlie@test.org', 'david@domain.net'],
+        'Score': [85.5, 92.0, 78.5, 88.0],
+        'Join Date': ['2023-01-15', '2023-02-20', '2023-03-10', '2023-04-05']
+    }
+    df = pd.DataFrame(data)
+    print("Original DataFrame:")
+    print(df)
+    
+    df = clean_column_names(df)
+    df = fill_missing_values(df, 'name', 'Unknown')
+    df = convert_to_datetime(df, 'join_date')
+    df = filter_by_threshold(df, 'score', 80.0, keep='above')
+    
+    print("\nCleaned DataFrame:")
+    print(df)
+    
+    email_check = df['email'].apply(validate_email)
+    print("\nValid emails:", df[email_check]['email'].tolist())
+
+if __name__ == '__main__':
+    main()
