@@ -343,4 +343,29 @@ def validate_dataframe(dataframe, required_columns):
     missing_columns = [col for col in required_columns if col not in dataframe.columns]
     if missing_columns:
         raise ValueError(f"Missing required columns: {missing_columns}")
-    return True
+    return Trueimport pandas as pd
+
+def clean_dataset(df):
+    """
+    Remove null values and duplicate rows from a pandas DataFrame.
+    """
+    # Drop rows with any null values
+    df_cleaned = df.dropna()
+    
+    # Remove duplicate rows, keeping the first occurrence
+    df_cleaned = df_cleaned.drop_duplicates()
+    
+    # Reset index after cleaning
+    df_cleaned = df_cleaned.reset_index(drop=True)
+    
+    return df_cleaned
+
+def filter_by_column(df, column_name, value):
+    """
+    Filter DataFrame rows where a specific column equals the given value.
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    
+    filtered_df = df[df[column_name] == value]
+    return filtered_df
