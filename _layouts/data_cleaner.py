@@ -798,3 +798,116 @@ def normalize_data(data):
     
     normalized = (data - data_min) / range_vals
     return normalized
+import pandas as pd
+
+def remove_duplicates(dataframe, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Args:
+        dataframe: pandas DataFrame to clean
+        subset: column label or sequence of labels to consider for duplicates
+        keep: determines which duplicates to keep ('first', 'last', False)
+    
+    Returns:
+        Cleaned DataFrame with duplicates removed
+    """
+    if dataframe.empty:
+        return dataframe
+    
+    cleaned_df = dataframe.drop_duplicates(subset=subset, keep=keep)
+    
+    removed_count = len(dataframe) - len(cleaned_df)
+    if removed_count > 0:
+        print(f"Removed {removed_count} duplicate rows")
+    
+    return cleaned_df.reset_index(drop=True)
+
+def validate_dataframe(dataframe, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        dataframe: pandas DataFrame to validate
+        required_columns: list of column names that must be present
+    
+    Returns:
+        Boolean indicating if DataFrame is valid
+    """
+    if not isinstance(dataframe, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    if dataframe.empty:
+        print("Warning: DataFrame is empty")
+        return True
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in dataframe.columns]
+        if missing_columns:
+            raise ValueError(f"Missing required columns: {missing_columns}")
+    
+    return True
+
+def clean_numeric_column(dataframe, column_name, fill_method='mean'):
+    """
+    Clean numeric column by handling missing values.
+    
+    Args:
+        dataframe: pandas DataFrame containing the column
+        column_name: name of the column to clean
+        fill_method: method to fill missing values ('mean', 'median', 'zero')
+    
+    Returns:
+        DataFrame with cleaned column
+    """
+    if column_name not in dataframe.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    
+    if not pd.api.types.is_numeric_dtype(dataframe[column_name]):
+        raise TypeError(f"Column '{column_name}' must be numeric")
+    
+    df_copy = dataframe.copy()
+    
+    missing_count = df_copy[column_name].isna().sum()
+    if missing_count > 0:
+        if fill_method == 'mean':
+            fill_value = df_copy[column_name].mean()
+        elif fill_method == 'median':
+            fill_value = df_copy[column_name].median()
+        elif fill_method == 'zero':
+            fill_value = 0
+        else:
+            raise ValueError(f"Unsupported fill method: {fill_method}")
+        
+        df_copy[column_name] = df_copy[column_name].fillna(fill_value)
+        print(f"Filled {missing_count} missing values in '{column_name}' with {fill_method}: {fill_value}")
+    
+    return df_copy
+
+def main():
+    """Example usage of data cleaning functions."""
+    sample_data = {
+        'id': [1, 2, 2, 3, 4, 4, 5],
+        'name': ['Alice', 'Bob', 'Bob', 'Charlie', 'David', 'David', 'Eve'],
+        'score': [85.5, 92.0, 92.0, 78.5, None, 88.0, 91.5],
+        'age': [25, 30, 30, 22, 28, 28, 35]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print()
+    
+    cleaned_df = remove_duplicates(df, subset=['id', 'name'], keep='first')
+    print("After removing duplicates:")
+    print(cleaned_df)
+    print()
+    
+    validate_dataframe(cleaned_df, required_columns=['id', 'name', 'score'])
+    
+    final_df = clean_numeric_column(cleaned_df, 'score', fill_method='mean')
+    print("After cleaning numeric column:")
+    print(final_df)
+
+if __name__ == "__main__":
+    main()
