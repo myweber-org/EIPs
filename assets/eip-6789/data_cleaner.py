@@ -325,3 +325,86 @@ if __name__ == "__main__":
     validated_df = validate_email_column(cleaned_df, 'email')
     print("DataFrame with email validation:")
     print(validated_df[['name', 'email', 'email_valid']])
+import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a DataFrame column using the Interquartile Range method.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to clean
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df.reset_index(drop=True)
+
+def calculate_summary_stats(df, column):
+    """
+    Calculate summary statistics for a column.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name
+    
+    Returns:
+    dict: Dictionary containing summary statistics
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    stats = {
+        'mean': df[column].mean(),
+        'median': df[column].median(),
+        'std': df[column].std(),
+        'min': df[column].min(),
+        'max': df[column].max(),
+        'count': df[column].count(),
+        'missing': df[column].isnull().sum()
+    }
+    
+    return stats
+
+def validate_numeric_data(df, columns):
+    """
+    Validate that specified columns contain only numeric data.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    columns (list): List of column names to validate
+    
+    Returns:
+    dict: Validation results for each column
+    """
+    results = {}
+    
+    for col in columns:
+        if col not in df.columns:
+            results[col] = {'valid': False, 'error': 'Column not found'}
+            continue
+        
+        numeric_count = pd.to_numeric(df[col], errors='coerce').notnull().sum()
+        total_count = len(df[col])
+        
+        results[col] = {
+            'valid': numeric_count == total_count,
+            'numeric_count': int(numeric_count),
+            'non_numeric_count': int(total_count - numeric_count),
+            'percentage_numeric': float(numeric_count / total_count * 100)
+        }
+    
+    return results
