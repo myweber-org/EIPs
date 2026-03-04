@@ -105,3 +105,11 @@ if __name__ == "__main__":
     cleaned_data = clean_dataset('raw_data.csv', ['age', 'salary', 'score'])
     cleaned_data.to_csv('cleaned_data.csv', index=False)
     print(f"Data cleaning complete. Remaining records: {len(cleaned_data)}")
+def remove_duplicates_preserve_order(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
