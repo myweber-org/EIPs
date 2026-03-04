@@ -44,4 +44,17 @@ if __name__ == "__main__":
         info = fetch_github_user(username)
         display_user_info(info)
     else:
-        print("No username provided.")
+        print("No username provided.")import requests
+
+def get_github_user(username):
+    url = f"https://api.github.com/users/{username}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        return {"error": "User not found or API request failed"}
+
+if __name__ == "__main__":
+    username = input("Enter GitHub username: ")
+    user_data = get_github_user(username)
+    print(user_data)
