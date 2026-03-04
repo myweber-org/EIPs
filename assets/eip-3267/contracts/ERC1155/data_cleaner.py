@@ -576,4 +576,112 @@ def validate_dataset(df, required_columns=None):
     if duplicate_count > 0:
         validation_results['issues'].append(f"Found {duplicate_count} duplicate rows.")
     
-    return validation_results
+    return validation_resultsimport pandas as pd
+import numpy as np
+
+def clean_dataset(df, date_column=None, text_columns=None):
+    """
+    Clean a pandas DataFrame by removing duplicates, handling missing values,
+    and standardizing text and date columns.
+    """
+    # Create a copy to avoid modifying the original
+    df_clean = df.copy()
+    
+    # Remove duplicate rows
+    initial_rows = len(df_clean)
+    df_clean = df_clean.drop_duplicates()
+    removed_duplicates = initial_rows - len(df_clean)
+    
+    # Standardize column names: lowercase with underscores
+    df_clean.columns = [col.lower().replace(' ', '_') for col in df_clean.columns]
+    
+    # Handle missing values for numeric columns
+    numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        if df_clean[col].isnull().any():
+            df_clean[col] = df_clean[col].fillna(df_clean[col].median())
+    
+    # Handle missing values for object columns
+    object_cols = df_clean.select_dtypes(include=['object']).columns
+    for col in object_cols:
+        if df_clean[col].isnull().any():
+            df_clean[col] = df_clean[col].fillna('unknown')
+    
+    # Standardize text columns if specified
+    if text_columns:
+        for col in text_columns:
+            if col in df_clean.columns:
+                df_clean[col] = df_clean[col].astype(str).str.lower().str.strip()
+    
+    # Convert date column if specified
+    if date_column and date_column in df_clean.columns:
+        df_clean[date_column] = pd.to_datetime(df_clean[date_column], errors='coerce')
+    
+    # Reset index after cleaning
+    df_clean = df_clean.reset_index(drop=True)
+    
+    # Print cleaning summary
+    print(f"Cleaning complete:")
+    print(f"  - Removed {removed_duplicates} duplicate rows")
+    print(f"  - Original shape: {df.shape}")
+    print(f"  - Cleaned shape: {df_clean.shape}")
+    print(f"  - Columns standardized: {list(df_clean.columns)}")
+    
+    return df_clean
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate that a DataFrame meets basic quality requirements.
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    if len(df) == 0:
+        raise ValueError("DataFrame is empty")
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    # Check for completely empty columns
+    empty_cols = [col for col in df.columns if df[col].isnull().all()]
+    if empty_cols:
+        print(f"Warning: Found empty columns: {empty_cols}")
+    
+    return True
+
+# Example usage function (not executed unless called)
+def example_usage():
+    # Create sample data
+    data = {
+        'Name': ['Alice', 'Bob', 'Alice', 'Charlie', None],
+        'Age': [25, 30, 25, None, 35],
+        'City': ['New York', 'Los Angeles', 'new york', 'Chicago', 'Boston'],
+        'Join Date': ['2023-01-15', '2023-02-20', '2023-01-15', '2023-03-10', '2023-04-05']
+    }
+    
+    df = pd.DataFrame(data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n")
+    
+    # Clean the data
+    cleaned_df = clean_dataset(
+        df, 
+        date_column='join_date',
+        text_columns=['name', 'city']
+    )
+    
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    
+    # Validate the cleaned data
+    try:
+        validate_dataframe(cleaned_df, required_columns=['name', 'age', 'city'])
+        print("\nData validation passed!")
+    except ValueError as e:
+        print(f"\nData validation failed: {e}")
+
+if __name__ == "__main__":
+    example_usage()
