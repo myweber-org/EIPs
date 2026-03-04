@@ -406,3 +406,65 @@ def validate_cleaning(df_before, df_after, column):
         'max': df_after[column].max()
     }
     return stats_before, stats_after
+import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(dataframe, column):
+    Q1 = dataframe[column].quantile(0.25)
+    Q3 = dataframe[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & (dataframe[column] <= upper_bound)]
+    return filtered_df
+
+def normalize_column(dataframe, column, method='minmax'):
+    if method == 'minmax':
+        min_val = dataframe[column].min()
+        max_val = dataframe[column].max()
+        if max_val - min_val != 0:
+            dataframe[column] = (dataframe[column] - min_val) / (max_val - min_val)
+    elif method == 'zscore':
+        mean_val = dataframe[column].mean()
+        std_val = dataframe[column].std()
+        if std_val != 0:
+            dataframe[column] = (dataframe[column] - mean_val) / std_val
+    return dataframe
+
+def clean_dataset(dataframe, numeric_columns):
+    cleaned_df = dataframe.copy()
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+            cleaned_df = normalize_column(cleaned_df, col, method='zscore')
+    cleaned_df = cleaned_df.dropna()
+    return cleaned_df.reset_index(drop=True)
+
+def generate_summary(dataframe):
+    summary = {
+        'original_rows': len(dataframe),
+        'cleaned_rows': len(dataframe.dropna()),
+        'numeric_columns': list(dataframe.select_dtypes(include=[np.number]).columns),
+        'missing_values': dataframe.isnull().sum().to_dict()
+    }
+    return summary
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'feature_a': np.random.normal(100, 15, 1000),
+        'feature_b': np.random.exponential(50, 1000),
+        'category': np.random.choice(['A', 'B', 'C'], 1000)
+    })
+    
+    sample_data.loc[np.random.choice(1000, 50), 'feature_a'] = np.nan
+    
+    numeric_cols = ['feature_a', 'feature_b']
+    cleaned_data = clean_dataset(sample_data, numeric_cols)
+    
+    print("Dataset Summary:")
+    print(f"Original shape: {sample_data.shape}")
+    print(f"Cleaned shape: {cleaned_data.shape}")
+    print(f"Removed rows: {len(sample_data) - len(cleaned_data)}")
+    
+    stats = generate_summary(sample_data)
+    print(f"\nMissing values: {stats['missing_values']}")
