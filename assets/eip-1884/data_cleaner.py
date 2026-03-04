@@ -303,3 +303,71 @@ if __name__ == "__main__":
     print("\nCleaning Summary:")
     for key, value in summary.items():
         print(f"{key}: {value}")
+import numpy as np
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specified column using the Interquartile Range method.
+    
+    Parameters:
+    data (numpy.ndarray): The dataset.
+    column (int): Index of the column to clean.
+    
+    Returns:
+    numpy.ndarray: Data with outliers removed from the specified column.
+    """
+    if not isinstance(data, np.ndarray):
+        raise TypeError("Input data must be a numpy array")
+    
+    if column >= data.shape[1] or column < 0:
+        raise IndexError("Column index out of bounds")
+    
+    col_data = data[:, column]
+    Q1 = np.percentile(col_data, 25)
+    Q3 = np.percentile(col_data, 75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    mask = (col_data >= lower_bound) & (col_data <= upper_bound)
+    cleaned_data = data[mask]
+    
+    return cleaned_data
+
+def calculate_statistics(data, column):
+    """
+    Calculate basic statistics for a column after outlier removal.
+    
+    Parameters:
+    data (numpy.ndarray): The dataset.
+    column (int): Index of the column to analyze.
+    
+    Returns:
+    dict: Dictionary containing mean, median, and standard deviation.
+    """
+    if data.size == 0:
+        return {"mean": np.nan, "median": np.nan, "std": np.nan}
+    
+    col_data = data[:, column]
+    stats = {
+        "mean": np.mean(col_data),
+        "median": np.median(col_data),
+        "std": np.std(col_data)
+    }
+    
+    return stats
+
+if __name__ == "__main__":
+    # Example usage
+    np.random.seed(42)
+    sample_data = np.random.randn(100, 3)
+    sample_data[0, 0] = 10  # Add an outlier
+    
+    print("Original data shape:", sample_data.shape)
+    
+    cleaned = remove_outliers_iqr(sample_data, 0)
+    print("Cleaned data shape:", cleaned.shape)
+    
+    stats = calculate_statistics(cleaned, 0)
+    print("Column statistics:", stats)
