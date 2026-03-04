@@ -148,4 +148,77 @@ def validate_dataset(df, required_columns=None, min_rows=1):
         if missing_columns:
             return False, f"Missing required columns: {missing_columns}"
     
-    return True, "Dataset is valid"
+    return True, "Dataset is valid"import pandas as pd
+import numpy as np
+from scipy import stats
+
+def load_and_clean_data(filepath):
+    """
+    Load a CSV file and perform basic data cleaning.
+    """
+    df = pd.read_csv(filepath)
+    
+    # Remove duplicate rows
+    df = df.drop_duplicates()
+    
+    # Remove rows with any missing values
+    df = df.dropna()
+    
+    return df
+
+def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a specified column using the IQR method.
+    """
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df
+
+def normalize_column(df, column):
+    """
+    Normalize a column using min-max scaling.
+    """
+    min_val = df[column].min()
+    max_val = df[column].max()
+    
+    if max_val - min_val != 0:
+        df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
+    else:
+        df[column + '_normalized'] = 0
+    
+    return df
+
+def main():
+    # Example usage
+    data_path = 'sample_data.csv'
+    
+    try:
+        df = load_and_clean_data(data_path)
+        print(f"Initial data shape: {df.shape}")
+        
+        if 'value' in df.columns:
+            df = remove_outliers_iqr(df, 'value')
+            print(f"After outlier removal: {df.shape}")
+            
+            df = normalize_column(df, 'value')
+            print("Column 'value' normalized.")
+        
+        # Save cleaned data
+        output_path = 'cleaned_data.csv'
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to {output_path}")
+        
+    except FileNotFoundError:
+        print(f"Error: File {data_path} not found.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+if __name__ == "__main__":
+    main()
