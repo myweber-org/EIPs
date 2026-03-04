@@ -1,135 +1,68 @@
 
-import numpy as np
 import pandas as pd
-from scipy import stats
-
-def remove_outliers_iqr(data, column, threshold=1.5):
-    """
-    Remove outliers using IQR method
-    """
-    if column not in data.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    q1 = data[column].quantile(0.25)
-    q3 = data[column].quantile(0.75)
-    iqr = q3 - q1
-    lower_bound = q1 - threshold * iqr
-    upper_bound = q3 + threshold * iqr
-    
-    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
-    removed_count = len(data) - len(filtered_data)
-    
-    return filtered_data, removed_count
-
-def normalize_minmax(data, column):
-    """
-    Normalize data using min-max scaling
-    """
-    if column not in data.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    min_val = data[column].min()
-    max_val = data[column].max()
-    
-    if max_val == min_val:
-        return data[column].apply(lambda x: 0.5)
-    
-    normalized = (data[column] - min_val) / (max_val - min_val)
-    return normalized
-
-def standardize_zscore(data, column):
-    """
-    Standardize data using z-score normalization
-    """
-    if column not in data.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    mean_val = data[column].mean()
-    std_val = data[column].std()
-    
-    if std_val == 0:
-        return data[column].apply(lambda x: 0)
-    
-    standardized = (data[column] - mean_val) / std_val
-    return standardized
-
-def clean_dataset(df, numeric_columns=None, outlier_threshold=1.5):
-    """
-    Comprehensive data cleaning pipeline
-    """
-    if numeric_columns is None:
-        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
-    
-    cleaned_df = df.copy()
-    removal_stats = {}
-    
-    for col in numeric_columns:
-        if col in df.columns:
-            cleaned_df, removed = remove_outliers_iqr(cleaned_df, col, outlier_threshold)
-            removal_stats[col] = removed
-            
-            cleaned_df[f"{col}_normalized"] = normalize_minmax(cleaned_df, col)
-            cleaned_df[f"{col}_standardized"] = standardize_zscore(cleaned_df, col)
-    
-    return cleaned_df, removal_stats
-
-def validate_data(df, required_columns, allow_nan=False):
-    """
-    Validate data structure and content
-    """
-    missing_columns = [col for col in required_columns if col not in df.columns]
-    
-    if missing_columns:
-        raise ValueError(f"Missing required columns: {missing_columns}")
-    
-    if not allow_nan:
-        nan_counts = df[required_columns].isna().sum()
-        if nan_counts.any():
-            raise ValueError(f"NaN values found in columns: {nan_counts[nan_counts > 0].to_dict()}")
-    
-    return True
-
-def generate_summary(df, numeric_columns=None):
-    """
-    Generate statistical summary of the dataset
-    """
-    if numeric_columns is None:
-        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
-    
-    summary = {}
-    
-    for col in numeric_columns:
-        if col in df.columns:
-            summary[col] = {
-                'mean': df[col].mean(),
-                'median': df[col].median(),
-                'std': df[col].std(),
-                'min': df[col].min(),
-                'max': df[col].max(),
-                'count': df[col].count(),
-                'missing': df[col].isna().sum()
-            }
-    
-    return pd.DataFrame(summary).T
 import numpy as np
-import pandas as pd
 
-def remove_outliers_iqr(df, column):
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    return filtered_df
+def clean_csv_data(input_file, output_file):
+    """
+    Clean CSV data by handling missing values and removing duplicates.
+    """
+    try:
+        df = pd.read_csv(input_file)
+        
+        print(f"Original data shape: {df.shape}")
+        
+        df_cleaned = df.copy()
+        
+        df_cleaned = df_cleaned.drop_duplicates()
+        
+        for column in df_cleaned.columns:
+            if df_cleaned[column].dtype in ['float64', 'int64']:
+                df_cleaned[column].fillna(df_cleaned[column].median(), inplace=True)
+            elif df_cleaned[column].dtype == 'object':
+                df_cleaned[column].fillna(df_cleaned[column].mode()[0], inplace=True)
+        
+        df_cleaned.to_csv(output_file, index=False)
+        
+        print(f"Cleaned data shape: {df_cleaned.shape}")
+        print(f"Data saved to: {output_file}")
+        
+        return df_cleaned
+        
+    except FileNotFoundError:
+        print(f"Error: File '{input_file}' not found.")
+        return None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None
 
-def clean_dataset(df, numeric_columns):
-    original_shape = df.shape
-    cleaned_df = df.copy()
-    for col in numeric_columns:
-        if col in cleaned_df.columns:
-            cleaned_df = remove_outliers_iqr(cleaned_df, col)
-    print(f"Original shape: {original_shape}")
-    print(f"Cleaned shape: {cleaned_df.shape}")
-    print(f"Removed {original_shape[0] - cleaned_df.shape[0]} rows")
-    return cleaned_df
+def validate_data(df):
+    """
+    Validate cleaned data for common issues.
+    """
+    if df is None:
+        return False
+    
+    validation_results = {
+        'has_missing_values': df.isnull().sum().sum() == 0,
+        'has_duplicates': len(df) == len(df.drop_duplicates()),
+        'data_types_consistent': True
+    }
+    
+    for column in df.columns:
+        if df[column].dtype not in ['float64', 'int64', 'object', 'bool', 'datetime64[ns]']:
+            validation_results['data_types_consistent'] = False
+            break
+    
+    return validation_results
+
+if __name__ == "__main__":
+    input_csv = "raw_data.csv"
+    output_csv = "cleaned_data.csv"
+    
+    cleaned_data = clean_csv_data(input_csv, output_csv)
+    
+    if cleaned_data is not None:
+        validation = validate_data(cleaned_data)
+        print("Data validation results:")
+        for key, value in validation.items():
+            print(f"  {key}: {value}")
