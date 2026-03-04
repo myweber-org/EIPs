@@ -349,4 +349,44 @@ def load_and_clean_data(filepath, cleaning_steps=None):
             elif step['method'] == 'normalize':
                 cleaner.normalize_data(**step['params'])
     
-    return cleaner.get_cleaned_data(), cleaner.get_cleaning_report()
+    return cleaner.get_cleaned_data(), cleaner.get_cleaning_report()import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+def clean_dataset(df, numeric_columns):
+    cleaned_df = df.copy()
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+    cleaned_df = cleaned_df.dropna()
+    return cleaned_df.reset_index(drop=True)
+
+def main():
+    data = {
+        'A': np.random.normal(100, 15, 200),
+        'B': np.random.exponential(50, 200),
+        'C': np.random.uniform(0, 1, 200)
+    }
+    data['A'][10] = 500
+    data['B'][20] = 1000
+    
+    df = pd.DataFrame(data)
+    print(f"Original shape: {df.shape}")
+    
+    numeric_cols = ['A', 'B', 'C']
+    cleaned_df = clean_dataset(df, numeric_cols)
+    
+    print(f"Cleaned shape: {cleaned_df.shape}")
+    print(f"Removed {len(df) - len(cleaned_df)} outliers")
+    
+    return cleaned_df
+
+if __name__ == "__main__":
+    result = main()
