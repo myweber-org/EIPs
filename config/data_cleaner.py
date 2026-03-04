@@ -334,4 +334,79 @@ def clean_dataset(file_path, numeric_columns):
 if __name__ == "__main__":
     cleaned_data = clean_dataset('raw_data.csv', ['age', 'income', 'score'])
     cleaned_data.to_csv('cleaned_data.csv', index=False)
-    print(f"Data cleaning complete. Remaining records: {len(cleaned_data)}")
+    print(f"Data cleaning complete. Remaining records: {len(cleaned_data)}")import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a pandas Series using the IQR method.
+    Returns a filtered Series.
+    """
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
+
+def normalize_minmax(data, column):
+    """
+    Normalize data in a pandas Series using min-max scaling.
+    Returns a new Series with normalized values.
+    """
+    min_val = data[column].min()
+    max_val = data[column].max()
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def standardize_zscore(data, column):
+    """
+    Standardize data in a pandas Series using z-score.
+    Returns a new Series with standardized values.
+    """
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
+
+def clean_dataset(df, numeric_columns):
+    """
+    Apply outlier removal and standardization to numeric columns.
+    Returns a cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+            cleaned_df[col] = standardize_zscore(cleaned_df, col)
+    return cleaned_df.reset_index(drop=True)
+
+def generate_sample_data():
+    """
+    Generate a sample DataFrame for testing.
+    """
+    np.random.seed(42)
+    data = {
+        'feature_a': np.random.normal(100, 15, 200),
+        'feature_b': np.random.exponential(50, 200),
+        'feature_c': np.random.uniform(0, 1, 200)
+    }
+    df = pd.DataFrame(data)
+    df.loc[10, 'feature_a'] = 500
+    df.loc[50, 'feature_b'] = 400
+    return df
+
+if __name__ == "__main__":
+    sample_df = generate_sample_data()
+    print("Original DataFrame shape:", sample_df.shape)
+    print("Original DataFrame stats:")
+    print(sample_df.describe())
+    
+    numeric_cols = ['feature_a', 'feature_b', 'feature_c']
+    cleaned_df = clean_dataset(sample_df, numeric_cols)
+    
+    print("\nCleaned DataFrame shape:", cleaned_df.shape)
+    print("Cleaned DataFrame stats:")
+    print(cleaned_df.describe())
