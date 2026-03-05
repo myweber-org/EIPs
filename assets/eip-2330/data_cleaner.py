@@ -443,4 +443,37 @@ def validate_cleaning(df_before, df_after, column):
         'min': df_after[column].min(),
         'max': df_after[column].max()
     }
-    return stats_before, stats_after
+    return stats_before, stats_afterimport pandas as pd
+
+def clean_dataframe(df, drop_duplicates=True, fill_missing=None):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+
+    Parameters:
+    df (pd.DataFrame): The input DataFrame to clean.
+    drop_duplicates (bool): If True, remove duplicate rows.
+    fill_missing (str or dict): Method to fill missing values.
+        If 'ffill', forward fill.
+        If 'bfill', backward fill.
+        If a dict, map column names to fill values.
+        If None, do not fill.
+
+    Returns:
+    pd.DataFrame: The cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+
+    if fill_missing is not None:
+        if isinstance(fill_missing, dict):
+            cleaned_df = cleaned_df.fillna(fill_missing)
+        elif fill_missing == 'ffill':
+            cleaned_df = cleaned_df.ffill()
+        elif fill_missing == 'bfill':
+            cleaned_df = cleaned_df.bfill()
+        else:
+            raise ValueError("fill_missing must be 'ffill', 'bfill', or a dict.")
+
+    return cleaned_df
