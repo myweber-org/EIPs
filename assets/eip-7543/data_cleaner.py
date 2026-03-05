@@ -214,3 +214,155 @@ def handle_missing_values(df, strategy='mean', columns=None):
             df_clean = df_clean.dropna(subset=[col])
     
     return df_clean
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+def remove_missing_rows(df, columns=None):
+    """
+    Remove rows with missing values from specified columns or entire DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns (list, optional): List of columns to check. If None, checks all columns.
+    
+    Returns:
+        pd.DataFrame: DataFrame with missing rows removed
+    """
+    if columns is None:
+        columns = df.columns
+    
+    return df.dropna(subset=columns)
+
+def fill_missing_with_mean(df, columns=None):
+    """
+    Fill missing values with column mean for specified columns.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns (list, optional): List of columns to fill. If None, fills all numeric columns.
+    
+    Returns:
+        pd.DataFrame: DataFrame with missing values filled
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_filled = df.copy()
+    for col in columns:
+        if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
+            df_filled[col] = df[col].fillna(df[col].mean())
+    
+    return df_filled
+
+def detect_outliers_iqr(df, column, threshold=1.5):
+    """
+    Detect outliers using the Interquartile Range (IQR) method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to check for outliers
+        threshold (float): IQR multiplier for outlier detection
+    
+    Returns:
+        pd.Series: Boolean series indicating outliers
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    if not pd.api.types.is_numeric_dtype(df[column]):
+        raise ValueError(f"Column '{column}' must be numeric")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - threshold * IQR
+    upper_bound = Q3 + threshold * IQR
+    
+    return (df[column] < lower_bound) | (df[column] > upper_bound)
+
+def remove_outliers_zscore(df, columns=None, threshold=3):
+    """
+    Remove outliers using Z-score method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns (list, optional): List of columns to check. If None, checks all numeric columns.
+        threshold (float): Z-score threshold for outlier detection
+    
+    Returns:
+        pd.DataFrame: DataFrame with outliers removed
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_clean = df.copy()
+    
+    for col in columns:
+        if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
+            z_scores = np.abs(stats.zscore(df_clean[col].dropna()))
+            mask = z_scores < threshold
+            valid_indices = df_clean[col].dropna().index[mask]
+            df_clean = df_clean.loc[df_clean[col].index.isin(valid_indices) | df_clean[col].isna()]
+    
+    return df_clean
+
+def normalize_column(df, column, method='minmax'):
+    """
+    Normalize a column using specified method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to normalize
+        method (str): Normalization method ('minmax' or 'zscore')
+    
+    Returns:
+        pd.DataFrame: DataFrame with normalized column
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    if not pd.api.types.is_numeric_dtype(df[column]):
+        raise ValueError(f"Column '{column}' must be numeric")
+    
+    df_normalized = df.copy()
+    
+    if method == 'minmax':
+        min_val = df[column].min()
+        max_val = df[column].max()
+        if max_val != min_val:
+            df_normalized[column] = (df[column] - min_val) / (max_val - min_val)
+    
+    elif method == 'zscore':
+        mean_val = df[column].mean()
+        std_val = df[column].std()
+        if std_val != 0:
+            df_normalized[column] = (df[column] - mean_val) / std_val
+    
+    else:
+        raise ValueError("Method must be 'minmax' or 'zscore'")
+    
+    return df_normalized
+
+def get_data_summary(df):
+    """
+    Generate a summary of data quality issues.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+    
+    Returns:
+        dict: Dictionary containing data quality metrics
+    """
+    summary = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_values': df.isnull().sum().sum(),
+        'missing_percentage': (df.isnull().sum().sum() / (len(df) * len(df.columns))) * 100,
+        'numeric_columns': list(df.select_dtypes(include=[np.number]).columns),
+        'categorical_columns': list(df.select_dtypes(include=['object', 'category']).columns),
+        'duplicate_rows': df.duplicated().sum()
+    }
+    
+    return summary
