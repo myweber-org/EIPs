@@ -1059,4 +1059,108 @@ if __name__ == "__main__":
     print("Rows removed:", summary['rows_removed'])
     print("Missing values after cleaning:", summary['missing_values'])
     print("\nFirst 5 rows of cleaned data:")
-    print(cleaned_df.head())
+    print(cleaned_df.head())import pandas as pd
+
+def clean_dataset(df, missing_strategy='drop', duplicate_strategy='first'):
+    """
+    Clean a pandas DataFrame by handling missing values and duplicates.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean
+        missing_strategy (str): Strategy for missing values - 'drop' or 'fill'
+        duplicate_strategy (str): Strategy for duplicates - 'first' or 'last'
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    # Handle missing values
+    if missing_strategy == 'drop':
+        cleaned_df = cleaned_df.dropna()
+    elif missing_strategy == 'fill':
+        numeric_cols = cleaned_df.select_dtypes(include=['number']).columns
+        cleaned_df[numeric_cols] = cleaned_df[numeric_cols].fillna(cleaned_df[numeric_cols].mean())
+        non_numeric_cols = cleaned_df.select_dtypes(exclude=['number']).columns
+        cleaned_df[non_numeric_cols] = cleaned_df[non_numeric_cols].fillna('Unknown')
+    
+    # Handle duplicates
+    if duplicate_strategy == 'first':
+        cleaned_df = cleaned_df.drop_duplicates(keep='first')
+    elif duplicate_strategy == 'last':
+        cleaned_df = cleaned_df.drop_duplicates(keep='last')
+    
+    # Reset index after cleaning
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+        required_columns (list): List of required column names
+    
+    Returns:
+        dict: Validation results
+    """
+    validation_results = {
+        'is_valid': True,
+        'errors': [],
+        'warnings': []
+    }
+    
+    if not isinstance(df, pd.DataFrame):
+        validation_results['is_valid'] = False
+        validation_results['errors'].append('Input is not a pandas DataFrame')
+        return validation_results
+    
+    if df.empty:
+        validation_results['warnings'].append('DataFrame is empty')
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            validation_results['is_valid'] = False
+            validation_results['errors'].append(f'Missing required columns: {missing_columns}')
+    
+    return validation_results
+
+def get_data_summary(df):
+    """
+    Generate summary statistics for a DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+    
+    Returns:
+        dict: Summary statistics
+    """
+    summary = {
+        'shape': df.shape,
+        'columns': list(df.columns),
+        'dtypes': df.dtypes.to_dict(),
+        'missing_values': df.isnull().sum().to_dict(),
+        'numeric_summary': {},
+        'categorical_summary': {}
+    }
+    
+    numeric_cols = df.select_dtypes(include=['number']).columns
+    for col in numeric_cols:
+        summary['numeric_summary'][col] = {
+            'mean': df[col].mean(),
+            'std': df[col].std(),
+            'min': df[col].min(),
+            'max': df[col].max()
+        }
+    
+    categorical_cols = df.select_dtypes(include=['object', 'category']).columns
+    for col in categorical_cols:
+        summary['categorical_summary'][col] = {
+            'unique_values': df[col].nunique(),
+            'top_value': df[col].mode().iloc[0] if not df[col].mode().empty else None
+        }
+    
+    return summary
