@@ -713,3 +713,56 @@ def validate_dataset(df, required_columns=None):
         return False, "DataFrame is empty"
     
     return True, "Dataset is valid"
+import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+def normalize_minmax(df, column):
+    min_val = df[column].min()
+    max_val = df[column].max()
+    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
+    return df
+
+def clean_dataset(df, numeric_columns):
+    cleaned_df = df.copy()
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+            cleaned_df = normalize_minmax(cleaned_df, col)
+    return cleaned_df
+
+def calculate_statistics(df, column):
+    stats = {
+        'mean': df[column].mean(),
+        'median': df[column].median(),
+        'std': df[column].std(),
+        'variance': df[column].var(),
+        'skewness': df[column].skew(),
+        'kurtosis': df[column].kurtosis()
+    }
+    return stats
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': np.random.normal(100, 15, 1000),
+        'B': np.random.exponential(50, 1000),
+        'C': np.random.uniform(0, 200, 1000)
+    }
+    df = pd.DataFrame(sample_data)
+    print("Original dataset shape:", df.shape)
+    
+    cleaned_df = clean_dataset(df, ['A', 'B', 'C'])
+    print("Cleaned dataset shape:", cleaned_df.shape)
+    
+    for col in ['A', 'B', 'C']:
+        stats = calculate_statistics(cleaned_df, col)
+        print(f"\nStatistics for {col}:")
+        for key, value in stats.items():
+            print(f"{key}: {value:.4f}")
