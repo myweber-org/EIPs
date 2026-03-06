@@ -1,139 +1,84 @@
 
 import pandas as pd
-import numpy as np
-from typing import List, Union
+import re
 
-def remove_duplicates(df: pd.DataFrame, subset: List[str] = None) -> pd.DataFrame:
+def clean_dataframe(df, column_mapping=None, drop_duplicates=True, normalize_text=True):
     """
-    Remove duplicate rows from DataFrame.
+    Clean a pandas DataFrame by removing duplicates and normalizing text columns.
     
     Args:
-        df: Input DataFrame
-        subset: Columns to consider for identifying duplicates
+        df: Input pandas DataFrame
+        column_mapping: Dictionary to rename columns (old_name: new_name)
+        drop_duplicates: Boolean to remove duplicate rows
+        normalize_text: Boolean to normalize text in string columns
     
     Returns:
-        DataFrame with duplicates removed
+        Cleaned pandas DataFrame
     """
-    return df.drop_duplicates(subset=subset, keep='first')
+    
+    df_clean = df.copy()
+    
+    if column_mapping:
+        df_clean = df_clean.rename(columns=column_mapping)
+    
+    if drop_duplicates:
+        df_clean = df_clean.drop_duplicates().reset_index(drop=True)
+    
+    if normalize_text:
+        for col in df_clean.select_dtypes(include=['object']).columns:
+            df_clean[col] = df_clean[col].apply(_normalize_string)
+    
+    return df_clean
 
-def convert_column_types(df: pd.DataFrame, 
-                         column_types: dict) -> pd.DataFrame:
+def _normalize_string(text):
     """
-    Convert columns to specified data types.
+    Normalize a string by converting to lowercase, removing extra whitespace,
+    and stripping special characters.
+    """
+    if pd.isna(text):
+        return text
+    
+    text = str(text)
+    text = text.lower().strip()
+    text = re.sub(r'\s+', ' ', text)
+    text = re.sub(r'[^\w\s]', '', text)
+    
+    return text
+
+def validate_email_column(df, email_column):
+    """
+    Validate email addresses in a specified column.
     
     Args:
-        df: Input DataFrame
-        column_types: Dictionary mapping column names to target types
+        df: Input pandas DataFrame
+        email_column: Name of the column containing email addresses
     
     Returns:
-        DataFrame with converted column types
+        DataFrame with validation results
     """
-    df_copy = df.copy()
-    for column, dtype in column_types.items():
-        if column in df_copy.columns:
-            try:
-                df_copy[column] = df_copy[column].astype(dtype)
-            except (ValueError, TypeError):
-                df_copy[column] = pd.to_numeric(df_copy[column], errors='coerce')
-    return df_copy
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    
+    validation_results = df.copy()
+    validation_results['email_valid'] = validation_results[email_column].apply(
+        lambda x: bool(re.match(email_pattern, str(x))) if pd.notna(x) else False
+    )
+    
+    return validation_results
 
-def handle_missing_values(df: pd.DataFrame, 
-                          strategy: str = 'mean',
-                          columns: List[str] = None) -> pd.DataFrame:
+def save_cleaned_data(df, output_path, format='csv'):
     """
-    Handle missing values using specified strategy.
+    Save cleaned DataFrame to file.
     
     Args:
-        df: Input DataFrame
-        strategy: 'mean', 'median', 'mode', or 'drop'
-        columns: Specific columns to process
-    
-    Returns:
-        DataFrame with handled missing values
+        df: DataFrame to save
+        output_path: Path to save the file
+        format: File format ('csv', 'excel', or 'json')
     """
-    df_copy = df.copy()
-    
-    if columns is None:
-        columns = df_copy.columns
-    
-    for column in columns:
-        if column in df_copy.columns:
-            if strategy == 'mean':
-                df_copy[column].fillna(df_copy[column].mean(), inplace=True)
-            elif strategy == 'median':
-                df_copy[column].fillna(df_copy[column].median(), inplace=True)
-            elif strategy == 'mode':
-                df_copy[column].fillna(df_copy[column].mode()[0], inplace=True)
-            elif strategy == 'drop':
-                df_copy = df_copy.dropna(subset=[column])
-    
-    return df_copy
-
-def clean_dataframe(df: pd.DataFrame,
-                    deduplicate: bool = True,
-                    type_conversions: dict = None,
-                    missing_strategy: str = None) -> pd.DataFrame:
-    """
-    Comprehensive data cleaning pipeline.
-    
-    Args:
-        df: Input DataFrame
-        deduplicate: Whether to remove duplicates
-        type_conversions: Dictionary for column type conversions
-        missing_strategy: Strategy for handling missing values
-    
-    Returns:
-        Cleaned DataFrame
-    """
-    cleaned_df = df.copy()
-    
-    if deduplicate:
-        cleaned_df = remove_duplicates(cleaned_df)
-    
-    if type_conversions:
-        cleaned_df = convert_column_types(cleaned_df, type_conversions)
-    
-    if missing_strategy:
-        cleaned_df = handle_missing_values(cleaned_df, strategy=missing_strategy)
-    
-    return cleaned_df
-import pandas as pd
-import numpy as np
-from scipy import stats
-
-def load_dataset(filepath):
-    return pd.read_csv(filepath)
-
-def remove_outliers_iqr(df, column):
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-
-def normalize_column(df, column):
-    min_val = df[column].min()
-    max_val = df[column].max()
-    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
-    return df
-
-def clean_data(df, numeric_columns):
-    for col in numeric_columns:
-        df = remove_outliers_iqr(df, col)
-        df = normalize_column(df, col)
-    return df
-
-def save_cleaned_data(df, output_path):
-    df.to_csv(output_path, index=False)
-
-if __name__ == "__main__":
-    input_file = 'raw_data.csv'
-    output_file = 'cleaned_data.csv'
-    numeric_cols = ['age', 'income', 'score']
-    
-    raw_df = load_dataset(input_file)
-    cleaned_df = clean_data(raw_df, numeric_cols)
-    save_cleaned_data(cleaned_df, output_file)
-    
-    print(f"Data cleaning completed. Original rows: {len(raw_df)}, Cleaned rows: {len(cleaned_df)}")
+    if format == 'csv':
+        df.to_csv(output_path, index=False)
+    elif format == 'excel':
+        df.to_excel(output_path, index=False)
+    elif format == 'json':
+        df.to_json(output_path, orient='records', indent=2)
+    else:
+        raise ValueError(f"Unsupported format: {format}")
