@@ -43,3 +43,50 @@ def validate_dataframe(df, required_columns=None):
             return False, f"Missing required columns: {missing_columns}"
     
     return True, "DataFrame is valid"
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, strategy='mean', threshold=3):
+    """
+    Clean a pandas DataFrame by handling missing values and removing outliers.
+    """
+    df_clean = df.copy()
+    
+    # Handle missing values
+    if strategy == 'mean':
+        df_clean = df_clean.fillna(df_clean.mean())
+    elif strategy == 'median':
+        df_clean = df_clean.fillna(df_clean.median())
+    elif strategy == 'mode':
+        df_clean = df_clean.fillna(df_clean.mode().iloc[0])
+    elif strategy == 'drop':
+        df_clean = df_clean.dropna()
+    else:
+        raise ValueError("Invalid strategy. Choose from 'mean', 'median', 'mode', or 'drop'")
+    
+    # Remove outliers using Z-score method
+    if threshold is not None:
+        numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
+        z_scores = np.abs((df_clean[numeric_cols] - df_clean[numeric_cols].mean()) / df_clean[numeric_cols].std())
+        df_clean = df_clean[(z_scores < threshold).all(axis=1)]
+    
+    return df_clean
+
+def main():
+    # Example usage
+    data = {
+        'A': [1, 2, np.nan, 4, 5, 100],
+        'B': [10, 20, 30, np.nan, 50, 60],
+        'C': [100, 200, 300, 400, 500, 600]
+    }
+    
+    df = pd.DataFrame(data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned_df = clean_dataset(df, strategy='median', threshold=2.5)
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+
+if __name__ == "__main__":
+    main()
