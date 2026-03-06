@@ -1058,3 +1058,100 @@ if __name__ == "__main__":
         print(f"\n{col}:")
         for stat_name, stat_value in col_stats.items():
             print(f"  {stat_name}: {stat_value}")
+import pandas as pd
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Args:
+        df: pandas DataFrame
+        subset: column label or sequence of labels to consider for duplicates
+        keep: 'first', 'last', or False to drop all duplicates
+        
+    Returns:
+        DataFrame with duplicates removed
+    """
+    if subset is None:
+        subset = df.columns.tolist()
+    
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+    
+    removed_count = len(df) - len(cleaned_df)
+    print(f"Removed {removed_count} duplicate rows")
+    
+    return cleaned_df
+
+def validate_dataframe(df):
+    """
+    Perform basic validation on DataFrame.
+    
+    Args:
+        df: pandas DataFrame to validate
+        
+    Returns:
+        Dictionary with validation results
+    """
+    validation_results = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_values': df.isnull().sum().sum(),
+        'duplicate_rows': df.duplicated().sum(),
+        'data_types': df.dtypes.to_dict()
+    }
+    
+    return validation_results
+
+def clean_numeric_columns(df, columns=None):
+    """
+    Clean numeric columns by converting to appropriate types.
+    
+    Args:
+        df: pandas DataFrame
+        columns: list of column names to clean (default: all numeric columns)
+        
+    Returns:
+        DataFrame with cleaned numeric columns
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=['int64', 'float64']).columns.tolist()
+    
+    cleaned_df = df.copy()
+    
+    for col in columns:
+        if col in cleaned_df.columns:
+            cleaned_df[col] = pd.to_numeric(cleaned_df[col], errors='coerce')
+    
+    return cleaned_df
+
+def main():
+    """
+    Example usage of data cleaning functions.
+    """
+    sample_data = {
+        'id': [1, 2, 2, 3, 4, 4, 5],
+        'name': ['Alice', 'Bob', 'Bob', 'Charlie', 'David', 'David', 'Eve'],
+        'score': [85, 90, 90, 78, 92, 92, 88],
+        'age': [25, 30, 30, 22, 35, 35, 28]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    
+    print("Original DataFrame:")
+    print(df)
+    print("\n")
+    
+    validation = validate_dataframe(df)
+    print("Validation Results:")
+    for key, value in validation.items():
+        print(f"{key}: {value}")
+    print("\n")
+    
+    cleaned_df = remove_duplicates(df, subset=['id', 'name'])
+    print("Cleaned DataFrame:")
+    print(cleaned_df)
+    
+    return cleaned_df
+
+if __name__ == "__main__":
+    cleaned_data = main()
