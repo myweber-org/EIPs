@@ -265,4 +265,94 @@ def clean_dataset(df, columns=None, drop_duplicates=True):
     if drop_duplicates:
         cleaned_df = cleaned_df.drop_duplicates()
     
-    return cleaned_df.reset_index(drop=True)
+    return cleaned_df.reset_index(drop=True)import pandas as pd
+import numpy as np
+
+def clean_csv_data(filepath, fill_strategy='mean', drop_threshold=0.5):
+    """
+    Load and clean CSV data by handling missing values.
+    
+    Parameters:
+    filepath (str): Path to the CSV file.
+    fill_strategy (str): Strategy for filling missing values ('mean', 'median', 'mode', 'zero').
+    drop_threshold (float): Drop columns with missing ratio above this threshold.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    try:
+        df = pd.read_csv(filepath)
+    except FileNotFoundError:
+        print(f"Error: File not found at {filepath}")
+        return None
+    
+    original_shape = df.shape
+    print(f"Original data shape: {original_shape}")
+    
+    missing_ratio = df.isnull().sum() / len(df)
+    columns_to_drop = missing_ratio[missing_ratio > drop_threshold].index
+    df = df.drop(columns=columns_to_drop)
+    
+    if fill_strategy == 'mean':
+        df = df.fillna(df.mean(numeric_only=True))
+    elif fill_strategy == 'median':
+        df = df.fillna(df.median(numeric_only=True))
+    elif fill_strategy == 'mode':
+        df = df.fillna(df.mode().iloc[0])
+    elif fill_strategy == 'zero':
+        df = df.fillna(0)
+    else:
+        print(f"Warning: Unknown fill strategy '{fill_strategy}', using forward fill.")
+        df = df.fillna(method='ffill')
+    
+    df = df.dropna()
+    
+    print(f"Cleaned data shape: {df.shape}")
+    print(f"Dropped {original_shape[0] - df.shape[0]} rows and {original_shape[1] - df.shape[1]} columns.")
+    
+    return df
+
+def detect_outliers_iqr(df, column):
+    """
+    Detect outliers in a column using the IQR method.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    column (str): Column name to check for outliers.
+    
+    Returns:
+    pd.Series: Boolean series indicating outliers.
+    """
+    if column not in df.columns:
+        print(f"Error: Column '{column}' not found in DataFrame.")
+        return None
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    outliers = (df[column] < lower_bound) | (df[column] > upper_bound)
+    return outliers
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, np.nan, 4, 5],
+        'B': [np.nan, 2, 3, np.nan, 5],
+        'C': [1, 1, 1, 1, 1],
+        'D': [10, 20, 30, 40, 50]
+    }
+    
+    test_df = pd.DataFrame(sample_data)
+    test_df.to_csv('test_data.csv', index=False)
+    
+    cleaned_df = clean_csv_data('test_data.csv', fill_strategy='mean', drop_threshold=0.6)
+    
+    if cleaned_df is not None:
+        print("\nCleaned DataFrame:")
+        print(cleaned_df)
+        
+        outlier_mask = detect_outliers_iqr(cleaned_df, 'D')
+        if outlier_mask is not None:
+            print(f"\nOutliers in column 'D': {outlier_mask.sum()}")
