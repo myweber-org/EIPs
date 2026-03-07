@@ -242,3 +242,110 @@ def remove_outliers_iqr(data, column):
     
     filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
     return filtered_data
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def detect_outliers_iqr(data, column, threshold=1.5):
+    """
+    Detect outliers using IQR method
+    """
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    
+    outliers = data[(data[column] < lower_bound) | (data[column] > upper_bound)]
+    return outliers, lower_bound, upper_bound
+
+def remove_outliers_zscore(data, column, threshold=3):
+    """
+    Remove outliers using Z-score method
+    """
+    z_scores = np.abs(stats.zscore(data[column].dropna()))
+    filtered_data = data[(z_scores < threshold) | (data[column].isna())]
+    return filtered_data
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using Min-Max scaling
+    """
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return data[column].apply(lambda x: 0.5)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def normalize_zscore(data, column):
+    """
+    Normalize data using Z-score standardization
+    """
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return data[column].apply(lambda x: 0)
+    
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
+
+def clean_missing_values(data, strategy='mean'):
+    """
+    Handle missing values with different strategies
+    """
+    cleaned_data = data.copy()
+    
+    for column in cleaned_data.columns:
+        if cleaned_data[column].isnull().any():
+            if strategy == 'mean':
+                fill_value = cleaned_data[column].mean()
+            elif strategy == 'median':
+                fill_value = cleaned_data[column].median()
+            elif strategy == 'mode':
+                fill_value = cleaned_data[column].mode()[0]
+            elif strategy == 'ffill':
+                cleaned_data[column] = cleaned_data[column].ffill()
+                continue
+            elif strategy == 'bfill':
+                cleaned_data[column] = cleaned_data[column].bfill()
+                continue
+            else:
+                raise ValueError(f"Unknown strategy: {strategy}")
+            
+            cleaned_data[column] = cleaned_data[column].fillna(fill_value)
+    
+    return cleaned_data
+
+def validate_dataframe(df):
+    """
+    Validate dataframe structure and content
+    """
+    checks = {
+        'has_data': not df.empty,
+        'columns_count': len(df.columns),
+        'rows_count': len(df),
+        'null_values': df.isnull().sum().sum(),
+        'duplicate_rows': df.duplicated().sum(),
+        'numeric_columns': df.select_dtypes(include=[np.number]).columns.tolist(),
+        'categorical_columns': df.select_dtypes(include=['object']).columns.tolist()
+    }
+    
+    return checks
+
+def create_data_summary(df):
+    """
+    Create comprehensive data summary
+    """
+    summary = {
+        'shape': df.shape,
+        'dtypes': df.dtypes.to_dict(),
+        'missing_values': df.isnull().sum().to_dict(),
+        'unique_values': {col: df[col].nunique() for col in df.columns},
+        'statistics': df.describe().to_dict() if not df.select_dtypes(include=[np.number]).empty else {}
+    }
+    
+    return summary
