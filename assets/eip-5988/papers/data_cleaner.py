@@ -1155,3 +1155,56 @@ def main():
 
 if __name__ == "__main__":
     cleaned_data = main()
+import re
+import pandas as pd
+from typing import Optional, List, Dict, Any
+
+def remove_duplicates(df: pd.DataFrame, subset: Optional[List[str]] = None) -> pd.DataFrame:
+    """Remove duplicate rows from a DataFrame."""
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def normalize_string_column(df: pd.DataFrame, column: str) -> pd.DataFrame:
+    """Normalize a string column: lowercase and strip whitespace."""
+    df[column] = df[column].astype(str).str.lower().str.strip()
+    return df
+
+def validate_email_format(email_series: pd.Series) -> pd.Series:
+    """Validate email format using a simple regex pattern."""
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return email_series.astype(str).str.match(pattern)
+
+def fill_missing_with_mean(df: pd.DataFrame, column: str) -> pd.DataFrame:
+    """Fill missing values in a numeric column with the column's mean."""
+    if pd.api.types.is_numeric_dtype(df[column]):
+        mean_val = df[column].mean()
+        df[column] = df[column].fillna(mean_val)
+    return df
+
+def filter_by_threshold(df: pd.DataFrame, column: str, threshold: float, keep: str = 'above') -> pd.DataFrame:
+    """Filter rows based on a numeric threshold."""
+    if keep == 'above':
+        return df[df[column] > threshold]
+    elif keep == 'below':
+        return df[df[column] < threshold]
+    else:
+        raise ValueError("keep must be 'above' or 'below'")
+
+def convert_to_datetime(df: pd.DataFrame, column: str, format: Optional[str] = None) -> pd.DataFrame:
+    """Convert a column to datetime format."""
+    if format:
+        df[column] = pd.to_datetime(df[column], format=format, errors='coerce')
+    else:
+        df[column] = pd.to_datetime(df[column], errors='coerce')
+    return df
+
+def summarize_missing_data(df: pd.DataFrame) -> Dict[str, Any]:
+    """Generate a summary of missing data in the DataFrame."""
+    total_rows = len(df)
+    missing_counts = df.isnull().sum()
+    missing_percentages = (missing_counts / total_rows) * 100
+    summary = {
+        'total_rows': total_rows,
+        'missing_counts': missing_counts.to_dict(),
+        'missing_percentages': missing_percentages.to_dict()
+    }
+    return summary
