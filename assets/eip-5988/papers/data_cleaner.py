@@ -1208,3 +1208,114 @@ def summarize_missing_data(df: pd.DataFrame) -> Dict[str, Any]:
         'missing_percentages': missing_percentages.to_dict()
     }
     return summary
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, text_columns=None, fill_numeric='mean', fill_categorical='mode'):
+    """
+    Clean a pandas DataFrame by handling missing values and standardizing text columns.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean
+    text_columns (list): List of column names containing text data
+    fill_numeric (str): Strategy for filling numeric columns ('mean', 'median', 'zero')
+    fill_categorical (str): Strategy for filling categorical columns ('mode', 'unknown')
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    
+    df_clean = df.copy()
+    
+    # Handle missing values for numeric columns
+    numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        if df_clean[col].isnull().any():
+            if fill_numeric == 'mean':
+                fill_value = df_clean[col].mean()
+            elif fill_numeric == 'median':
+                fill_value = df_clean[col].median()
+            elif fill_numeric == 'zero':
+                fill_value = 0
+            else:
+                fill_value = df_clean[col].mean()
+            df_clean[col].fillna(fill_value, inplace=True)
+    
+    # Handle missing values for categorical columns
+    categorical_cols = df_clean.select_dtypes(include=['object', 'category']).columns
+    for col in categorical_cols:
+        if df_clean[col].isnull().any():
+            if fill_categorical == 'mode':
+                fill_value = df_clean[col].mode()[0] if not df_clean[col].mode().empty else 'Unknown'
+            else:
+                fill_value = 'Unknown'
+            df_clean[col].fillna(fill_value, inplace=True)
+    
+    # Standardize text columns if specified
+    if text_columns:
+        for col in text_columns:
+            if col in df_clean.columns:
+                df_clean[col] = df_clean[col].astype(str).str.strip().str.lower()
+    
+    # Reset index to ensure consistency
+    df_clean.reset_index(drop=True, inplace=True)
+    
+    return df_clean
+
+def remove_outliers_iqr(df, columns=None, multiplier=1.5):
+    """
+    Remove outliers using the Interquartile Range (IQR) method.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    columns (list): List of numeric columns to check for outliers
+    multiplier (float): IQR multiplier for outlier detection
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_filtered = df.copy()
+    
+    for col in columns:
+        if col in df_filtered.columns and pd.api.types.is_numeric_dtype(df_filtered[col]):
+            Q1 = df_filtered[col].quantile(0.25)
+            Q3 = df_filtered[col].quantile(0.75)
+            IQR = Q3 - Q1
+            
+            lower_bound = Q1 - multiplier * IQR
+            upper_bound = Q3 + multiplier * IQR
+            
+            df_filtered = df_filtered[(df_filtered[col] >= lower_bound) & 
+                                     (df_filtered[col] <= upper_bound)]
+    
+    return df_filtered
+
+def validate_dataframe(df, required_columns=None, min_rows=1):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of required column names
+    min_rows (int): Minimum number of rows required
+    
+    Returns:
+    tuple: (is_valid, error_message)
+    """
+    
+    if not isinstance(df, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
+    if len(df) < min_rows:
+        return False, f"DataFrame must have at least {min_rows} rows"
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
+    
+    return True, "DataFrame is valid"
