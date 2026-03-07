@@ -1,92 +1,40 @@
 import pandas as pd
 
-def clean_dataframe(df, drop_duplicates=True, fill_missing=False, fill_value=0):
+def clean_dataset(df):
     """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    Clean a pandas DataFrame by removing null values and duplicate rows.
     
     Args:
-        df (pd.DataFrame): Input DataFrame to clean.
-        drop_duplicates (bool): Whether to drop duplicate rows.
-        fill_missing (bool): Whether to fill missing values.
-        fill_value: Value to use for filling missing data.
+        df (pd.DataFrame): Input DataFrame to be cleaned.
     
     Returns:
         pd.DataFrame: Cleaned DataFrame.
     """
-    cleaned_df = df.copy()
+    # Remove rows with any null values
+    df_cleaned = df.dropna()
     
-    if drop_duplicates:
-        cleaned_df = cleaned_df.drop_duplicates()
+    # Remove duplicate rows
+    df_cleaned = df_cleaned.drop_duplicates()
     
-    if fill_missing:
-        cleaned_df = cleaned_df.fillna(fill_value)
+    # Reset index after cleaning
+    df_cleaned = df_cleaned.reset_index(drop=True)
     
-    return cleaned_df
+    return df_cleaned
 
-def validate_dataframe(df, required_columns=None):
+def filter_by_column(df, column_name, threshold):
     """
-    Validate DataFrame structure and required columns.
+    Filter DataFrame rows based on column value threshold.
     
     Args:
-        df (pd.DataFrame): DataFrame to validate.
-        required_columns (list): List of column names that must be present.
+        df (pd.DataFrame): Input DataFrame.
+        column_name (str): Name of column to filter by.
+        threshold (float): Threshold value for filtering.
     
     Returns:
-        tuple: (is_valid, error_message)
+        pd.DataFrame: Filtered DataFrame.
     """
-    if not isinstance(df, pd.DataFrame):
-        return False, "Input is not a pandas DataFrame"
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
     
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            return False, f"Missing required columns: {missing_columns}"
-    
-    return True, "DataFrame is valid"
-import pandas as pd
-import numpy as np
-
-def clean_dataset(df, strategy='mean', threshold=3):
-    """
-    Clean a pandas DataFrame by handling missing values and removing outliers.
-    """
-    df_clean = df.copy()
-    
-    # Handle missing values
-    if strategy == 'mean':
-        df_clean = df_clean.fillna(df_clean.mean())
-    elif strategy == 'median':
-        df_clean = df_clean.fillna(df_clean.median())
-    elif strategy == 'mode':
-        df_clean = df_clean.fillna(df_clean.mode().iloc[0])
-    elif strategy == 'drop':
-        df_clean = df_clean.dropna()
-    else:
-        raise ValueError("Invalid strategy. Choose from 'mean', 'median', 'mode', or 'drop'")
-    
-    # Remove outliers using Z-score method
-    if threshold is not None:
-        numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
-        z_scores = np.abs((df_clean[numeric_cols] - df_clean[numeric_cols].mean()) / df_clean[numeric_cols].std())
-        df_clean = df_clean[(z_scores < threshold).all(axis=1)]
-    
-    return df_clean
-
-def main():
-    # Example usage
-    data = {
-        'A': [1, 2, np.nan, 4, 5, 100],
-        'B': [10, 20, 30, np.nan, 50, 60],
-        'C': [100, 200, 300, 400, 500, 600]
-    }
-    
-    df = pd.DataFrame(data)
-    print("Original DataFrame:")
-    print(df)
-    
-    cleaned_df = clean_dataset(df, strategy='median', threshold=2.5)
-    print("\nCleaned DataFrame:")
-    print(cleaned_df)
-
-if __name__ == "__main__":
-    main()
+    filtered_df = df[df[column_name] >= threshold]
+    return filtered_df.reset_index(drop=True)
