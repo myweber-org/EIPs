@@ -239,3 +239,30 @@ if __name__ == "__main__":
     normalized_df = normalize_column(filled_df, 'values', method='minmax')
     print("After normalization:")
     print(normalized_df[['values', 'values_normalized']].head())
+import pandas as pd
+
+def clean_dataset(df, columns=None, drop_duplicates=True):
+    """
+    Clean a pandas DataFrame by removing rows with null values in specified columns
+    and optionally removing duplicate rows.
+    
+    Parameters:
+    df (pd.DataFrame): The input DataFrame to clean.
+    columns (list, optional): List of column names to check for nulls.
+                              If None, checks all columns.
+    drop_duplicates (bool): If True, remove duplicate rows after null cleaning.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    if columns is None:
+        columns = df.columns
+    
+    # Drop rows with null values in specified columns
+    cleaned_df = df.dropna(subset=columns)
+    
+    # Remove duplicates if specified
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    return cleaned_df.reset_index(drop=True)
