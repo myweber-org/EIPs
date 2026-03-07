@@ -110,3 +110,72 @@ if __name__ == "__main__":
     
     summary = generate_summary(cleaned_df)
     print(f"\nSummary: {summary['total_rows']} rows, {summary['total_columns']} columns")
+import pandas as pd
+import numpy as np
+
+def clean_dataframe(df, column_mapping=None, drop_duplicates=True, fill_na=True):
+    """
+    Clean a pandas DataFrame by standardizing columns, removing duplicates,
+    and handling missing values.
+    """
+    cleaned_df = df.copy()
+    
+    if column_mapping:
+        cleaned_df = cleaned_df.rename(columns=column_mapping)
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    if fill_na:
+        for col in cleaned_df.select_dtypes(include=[np.number]).columns:
+            cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].median())
+        for col in cleaned_df.select_dtypes(include=['object']).columns:
+            cleaned_df[col] = cleaned_df[col].fillna('Unknown')
+    
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None, unique_columns=None):
+    """
+    Validate DataFrame structure and content.
+    """
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            raise ValueError(f"Missing required columns: {missing_columns}")
+    
+    if unique_columns:
+        for col in unique_columns:
+            if col in df.columns and df[col].duplicated().any():
+                raise ValueError(f"Column '{col}' contains duplicate values")
+    
+    return True
+
+def process_csv_file(input_path, output_path, **kwargs):
+    """
+    Read CSV file, clean data, and save to output path.
+    """
+    try:
+        df = pd.read_csv(input_path)
+        cleaned_df = clean_dataframe(df, **kwargs)
+        
+        if validate_dataframe(cleaned_df):
+            cleaned_df.to_csv(output_path, index=False)
+            return True, f"Data cleaned successfully. Saved to {output_path}"
+    except Exception as e:
+        return False, f"Error processing file: {str(e)}"
+    
+    return False, "Unknown error occurred"
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'Name': ['Alice', 'Bob', 'Alice', 'Charlie', None],
+        'Age': [25, 30, 25, None, 35],
+        'City': ['NYC', 'LA', 'NYC', 'Chicago', 'Boston']
+    })
+    
+    cleaned = clean_dataframe(sample_data)
+    print("Original data:")
+    print(sample_data)
+    print("\nCleaned data:")
+    print(cleaned)
