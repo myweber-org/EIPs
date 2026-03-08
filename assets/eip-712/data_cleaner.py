@@ -119,3 +119,104 @@ def example_usage():
 
 if __name__ == "__main__":
     cleaned_data = example_usage()
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, columns_to_check=None, fill_missing=True):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Args:
+        df: pandas DataFrame to clean
+        columns_to_check: list of columns to check for duplicates (default: all columns)
+        fill_missing: boolean indicating whether to fill missing values (default: True)
+    
+    Returns:
+        Cleaned pandas DataFrame
+    """
+    # Create a copy to avoid modifying the original DataFrame
+    cleaned_df = df.copy()
+    
+    # Remove duplicate rows
+    if columns_to_check:
+        cleaned_df = cleaned_df.drop_duplicates(subset=columns_to_check)
+    else:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    # Handle missing values
+    if fill_missing:
+        # Fill numeric columns with median
+        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            if cleaned_df[col].isnull().any():
+                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].median())
+        
+        # Fill categorical columns with mode
+        categorical_cols = cleaned_df.select_dtypes(include=['object']).columns
+        for col in categorical_cols:
+            if cleaned_df[col].isnull().any():
+                mode_value = cleaned_df[col].mode()[0] if not cleaned_df[col].mode().empty else 'Unknown'
+                cleaned_df[col] = cleaned_df[col].fillna(mode_value)
+    
+    # Reset index after cleaning
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    return cleaned_df
+
+def validate_dataset(df, required_columns=None):
+    """
+    Validate a pandas DataFrame for required columns and data quality.
+    
+    Args:
+        df: pandas DataFrame to validate
+        required_columns: list of required column names (default: None)
+    
+    Returns:
+        Dictionary with validation results
+    """
+    validation_results = {
+        'is_valid': True,
+        'missing_columns': [],
+        'empty_rows': 0,
+        'total_rows': len(df),
+        'total_columns': len(df.columns)
+    }
+    
+    # Check for required columns
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            validation_results['missing_columns'] = missing_cols
+            validation_results['is_valid'] = False
+    
+    # Check for empty rows
+    empty_rows = df.isnull().all(axis=1).sum()
+    validation_results['empty_rows'] = empty_rows
+    
+    return validation_results
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'id': [1, 2, 2, 3, 4, 5],
+        'name': ['Alice', 'Bob', 'Bob', 'Charlie', None, 'Eve'],
+        'age': [25, 30, 30, None, 28, 35],
+        'score': [85.5, 92.0, 92.0, 78.5, 88.0, None]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    # Clean the dataset
+    cleaned_df = clean_dataset(df, columns_to_check=['id', 'name'])
+    print("Cleaned DataFrame:")
+    print(cleaned_df)
+    print("\n" + "="*50 + "\n")
+    
+    # Validate the cleaned dataset
+    validation = validate_dataset(cleaned_df, required_columns=['id', 'name', 'age'])
+    print("Validation Results:")
+    for key, value in validation.items():
+        print(f"{key}: {value}")
