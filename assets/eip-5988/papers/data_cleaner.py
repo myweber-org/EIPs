@@ -1318,4 +1318,122 @@ def validate_dataframe(df, required_columns=None, min_rows=1):
         if missing_cols:
             return False, f"Missing required columns: {missing_cols}"
     
-    return True, "DataFrame is valid"
+    return True, "DataFrame is valid"import pandas as pd
+import numpy as np
+from pathlib import Path
+
+def clean_csv_data(input_path, output_path=None):
+    """
+    Load a CSV file, perform basic cleaning operations,
+    and save the cleaned data.
+    """
+    try:
+        df = pd.read_csv(input_path)
+        print(f"Loaded data with shape: {df.shape}")
+        
+        # Remove duplicate rows
+        initial_count = len(df)
+        df.drop_duplicates(inplace=True)
+        duplicates_removed = initial_count - len(df)
+        print(f"Removed {duplicates_removed} duplicate rows")
+        
+        # Handle missing values
+        missing_before = df.isnull().sum().sum()
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            df[col].fillna(df[col].median(), inplace=True)
+        
+        categorical_cols = df.select_dtypes(include=['object']).columns
+        for col in categorical_cols:
+            df[col].fillna('Unknown', inplace=True)
+        
+        missing_after = df.isnull().sum().sum()
+        print(f"Fixed {missing_before - missing_after} missing values")
+        
+        # Remove outliers using IQR method for numeric columns
+        outliers_removed = 0
+        for col in numeric_cols:
+            Q1 = df[col].quantile(0.25)
+            Q3 = df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - 1.5 * IQR
+            upper_bound = Q3 + 1.5 * IQR
+            mask = (df[col] >= lower_bound) & (df[col] <= upper_bound)
+            outliers_removed += (~mask).sum()
+            df = df[mask]
+        
+        print(f"Removed {outliers_removed} outliers")
+        
+        # Standardize column names
+        df.columns = df.columns.str.strip().str.lower().str.replace(' ', '_')
+        
+        # Generate output path if not provided
+        if output_path is None:
+            input_file = Path(input_path)
+            output_path = input_file.parent / f"cleaned_{input_file.name}"
+        
+        # Save cleaned data
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to: {output_path}")
+        print(f"Final data shape: {df.shape}")
+        
+        return df, output_path
+        
+    except FileNotFoundError:
+        print(f"Error: File not found at {input_path}")
+        return None, None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None, None
+
+def validate_dataframe(df):
+    """
+    Perform basic validation on the cleaned dataframe.
+    """
+    if df is None:
+        return False
+    
+    checks = {
+        'has_data': len(df) > 0,
+        'has_columns': len(df.columns) > 0,
+        'no_missing_values': df.isnull().sum().sum() == 0,
+        'no_infinite_values': np.isfinite(df.select_dtypes(include=[np.number])).all().all()
+    }
+    
+    print("Data validation results:")
+    for check_name, result in checks.items():
+        status = "PASS" if result else "FAIL"
+        print(f"  {check_name}: {status}")
+    
+    return all(checks.values())
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'Customer_ID': [1, 2, 3, 4, 5, 5],
+        'Age': [25, 30, None, 35, 200, 25],
+        'Income': [50000, 60000, 75000, None, 80000, 50000],
+        'Category': ['A', 'B', None, 'A', 'C', 'A']
+    }
+    
+    # Create a temporary CSV for demonstration
+    import tempfile
+    import os
+    
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as tmp:
+        pd.DataFrame(sample_data).to_csv(tmp.name, index=False)
+        input_file = tmp.name
+    
+    print("Starting data cleaning process...")
+    cleaned_df, output_file = clean_csv_data(input_file)
+    
+    if cleaned_df is not None:
+        print("\nCleaned data preview:")
+        print(cleaned_df.head())
+        
+        print("\nData validation:")
+        is_valid = validate_dataframe(cleaned_df)
+        print(f"\nOverall validation: {'PASSED' if is_valid else 'FAILED'}")
+    
+    # Clean up temporary file
+    os.unlink(input_file)
