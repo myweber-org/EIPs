@@ -147,3 +147,128 @@ if __name__ == "__main__":
     cleaned_df = example_usage()
     print("Cleaned data sample:")
     print(cleaned_df.head())
+import pandas as pd
+import numpy as np
+
+def clean_csv_data(file_path, output_path=None, missing_strategy='mean'):
+    """
+    Load a CSV file, clean missing values, and optionally save cleaned data.
+    
+    Parameters:
+    file_path (str): Path to input CSV file
+    output_path (str, optional): Path to save cleaned CSV file
+    missing_strategy (str): Strategy for handling missing values ('mean', 'median', 'drop', 'zero')
+    
+    Returns:
+    pandas.DataFrame: Cleaned DataFrame
+    """
+    
+    try:
+        df = pd.read_csv(file_path)
+        print(f"Loaded data with shape: {df.shape}")
+        
+        # Check for missing values
+        missing_count = df.isnull().sum().sum()
+        if missing_count > 0:
+            print(f"Found {missing_count} missing values")
+            
+            # Handle missing values based on strategy
+            if missing_strategy == 'mean':
+                df = df.fillna(df.mean(numeric_only=True))
+            elif missing_strategy == 'median':
+                df = df.fillna(df.median(numeric_only=True))
+            elif missing_strategy == 'drop':
+                df = df.dropna()
+            elif missing_strategy == 'zero':
+                df = df.fillna(0)
+            else:
+                raise ValueError(f"Unknown strategy: {missing_strategy}")
+            
+            print(f"Missing values handled using '{missing_strategy}' strategy")
+        
+        # Remove duplicate rows
+        initial_rows = len(df)
+        df = df.drop_duplicates()
+        duplicates_removed = initial_rows - len(df)
+        if duplicates_removed > 0:
+            print(f"Removed {duplicates_removed} duplicate rows")
+        
+        # Convert column names to lowercase with underscores
+        df.columns = df.columns.str.lower().str.replace(' ', '_')
+        
+        # Save cleaned data if output path provided
+        if output_path:
+            df.to_csv(output_path, index=False)
+            print(f"Cleaned data saved to: {output_path}")
+        
+        print(f"Final data shape: {df.shape}")
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: File not found at {file_path}")
+        return None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None
+
+def validate_numeric_columns(df, column_names):
+    """
+    Validate that specified columns contain only numeric data.
+    
+    Parameters:
+    df (pandas.DataFrame): DataFrame to validate
+    column_names (list): List of column names to check
+    
+    Returns:
+    dict: Validation results for each column
+    """
+    validation_results = {}
+    
+    for col in column_names:
+        if col in df.columns:
+            # Check if column is numeric
+            if pd.api.types.is_numeric_dtype(df[col]):
+                validation_results[col] = {
+                    'is_numeric': True,
+                    'min': df[col].min(),
+                    'max': df[col].max(),
+                    'mean': df[col].mean(),
+                    'null_count': df[col].isnull().sum()
+                }
+            else:
+                validation_results[col] = {
+                    'is_numeric': False,
+                    'unique_values': df[col].nunique(),
+                    'null_count': df[col].isnull().sum()
+                }
+        else:
+            validation_results[col] = {'error': 'Column not found'}
+    
+    return validation_results
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'Name': ['Alice', 'Bob', 'Charlie', None, 'Eve'],
+        'Age': [25, 30, None, 35, 40],
+        'Salary': [50000, 60000, 70000, None, 90000],
+        'Department': ['HR', 'IT', 'IT', 'Finance', 'HR']
+    }
+    
+    # Create sample DataFrame
+    df_sample = pd.DataFrame(sample_data)
+    df_sample.to_csv('sample_data.csv', index=False)
+    
+    # Clean the sample data
+    cleaned_df = clean_csv_data(
+        'sample_data.csv',
+        output_path='cleaned_sample_data.csv',
+        missing_strategy='mean'
+    )
+    
+    if cleaned_df is not None:
+        # Validate numeric columns
+        validation = validate_numeric_columns(cleaned_df, ['age', 'salary', 'department'])
+        print("\nColumn validation results:")
+        for col, result in validation.items():
+            print(f"{col}: {result}")
