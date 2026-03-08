@@ -350,4 +350,61 @@ if __name__ == "__main__":
     
     # Validate data types
     is_valid = validate_data_types(cleaned_data, (int, str))
-    print("Data validation result:", is_valid)
+    print("Data validation result:", is_valid)import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+def normalize_minmax(df, column):
+    min_val = df[column].min()
+    max_val = df[column].max()
+    if max_val - min_val == 0:
+        return df[column].apply(lambda x: 0.0)
+    return (df[column] - min_val) / (max_val - min_val)
+
+def standardize_zscore(df, column):
+    mean_val = df[column].mean()
+    std_val = df[column].std()
+    if std_val == 0:
+        return df[column].apply(lambda x: 0.0)
+    return (df[column] - mean_val) / std_val
+
+def clean_dataset(df, numeric_columns):
+    cleaned_df = df.copy()
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+    return cleaned_df.reset_index(drop=True)
+
+def process_features(df, numeric_columns, method='minmax'):
+    processed_df = df.copy()
+    for col in numeric_columns:
+        if col in processed_df.columns:
+            if method == 'minmax':
+                processed_df[col] = normalize_minmax(processed_df, col)
+            elif method == 'zscore':
+                processed_df[col] = standardize_zscore(processed_df, col)
+    return processed_df
+
+if __name__ == "__main__":
+    sample_data = {
+        'feature1': [10, 12, 12, 13, 12, 50, 11, 12, 100, 12],
+        'feature2': [1.1, 1.2, 1.3, 1.2, 1.25, 5.0, 1.15, 1.18, 10.0, 1.22],
+        'category': ['A', 'B', 'A', 'C', 'B', 'A', 'C', 'B', 'A', 'C']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original dataset:")
+    print(df)
+    print("\nCleaned dataset (outliers removed):")
+    cleaned = clean_dataset(df, ['feature1', 'feature2'])
+    print(cleaned)
+    print("\nNormalized features (min-max):")
+    normalized = process_features(cleaned, ['feature1', 'feature2'], 'minmax')
+    print(normalized)
