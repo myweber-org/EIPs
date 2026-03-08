@@ -281,3 +281,73 @@ def validate_data(df, required_columns=None, min_rows=1):
             return False, f"Missing required columns: {missing_cols}"
     
     return True, "Data validation passed"
+def remove_duplicates(data_list):
+    """
+    Remove duplicate entries from a list while preserving order.
+    
+    Args:
+        data_list (list): Input list potentially containing duplicates.
+    
+    Returns:
+        list: List with duplicates removed.
+    """
+    seen = set()
+    result = []
+    
+    for item in data_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    
+    return result
+
+def clean_numeric_strings(data_list):
+    """
+    Clean list by converting numeric strings to integers where possible.
+    
+    Args:
+        data_list (list): Input list containing mixed types.
+    
+    Returns:
+        list: List with numeric strings converted to integers.
+    """
+    cleaned = []
+    
+    for item in data_list:
+        if isinstance(item, str) and item.isdigit():
+            cleaned.append(int(item))
+        else:
+            cleaned.append(item)
+    
+    return cleaned
+
+def validate_data_types(data_list, expected_type):
+    """
+    Validate that all items in list are of expected type.
+    
+    Args:
+        data_list (list): Input list to validate.
+        expected_type (type): Expected data type for all items.
+    
+    Returns:
+        bool: True if all items match expected type, False otherwise.
+    """
+    return all(isinstance(item, expected_type) for item in data_list)
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = [1, 2, 2, 3, "4", "4", 5, "hello"]
+    
+    print("Original data:", sample_data)
+    
+    # Remove duplicates
+    unique_data = remove_duplicates(sample_data)
+    print("After removing duplicates:", unique_data)
+    
+    # Clean numeric strings
+    cleaned_data = clean_numeric_strings(unique_data)
+    print("After cleaning numeric strings:", cleaned_data)
+    
+    # Validate data types
+    is_valid = validate_data_types(cleaned_data, (int, str))
+    print("Data validation result:", is_valid)
