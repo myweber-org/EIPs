@@ -90,3 +90,11 @@ def process_dataset(file_path, numerical_cols, categorical_cols=None):
             cleaner.fill_missing(col, method='mode')
     
     return cleaner.get_cleaned_data(), cleaner.get_summary()
+def deduplicate_list(original_list):
+    seen = set()
+    deduplicated = []
+    for item in original_list:
+        if item not in seen:
+            seen.add(item)
+            deduplicated.append(item)
+    return deduplicated
