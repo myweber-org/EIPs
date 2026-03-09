@@ -45,4 +45,38 @@ if __name__ == "__main__":
     input_file = sys.argv[1]
     output_file = sys.argv[2] if len(sys.argv) > 2 else None
     
-    remove_duplicates(input_file, output_file)
+    remove_duplicates(input_file, output_file)import os
+import time
+import shutil
+
+def clean_old_files(directory, days=7):
+    """
+    Remove files older than specified days from given directory.
+    """
+    if not os.path.exists(directory):
+        print(f"Directory {directory} does not exist.")
+        return
+    
+    cutoff_time = time.time() - (days * 24 * 60 * 60)
+    
+    for filename in os.listdir(directory):
+        filepath = os.path.join(directory, filename)
+        if os.path.isfile(filepath):
+            file_mtime = os.path.getmtime(filepath)
+            if file_mtime < cutoff_time:
+                try:
+                    os.remove(filepath)
+                    print(f"Removed: {filepath}")
+                except OSError as e:
+                    print(f"Error removing {filepath}: {e}")
+        elif os.path.isdir(filepath):
+            try:
+                if not os.listdir(filepath):
+                    shutil.rmtree(filepath)
+                    print(f"Removed empty directory: {filepath}")
+            except OSError as e:
+                print(f"Error processing directory {filepath}: {e}")
+
+if __name__ == "__main__":
+    target_dir = "/tmp/myapp_cache"
+    clean_old_files(target_dir, days=7)
