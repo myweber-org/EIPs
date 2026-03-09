@@ -1123,3 +1123,41 @@ if __name__ == "__main__":
     
     is_valid, message = validate_dataframe(cleaned, required_columns=['A', 'B'], min_rows=3)
     print(f"\nValidation: {is_valid}, Message: {message}")
+import pandas as pd
+
+def clean_dataframe(df, column_name, threshold):
+    """
+    Filters a DataFrame by keeping rows where the value in the specified
+    column is greater than a given threshold, and resets the index.
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame.")
+    
+    filtered_df = df[df[column_name] > threshold].copy()
+    filtered_df.reset_index(drop=True, inplace=True)
+    return filtered_df
+
+def remove_duplicates(df, subset=None):
+    """
+    Removes duplicate rows from the DataFrame, optionally considering
+    only certain columns.
+    """
+    cleaned_df = df.drop_duplicates(subset=subset, keep='first')
+    cleaned_df.reset_index(drop=True, inplace=True)
+    return cleaned_df
+
+def validate_numeric_range(df, column_name, min_val, max_val):
+    """
+    Validates that all values in a specified numeric column fall within
+    a given inclusive range. Returns a boolean Series.
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame.")
+    
+    series = df[column_name]
+    is_numeric = pd.api.types.is_numeric_dtype(series)
+    if not is_numeric:
+        raise TypeError(f"Column '{column_name}' is not numeric.")
+    
+    in_range = (series >= min_val) & (series <= max_val)
+    return in_range
