@@ -178,3 +178,107 @@ if __name__ == "__main__":
     print("\nCleaned DataFrame:")
     cleaned = clean_dataset(df)
     print(cleaned)
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, deduplicate=True, handle_nulls='drop'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling null values.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    deduplicate (bool): If True, remove duplicate rows.
+    handle_nulls (str): Strategy for null values: 'drop', 'fill_mean', 'fill_median', 'fill_mode'.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    if deduplicate:
+        initial_rows = len(cleaned_df)
+        cleaned_df = cleaned_df.drop_duplicates()
+        removed = initial_rows - len(cleaned_df)
+        print(f"Removed {removed} duplicate rows.")
+    
+    if handle_nulls == 'drop':
+        cleaned_df = cleaned_df.dropna()
+        print("Dropped rows with null values.")
+    elif handle_nulls.startswith('fill_'):
+        method = handle_nulls.split('_')[1]
+        for column in cleaned_df.select_dtypes(include=[np.number]).columns:
+            if method == 'mean':
+                cleaned_df[column].fillna(cleaned_df[column].mean(), inplace=True)
+            elif method == 'median':
+                cleaned_df[column].fillna(cleaned_df[column].median(), inplace=True)
+            elif method == 'mode':
+                cleaned_df[column].fillna(cleaned_df[column].mode()[0], inplace=True)
+        print(f"Filled null values using {method}.")
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+    required_columns (list): List of column names that must be present.
+    
+    Returns:
+    bool: True if validation passes, False otherwise.
+    """
+    if not isinstance(df, pd.DataFrame):
+        print("Error: Input is not a pandas DataFrame.")
+        return False
+    
+    if required_columns:
+        missing = [col for col in required_columns if col not in df.columns]
+        if missing:
+            print(f"Error: Missing required columns: {missing}")
+            return False
+    
+    if df.empty:
+        print("Warning: DataFrame is empty.")
+    
+    return True
+
+def get_data_summary(df):
+    """
+    Generate a summary of the DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    
+    Returns:
+    dict: Summary statistics.
+    """
+    summary = {
+        'rows': len(df),
+        'columns': len(df.columns),
+        'null_count': df.isnull().sum().sum(),
+        'duplicate_rows': df.duplicated().sum(),
+        'dtypes': df.dtypes.to_dict(),
+        'numeric_columns': list(df.select_dtypes(include=[np.number]).columns),
+        'categorical_columns': list(df.select_dtypes(include=['object']).columns)
+    }
+    return summary
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, 2, 3, None, 5],
+        'B': [10, 20, 20, None, 50, 60],
+        'C': ['x', 'y', 'y', 'z', 'z', 'x']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nSummary:")
+    print(get_data_summary(df))
+    
+    cleaned = clean_dataset(df, deduplicate=True, handle_nulls='fill_mean')
+    print("\nCleaned DataFrame:")
+    print(cleaned)
+    print("\nCleaned Summary:")
+    print(get_data_summary(cleaned))
