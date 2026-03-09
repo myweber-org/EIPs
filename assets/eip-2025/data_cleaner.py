@@ -397,3 +397,124 @@ def validate_data(df, checks=None):
         results['data_types'] = df.dtypes.astype(str).to_dict()
     
     return results
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column, multiplier=1.5):
+    """
+    Remove outliers using IQR method
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - multiplier * iqr
+    upper_bound = q3 + multiplier * iqr
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
+
+def remove_outliers_zscore(data, column, threshold=3):
+    """
+    Remove outliers using Z-score method
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    z_scores = np.abs(stats.zscore(data[column].dropna()))
+    filtered_indices = np.where(z_scores < threshold)[0]
+    filtered_data = data.iloc[filtered_indices]
+    return filtered_data
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using Min-Max scaling
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return data[column].apply(lambda x: 0.5)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def normalize_zscore(data, column):
+    """
+    Normalize data using Z-score standardization
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return data[column].apply(lambda x: 0)
+    
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
+
+def clean_dataset(df, numeric_columns, outlier_method='iqr', normalize_method='minmax'):
+    """
+    Comprehensive data cleaning pipeline
+    """
+    cleaned_df = df.copy()
+    
+    for col in numeric_columns:
+        if col not in cleaned_df.columns:
+            continue
+            
+        if outlier_method == 'iqr':
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+        elif outlier_method == 'zscore':
+            cleaned_df = remove_outliers_zscore(cleaned_df, col)
+        
+        if normalize_method == 'minmax':
+            cleaned_df[f'{col}_normalized'] = normalize_minmax(cleaned_df, col)
+        elif normalize_method == 'zscore':
+            cleaned_df[f'{col}_standardized'] = normalize_zscore(cleaned_df, col)
+    
+    return cleaned_df
+
+def get_summary_statistics(df, numeric_columns):
+    """
+    Generate summary statistics for numeric columns
+    """
+    summary = {}
+    
+    for col in numeric_columns:
+        if col in df.columns:
+            summary[col] = {
+                'mean': df[col].mean(),
+                'median': df[col].median(),
+                'std': df[col].std(),
+                'min': df[col].min(),
+                'max': df[col].max(),
+                'count': df[col].count(),
+                'missing': df[col].isnull().sum()
+            }
+    
+    return pd.DataFrame(summary).T
+
+def detect_skewness(df, column, threshold=0.5):
+    """
+    Detect skewness in data distribution
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    skewness = df[column].skew()
+    is_skewed = abs(skewness) > threshold
+    
+    return {
+        'skewness': skewness,
+        'is_skewed': is_skewed,
+        'skew_direction': 'right' if skewness > 0 else 'left' if skewness < 0 else 'none'
+    }
