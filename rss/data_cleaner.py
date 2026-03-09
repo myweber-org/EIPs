@@ -267,3 +267,63 @@ if __name__ == "__main__":
     # Validate the cleaned data
     is_valid, message = validate_dataframe(cleaned, required_columns=['A', 'B', 'C'])
     print(f"\nValidation: {is_valid} - {message}")
+import pandas as pd
+import re
+
+def clean_dataset(df, text_column):
+    """
+    Clean a dataset by removing duplicate rows and normalizing text in a specified column.
+    """
+    # Remove duplicate rows
+    df_clean = df.drop_duplicates().reset_index(drop=True)
+    
+    # Normalize text: lowercase, remove extra whitespace
+    if text_column in df_clean.columns:
+        df_clean[text_column] = df_clean[text_column].apply(
+            lambda x: re.sub(r'\s+', ' ', str(x).strip().lower())
+        )
+    
+    return df_clean
+
+def filter_by_length(df, text_column, min_length=10):
+    """
+    Filter rows where the text in the specified column is shorter than min_length.
+    """
+    if text_column in df.columns:
+        mask = df[text_column].str.len() >= min_length
+        return df[mask].reset_index(drop=True)
+    return df
+
+def save_cleaned_data(df, output_path):
+    """
+    Save the cleaned DataFrame to a CSV file.
+    """
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to {output_path}")
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'id': [1, 2, 3, 4, 4],
+        'comment': [
+            'Hello World!',
+            '  HELLO   WORLD!  ',
+            'hello world!',
+            'Test',
+            'Test'
+        ]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned_df = clean_dataset(df, 'comment')
+    print("\nAfter cleaning:")
+    print(cleaned_df)
+    
+    filtered_df = filter_by_length(cleaned_df, 'comment', min_length=5)
+    print("\nAfter filtering short texts:")
+    print(filtered_df)
+    
+    save_cleaned_data(filtered_df, 'cleaned_data.csv')
