@@ -243,3 +243,231 @@ def remove_duplicates_preserve_order(sequence):
             seen.add(item)
             result.append(item)
     return result
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(dataframe, column, threshold=1.5):
+    """
+    Remove outliers from a DataFrame column using IQR method.
+    
+    Args:
+        dataframe: pandas DataFrame
+        column: column name to process
+        threshold: IQR multiplier (default 1.5)
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = dataframe[column].quantile(0.25)
+    q3 = dataframe[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
+                           (dataframe[column] <= upper_bound)]
+    
+    return filtered_df
+
+def zscore_normalize(dataframe, columns=None):
+    """
+    Apply z-score normalization to specified columns.
+    
+    Args:
+        dataframe: pandas DataFrame
+        columns: list of column names to normalize (default: all numeric columns)
+    
+    Returns:
+        DataFrame with normalized columns
+    """
+    if columns is None:
+        columns = dataframe.select_dtypes(include=[np.number]).columns
+    
+    normalized_df = dataframe.copy()
+    
+    for col in columns:
+        if col in dataframe.columns and pd.api.types.is_numeric_dtype(dataframe[col]):
+            mean_val = dataframe[col].mean()
+            std_val = dataframe[col].std()
+            
+            if std_val > 0:
+                normalized_df[col] = (dataframe[col] - mean_val) / std_val
+            else:
+                normalized_df[col] = 0
+    
+    return normalized_df
+
+def minmax_normalize(dataframe, columns=None, feature_range=(0, 1)):
+    """
+    Apply min-max normalization to specified columns.
+    
+    Args:
+        dataframe: pandas DataFrame
+        columns: list of column names to normalize
+        feature_range: tuple of (min, max) for output range
+    
+    Returns:
+        DataFrame with normalized columns
+    """
+    if columns is None:
+        columns = dataframe.select_dtypes(include=[np.number]).columns
+    
+    normalized_df = dataframe.copy()
+    min_val, max_val = feature_range
+    
+    for col in columns:
+        if col in dataframe.columns and pd.api.types.is_numeric_dtype(dataframe[col]):
+            col_min = dataframe[col].min()
+            col_max = dataframe[col].max()
+            
+            if col_max > col_min:
+                normalized_df[col] = ((dataframe[col] - col_min) / 
+                                     (col_max - col_min)) * (max_val - min_val) + min_val
+            else:
+                normalized_df[col] = min_val
+    
+    return normalized_df
+
+def handle_missing_values(dataframe, strategy='mean', columns=None):
+    """
+    Handle missing values in DataFrame columns.
+    
+    Args:
+        dataframe: pandas DataFrame
+        strategy: imputation strategy ('mean', 'median', 'mode', 'constant', 'drop')
+        columns: list of columns to process (default: all columns)
+    
+    Returns:
+        DataFrame with handled missing values
+    """
+    if columns is None:
+        columns = dataframe.columns
+    
+    processed_df = dataframe.copy()
+    
+    for col in columns:
+        if col not in processed_df.columns:
+            continue
+            
+        if processed_df[col].isnull().any():
+            if strategy == 'drop':
+                processed_df = processed_df.dropna(subset=[col])
+            elif strategy == 'mean' and pd.api.types.is_numeric_dtype(processed_df[col]):
+                processed_df[col] = processed_df[col].fillna(processed_df[col].mean())
+            elif strategy == 'median' and pd.api.types.is_numeric_dtype(processed_df[col]):
+                processed_df[col] = processed_df[col].fillna(processed_df[col].median())
+            elif strategy == 'mode':
+                mode_val = processed_df[col].mode()
+                if not mode_val.empty:
+                    processed_df[col] = processed_df[col].fillna(mode_val[0])
+            elif strategy == 'constant':
+                processed_df[col] = processed_df[col].fillna(0)
+    
+    return processed_df
+
+def clean_dataset(dataframe, outlier_columns=None, normalize_columns=None, 
+                  missing_strategy='mean', normalize_method='zscore'):
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Args:
+        dataframe: pandas DataFrame
+        outlier_columns: columns for outlier removal
+        normalize_columns: columns for normalization
+        missing_strategy: strategy for handling missing values
+        normalize_method: normalization method ('zscore' or 'minmax')
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    cleaned_df = dataframe.copy()
+    
+    # Handle missing values
+    cleaned_df = handle_missing_values(cleaned_df, strategy=missing_strategy)
+    
+    # Remove outliers
+    if outlier_columns:
+        for col in outlier_columns:
+            if col in cleaned_df.columns:
+                cleaned_df = remove_outliers_iqr(cleaned_df, col)
+    
+    # Normalize data
+    if normalize_columns:
+        if normalize_method == 'zscore':
+            cleaned_df = zscore_normalize(cleaned_df, normalize_columns)
+        elif normalize_method == 'minmax':
+            cleaned_df = minmax_normalize(cleaned_df, normalize_columns)
+    
+    return cleaned_df
+
+def get_data_summary(dataframe):
+    """
+    Generate summary statistics for DataFrame.
+    
+    Args:
+        dataframe: pandas DataFrame
+    
+    Returns:
+        Dictionary with summary statistics
+    """
+    summary = {
+        'shape': dataframe.shape,
+        'missing_values': dataframe.isnull().sum().to_dict(),
+        'data_types': dataframe.dtypes.to_dict(),
+        'numeric_stats': {}
+    }
+    
+    numeric_cols = dataframe.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        summary['numeric_stats'][col] = {
+            'mean': dataframe[col].mean(),
+            'std': dataframe[col].std(),
+            'min': dataframe[col].min(),
+            'max': dataframe[col].max(),
+            'median': dataframe[col].median()
+        }
+    
+    return summary
+
+# Example usage
+if __name__ == "__main__":
+    # Create sample data
+    np.random.seed(42)
+    sample_data = {
+        'feature_a': np.random.normal(100, 15, 100),
+        'feature_b': np.random.exponential(50, 100),
+        'feature_c': np.random.randint(1, 100, 100),
+        'category': np.random.choice(['A', 'B', 'C'], 100)
+    }
+    
+    # Introduce some outliers and missing values
+    sample_data['feature_a'][10] = 500  # Outlier
+    sample_data['feature_b'][20] = None  # Missing value
+    
+    df = pd.DataFrame(sample_data)
+    
+    print("Original DataFrame shape:", df.shape)
+    print("Missing values:", df.isnull().sum())
+    
+    # Clean the data
+    cleaned = clean_dataset(
+        df,
+        outlier_columns=['feature_a', 'feature_b'],
+        normalize_columns=['feature_a', 'feature_b', 'feature_c'],
+        missing_strategy='mean',
+        normalize_method='zscore'
+    )
+    
+    print("\nCleaned DataFrame shape:", cleaned.shape)
+    print("Missing values after cleaning:", cleaned.isnull().sum())
+    
+    # Get summary
+    summary = get_data_summary(cleaned)
+    print("\nData Summary:")
+    print(f"Shape: {summary['shape']}")
+    print(f"Numeric columns statistics: {list(summary['numeric_stats'].keys())}")
