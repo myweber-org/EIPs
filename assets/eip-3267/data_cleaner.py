@@ -74,4 +74,82 @@ if __name__ == "__main__":
     
     cleaned_df = clean_dataset(df, ['value'])
     print(f"Cleaned dataset shape: {cleaned_df.shape}")
-    print(f"Outliers removed: {len(df) - len(cleaned_df)}")
+    print(f"Outliers removed: {len(df) - len(cleaned_df)}")import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a pandas Series using the IQR method.
+    Returns a filtered Series.
+    """
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
+
+def z_score_normalize(data, column):
+    """
+    Normalize data using Z-score normalization.
+    Returns a new Series with normalized values.
+    """
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    if std_val == 0:
+        return data[column]
+    normalized = (data[column] - mean_val) / std_val
+    return normalized
+
+def min_max_normalize(data, column):
+    """
+    Normalize data using Min-Max scaling to range [0, 1].
+    Returns a new Series with normalized values.
+    """
+    min_val = data[column].min()
+    max_val = data[column].max()
+    if max_val == min_val:
+        return data[column]
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def clean_dataset(df, numeric_columns, outlier_method='iqr', normalize_method='zscore'):
+    """
+    Main cleaning function that processes multiple numeric columns.
+    """
+    cleaned_df = df.copy()
+    
+    for col in numeric_columns:
+        if col not in cleaned_df.columns:
+            continue
+            
+        if outlier_method == 'iqr':
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+        elif outlier_method == 'zscore':
+            z_scores = np.abs(stats.zscore(cleaned_df[col]))
+            cleaned_df = cleaned_df[z_scores < 3]
+        
+        if normalize_method == 'zscore':
+            cleaned_df[col + '_normalized'] = z_score_normalize(cleaned_df, col)
+        elif normalize_method == 'minmax':
+            cleaned_df[col + '_normalized'] = min_max_normalize(cleaned_df, col)
+    
+    return cleaned_df
+
+def validate_data(df, required_columns):
+    """
+    Validate that required columns exist and have no null values.
+    Returns boolean and list of issues.
+    """
+    issues = []
+    
+    for col in required_columns:
+        if col not in df.columns:
+            issues.append(f"Missing column: {col}")
+        elif df[col].isnull().any():
+            issues.append(f"Column {col} contains null values")
+    
+    is_valid = len(issues) == 0
+    return is_valid, issues
