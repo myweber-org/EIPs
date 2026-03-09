@@ -111,3 +111,22 @@ if __name__ == "__main__":
     print("Cleaned data shape:", cleaned_df.shape)
     summary = cleaner.get_summary()
     print("Cleaning summary:", summary)
+def remove_duplicates_preserve_order(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+def clean_data(data_list):
+    if not isinstance(data_list, list):
+        raise TypeError("Input must be a list")
+    cleaned = remove_duplicates_preserve_order(data_list)
+    return cleaned
+
+if __name__ == "__main__":
+    sample_data = [3, 1, 2, 3, 4, 2, 5, 1]
+    print("Original:", sample_data)
+    print("Cleaned:", clean_data(sample_data))
