@@ -518,3 +518,173 @@ def detect_skewness(df, column, threshold=0.5):
         'is_skewed': is_skewed,
         'skew_direction': 'right' if skewness > 0 else 'left' if skewness < 0 else 'none'
     }
+import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(data, column, multiplier=1.5):
+    """
+    Remove outliers using the Interquartile Range method.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    column (str): Column name to process
+    multiplier (float): IQR multiplier for outlier detection
+    
+    Returns:
+    pd.DataFrame: Dataframe with outliers removed
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - multiplier * iqr
+    upper_bound = q3 + multiplier * iqr
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data.copy()
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using Min-Max scaling to range [0, 1].
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    column (str): Column name to normalize
+    
+    Returns:
+    pd.Series: Normalized values
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return pd.Series([0.5] * len(data), index=data.index)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def standardize_zscore(data, column):
+    """
+    Standardize data using Z-score normalization.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    column (str): Column name to standardize
+    
+    Returns:
+    pd.Series: Standardized values
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return pd.Series([0] * len(data), index=data.index)
+    
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
+
+def handle_missing_values(data, strategy='mean', columns=None):
+    """
+    Handle missing values in specified columns.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    strategy (str): Imputation strategy ('mean', 'median', 'mode', 'drop')
+    columns (list): List of columns to process, None for all numeric columns
+    
+    Returns:
+    pd.DataFrame: Dataframe with handled missing values
+    """
+    if columns is None:
+        columns = data.select_dtypes(include=[np.number]).columns.tolist()
+    
+    result = data.copy()
+    
+    for col in columns:
+        if col not in result.columns:
+            continue
+            
+        if strategy == 'drop':
+            result = result.dropna(subset=[col])
+        elif strategy == 'mean':
+            result[col] = result[col].fillna(result[col].mean())
+        elif strategy == 'median':
+            result[col] = result[col].fillna(result[col].median())
+        elif strategy == 'mode':
+            result[col] = result[col].fillna(result[col].mode()[0])
+        else:
+            raise ValueError(f"Unknown strategy: {strategy}")
+    
+    return result
+
+def create_data_summary(data):
+    """
+    Create a comprehensive summary of the dataframe.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    
+    Returns:
+    dict: Dictionary containing summary statistics
+    """
+    summary = {
+        'shape': data.shape,
+        'columns': list(data.columns),
+        'dtypes': data.dtypes.to_dict(),
+        'missing_values': data.isnull().sum().to_dict(),
+        'numeric_stats': {},
+        'categorical_stats': {}
+    }
+    
+    numeric_cols = data.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        summary['numeric_stats'][col] = {
+            'mean': data[col].mean(),
+            'std': data[col].std(),
+            'min': data[col].min(),
+            'max': data[col].max(),
+            'median': data[col].median()
+        }
+    
+    categorical_cols = data.select_dtypes(include=['object', 'category']).columns
+    for col in categorical_cols:
+        summary['categorical_stats'][col] = {
+            'unique_count': data[col].nunique(),
+            'top_value': data[col].mode().iloc[0] if not data[col].mode().empty else None,
+            'top_count': data[col].value_counts().iloc[0] if not data[col].value_counts().empty else 0
+        }
+    
+    return summary
+
+def validate_dataframe(data, required_columns=None, min_rows=1):
+    """
+    Validate dataframe structure and content.
+    
+    Parameters:
+    data (pd.DataFrame): Dataframe to validate
+    required_columns (list): List of required column names
+    min_rows (int): Minimum number of rows required
+    
+    Returns:
+    tuple: (bool, str) Validation result and message
+    """
+    if not isinstance(data, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
+    if len(data) < min_rows:
+        return False, f"Dataframe has fewer than {min_rows} rows"
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in data.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
+    
+    return True, "Dataframe is valid"
