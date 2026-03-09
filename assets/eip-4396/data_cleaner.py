@@ -590,3 +590,11 @@ if __name__ == "__main__":
     # Validate the cleaned data
     is_valid = validate_data(cleaned_df, required_columns=['id', 'name', 'age'], min_rows=3)
     print(f"\nData validation: {'PASSED' if is_valid else 'FAILED'}")
+def remove_duplicates_preserve_order(iterable):
+    seen = set()
+    result = []
+    for item in iterable:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
