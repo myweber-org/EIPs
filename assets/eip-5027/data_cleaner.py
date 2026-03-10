@@ -1,170 +1,104 @@
-import numpy as np
+
 import pandas as pd
-from scipy import stats
+import numpy as np
 
-def remove_outliers_iqr(data, column, factor=1.5):
+def remove_outliers_iqr(df, column):
     """
-    Remove outliers using the Interquartile Range method.
+    Remove outliers from a specified column in a DataFrame using the IQR method.
     
-    Args:
-        data: pandas DataFrame
-        column: column name to process
-        factor: IQR multiplier (default 1.5)
+    Parameters:
+    df (pd.DataFrame): The input DataFrame.
+    column (str): The column name to process.
     
     Returns:
-        DataFrame with outliers removed
+    pd.DataFrame: DataFrame with outliers removed.
     """
-    if column not in data.columns:
+    if column not in df.columns:
         raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    q1 = data[column].quantile(0.25)
-    q3 = data[column].quantile(0.75)
-    iqr = q3 - q1
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
     
-    lower_bound = q1 - factor * iqr
-    upper_bound = q3 + factor * iqr
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
     
-    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
-    return filtered_data
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df.reset_index(drop=True)
 
-def remove_outliers_zscore(data, column, threshold=3):
+def clean_numeric_data(df, columns=None):
     """
-    Remove outliers using Z-score method.
+    Clean numeric data by removing outliers from specified columns.
+    If no columns specified, clean all numeric columns.
     
-    Args:
-        data: pandas DataFrame
-        column: column name to process
-        threshold: Z-score threshold (default 3)
+    Parameters:
+    df (pd.DataFrame): The input DataFrame.
+    columns (list): List of column names to clean.
     
     Returns:
-        DataFrame with outliers removed
+    pd.DataFrame: Cleaned DataFrame.
     """
-    if column not in data.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    if columns is None:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        columns = numeric_cols
     
-    z_scores = np.abs(stats.zscore(data[column].dropna()))
-    filtered_indices = np.where(z_scores < threshold)[0]
+    cleaned_df = df.copy()
+    for col in columns:
+        if col in cleaned_df.columns and pd.api.types.is_numeric_dtype(cleaned_df[col]):
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
     
-    filtered_data = data.iloc[filtered_indices].reset_index(drop=True)
-    return filtered_data
+    return cleaned_df
 
-def normalize_minmax(data, column):
+def validate_dataframe(df, required_columns=None):
     """
-    Normalize data using Min-Max scaling.
+    Validate DataFrame structure and content.
     
-    Args:
-        data: pandas DataFrame
-        column: column name to normalize
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+    required_columns (list): List of required column names.
     
     Returns:
-        Series with normalized values
+    dict: Dictionary with validation results.
     """
-    if column not in data.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    min_val = data[column].min()
-    max_val = data[column].max()
-    
-    if max_val == min_val:
-        return pd.Series([0.5] * len(data), index=data.index)
-    
-    normalized = (data[column] - min_val) / (max_val - min_val)
-    return normalized
-
-def normalize_zscore(data, column):
-    """
-    Normalize data using Z-score standardization.
-    
-    Args:
-        data: pandas DataFrame
-        column: column name to normalize
-    
-    Returns:
-        Series with standardized values
-    """
-    if column not in data.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    mean_val = data[column].mean()
-    std_val = data[column].std()
-    
-    if std_val == 0:
-        return pd.Series([0] * len(data), index=data.index)
-    
-    standardized = (data[column] - mean_val) / std_val
-    return standardized
-
-def clean_dataset(data, numeric_columns=None, method='iqr', normalize=False):
-    """
-    Clean dataset by removing outliers and optionally normalizing.
-    
-    Args:
-        data: pandas DataFrame
-        numeric_columns: list of numeric columns to process (default: all numeric)
-        method: outlier removal method ('iqr' or 'zscore')
-        normalize: whether to normalize the data after outlier removal
-    
-    Returns:
-        Cleaned DataFrame
-    """
-    if numeric_columns is None:
-        numeric_columns = data.select_dtypes(include=[np.number]).columns.tolist()
-    
-    cleaned_data = data.copy()
-    
-    for column in numeric_columns:
-        if column not in cleaned_data.columns:
-            continue
-            
-        if method == 'iqr':
-            cleaned_data = remove_outliers_iqr(cleaned_data, column)
-        elif method == 'zscore':
-            cleaned_data = remove_outliers_zscore(cleaned_data, column)
-        else:
-            raise ValueError(f"Unknown method: {method}. Use 'iqr' or 'zscore'")
-        
-        if normalize:
-            cleaned_data[f"{column}_normalized"] = normalize_minmax(cleaned_data, column)
-    
-    return cleaned_data
-
-def validate_data(data, required_columns=None, check_missing=True, check_duplicates=True):
-    """
-    Validate data quality.
-    
-    Args:
-        data: pandas DataFrame
-        required_columns: list of required columns
-        check_missing: whether to check for missing values
-        check_duplicates: whether to check for duplicate rows
-    
-    Returns:
-        Dictionary with validation results
-    """
-    validation_results = {
+    validation_result = {
         'is_valid': True,
-        'missing_values': {},
-        'duplicate_count': 0,
-        'missing_columns': []
+        'errors': [],
+        'warnings': []
     }
     
+    if not isinstance(df, pd.DataFrame):
+        validation_result['is_valid'] = False
+        validation_result['errors'].append('Input is not a pandas DataFrame')
+        return validation_result
+    
+    if df.empty:
+        validation_result['warnings'].append('DataFrame is empty')
+    
     if required_columns:
-        missing_cols = [col for col in required_columns if col not in data.columns]
+        missing_cols = [col for col in required_columns if col not in df.columns]
         if missing_cols:
-            validation_results['missing_columns'] = missing_cols
-            validation_results['is_valid'] = False
+            validation_result['is_valid'] = False
+            validation_result['errors'].append(f'Missing required columns: {missing_cols}')
     
-    if check_missing:
-        missing_counts = data.isnull().sum()
-        missing_counts = missing_counts[missing_counts > 0].to_dict()
-        if missing_counts:
-            validation_results['missing_values'] = missing_counts
-            validation_results['is_valid'] = False
+    return validation_result
+
+if __name__ == "__main__":
+    sample_data = {
+        'id': range(1, 21),
+        'value': [10, 12, 11, 15, 9, 100, 13, 14, 12, 11, 
+                  10, 9, 8, 12, 13, 200, 14, 15, 11, 10]
+    }
     
-    if check_duplicates:
-        duplicate_count = data.duplicated().sum()
-        validation_results['duplicate_count'] = duplicate_count
-        if duplicate_count > 0:
-            validation_results['is_valid'] = False
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print(f"\nOriginal shape: {df.shape}")
     
-    return validation_results
+    cleaned_df = clean_numeric_data(df, columns=['value'])
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    print(f"\nCleaned shape: {cleaned_df.shape}")
+    
+    validation = validate_dataframe(cleaned_df, required_columns=['id', 'value'])
+    print(f"\nValidation result: {validation}")
