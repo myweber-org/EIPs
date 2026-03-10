@@ -152,4 +152,60 @@ def validate_data(df, required_columns):
             issues.append(f"Column {col} contains null values")
     
     is_valid = len(issues) == 0
-    return is_valid, issues
+    return is_valid, issuesimport numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(data, column):
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
+
+def normalize_minmax(data, column):
+    min_val = data[column].min()
+    max_val = data[column].max()
+    if max_val - min_val == 0:
+        return data[column]
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def standardize_zscore(data, column):
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    if std_val == 0:
+        return data[column]
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
+
+def handle_missing_mean(data, column):
+    mean_val = data[column].mean()
+    filled_data = data[column].fillna(mean_val)
+    return filled_data
+
+def process_dataset(df, numeric_columns):
+    processed_df = df.copy()
+    for col in numeric_columns:
+        if col in processed_df.columns:
+            processed_df = remove_outliers_iqr(processed_df, col)
+            processed_df[col + '_normalized'] = normalize_minmax(processed_df, col)
+            processed_df[col + '_standardized'] = standardize_zscore(processed_df, col)
+            processed_df[col] = handle_missing_mean(processed_df, col)
+    return processed_df
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'A': np.random.randn(100) * 10 + 50,
+        'B': np.random.randn(100) * 5 + 30,
+        'C': np.random.randn(100) * 2 + 20
+    })
+    sample_data.loc[10:15, 'A'] = np.nan
+    sample_data.loc[20:25, 'B'] = np.nan
+    
+    result = process_dataset(sample_data, ['A', 'B', 'C'])
+    print(f"Original shape: {sample_data.shape}")
+    print(f"Processed shape: {result.shape}")
+    print(f"Columns after processing: {result.columns.tolist()}")
+    print(f"Missing values after processing: {result.isnull().sum().sum()}")
