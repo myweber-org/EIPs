@@ -119,3 +119,60 @@ if __name__ == "__main__":
     print(f"Original shape: {df.shape}")
     print(f"Cleaned shape: {result_df.shape}")
     print(result_df.head())
+import pandas as pd
+import numpy as np
+from pathlib import Path
+
+def clean_csv_data(input_path, output_path=None):
+    """
+    Clean CSV data by handling missing values and standardizing columns.
+    """
+    try:
+        df = pd.read_csv(input_path)
+        
+        # Remove duplicate rows
+        df = df.drop_duplicates()
+        
+        # Fill missing numeric values with column median
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            df[col] = df[col].fillna(df[col].median())
+        
+        # Fill missing categorical values with mode
+        categorical_cols = df.select_dtypes(include=['object']).columns
+        for col in categorical_cols:
+            df[col] = df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else 'Unknown')
+        
+        # Remove columns with too many missing values (>50%)
+        threshold = 0.5 * len(df)
+        df = df.dropna(thresh=threshold, axis=1)
+        
+        # Standardize column names
+        df.columns = df.columns.str.strip().str.lower().str.replace(' ', '_')
+        
+        # Save cleaned data
+        if output_path is None:
+            output_path = Path(input_path).stem + '_cleaned.csv'
+        
+        df.to_csv(output_path, index=False)
+        print(f"Data cleaning completed. Cleaned file saved to: {output_path}")
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: File not found at {input_path}")
+        return None
+    except pd.errors.EmptyDataError:
+        print("Error: The CSV file is empty")
+        return None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None
+
+if __name__ == "__main__":
+    # Example usage
+    input_file = "raw_data.csv"
+    cleaned_df = clean_csv_data(input_file)
+    
+    if cleaned_df is not None:
+        print(f"DataFrame shape: {cleaned_df.shape}")
+        print(f"Columns: {list(cleaned_df.columns)}")
