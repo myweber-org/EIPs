@@ -128,3 +128,45 @@ def clean_dataset(df, missing_strategy='remove', outlier_removal=True, standardi
         df_clean = standardize_columns(df_clean)
     
     return df_clean
+import pandas as pd
+import re
+
+def clean_dataframe(df, text_column):
+    """
+    Clean a dataframe by removing duplicates and normalizing text in a specified column.
+    """
+    # Remove duplicate rows
+    df_clean = df.drop_duplicates().reset_index(drop=True)
+    
+    # Normalize text: lowercase, remove extra whitespace
+    def normalize_text(text):
+        if pd.isna(text):
+            return text
+        text = str(text).lower()
+        text = re.sub(r'\s+', ' ', text).strip()
+        return text
+    
+    df_clean[text_column] = df_clean[text_column].apply(normalize_text)
+    
+    return df_clean
+
+def save_cleaned_data(df, output_path):
+    """
+    Save the cleaned dataframe to a CSV file.
+    """
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to {output_path}")
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'id': [1, 2, 3, 4, 5, 5],
+        'text': ['Hello World', 'hello world', '  Python   Code  ', 'PYTHON CODE', 'Test', 'Test']
+    }
+    df = pd.DataFrame(sample_data)
+    
+    cleaned_df = clean_dataframe(df, 'text')
+    print("Cleaned DataFrame:")
+    print(cleaned_df)
+    
+    save_cleaned_data(cleaned_df, 'cleaned_data.csv')
