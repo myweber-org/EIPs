@@ -135,3 +135,8 @@ def process_dataframe(df, column):
     cleaned_stats = calculate_statistics(cleaned_df, column)
     
     return cleaned_df, original_stats, cleaned_stats
+def filter_none_values(input_list):
+    """
+    Return a new list with all None values removed.
+    """
+    return [item for item in input_list if item is not None]
