@@ -667,3 +667,31 @@ if __name__ == "__main__":
     )
     
     print(cleaned)
+import pandas as pd
+
+def clean_dataset(df, column_name):
+    """
+    Clean a specific column in a DataFrame.
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+
+    df_clean = df.copy()
+    df_clean[column_name] = df_clean[column_name].astype(str).str.strip().str.lower()
+    df_clean = df_clean.drop_duplicates(subset=[column_name], keep='first')
+    df_clean = df_clean.reset_index(drop=True)
+    
+    return df_clean
+
+def main():
+    sample_data = {'Name': ['Alice', 'alice ', 'BOB', 'Bob', 'Charlie']}
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned_df = clean_dataset(df, 'Name')
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+
+if __name__ == "__main__":
+    main()
