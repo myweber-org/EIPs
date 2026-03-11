@@ -1,114 +1,86 @@
 
-import numpy as np
-import pandas as pd
-from scipy import stats
+def remove_duplicates(data_list):
+    """
+    Remove duplicate entries from a list while preserving order.
+    
+    Args:
+        data_list: List of elements (must be hashable)
+    
+    Returns:
+        List with duplicates removed
+    """
+    seen = set()
+    result = []
+    
+    for item in data_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    
+    return result
 
-class DataCleaner:
-    def __init__(self, df):
-        self.df = df.copy()
-        self.original_shape = df.shape
-        
-    def remove_outliers_iqr(self, columns=None, threshold=1.5):
-        if columns is None:
-            columns = self.df.select_dtypes(include=[np.number]).columns
-        
-        df_clean = self.df.copy()
-        for col in columns:
-            if col in self.df.columns and pd.api.types.is_numeric_dtype(self.df[col]):
-                Q1 = self.df[col].quantile(0.25)
-                Q3 = self.df[col].quantile(0.75)
-                IQR = Q3 - Q1
-                lower_bound = Q1 - threshold * IQR
-                upper_bound = Q3 + threshold * IQR
-                
-                mask = (self.df[col] >= lower_bound) & (self.df[col] <= upper_bound)
-                df_clean = df_clean[mask]
-        
-        removed_count = self.original_shape[0] - df_clean.shape[0]
-        self.df = df_clean.reset_index(drop=True)
-        return removed_count
-    
-    def normalize_minmax(self, columns=None):
-        if columns is None:
-            columns = self.df.select_dtypes(include=[np.number]).columns
-        
-        df_normalized = self.df.copy()
-        for col in columns:
-            if col in self.df.columns and pd.api.types.is_numeric_dtype(self.df[col]):
-                min_val = self.df[col].min()
-                max_val = self.df[col].max()
-                if max_val > min_val:
-                    df_normalized[col] = (self.df[col] - min_val) / (max_val - min_val)
-        
-        self.df = df_normalized
-        return self
-    
-    def standardize_zscore(self, columns=None):
-        if columns is None:
-            columns = self.df.select_dtypes(include=[np.number]).columns
-        
-        df_standardized = self.df.copy()
-        for col in columns:
-            if col in self.df.columns and pd.api.types.is_numeric_dtype(self.df[col]):
-                mean_val = self.df[col].mean()
-                std_val = self.df[col].std()
-                if std_val > 0:
-                    df_standardized[col] = (self.df[col] - mean_val) / std_val
-        
-        self.df = df_standardized
-        return self
-    
-    def fill_missing_mean(self, columns=None):
-        if columns is None:
-            columns = self.df.select_dtypes(include=[np.number]).columns
-        
-        df_filled = self.df.copy()
-        for col in columns:
-            if col in self.df.columns and pd.api.types.is_numeric_dtype(self.df[col]):
-                mean_val = self.df[col].mean()
-                df_filled[col] = self.df[col].fillna(mean_val)
-        
-        self.df = df_filled
-        return self
-    
-    def get_cleaned_data(self):
-        return self.df
-    
-    def get_summary(self):
-        summary = {
-            'original_rows': self.original_shape[0],
-            'cleaned_rows': self.df.shape[0],
-            'original_columns': self.original_shape[1],
-            'cleaned_columns': self.df.shape[1],
-            'rows_removed': self.original_shape[0] - self.df.shape[0],
-            'missing_values': self.df.isnull().sum().sum()
-        }
-        return summary
 
-def process_dataset(filepath, output_path=None):
-    try:
-        df = pd.read_csv(filepath)
-        cleaner = DataCleaner(df)
-        
-        print(f"Processing dataset: {filepath}")
-        print(f"Original shape: {df.shape}")
-        
-        removed = cleaner.remove_outliers_iqr()
-        print(f"Removed {removed} outliers using IQR method")
-        
-        cleaner.fill_missing_mean()
-        cleaner.normalize_minmax()
-        
-        summary = cleaner.get_summary()
-        print(f"Cleaned shape: {cleaner.df.shape}")
-        print(f"Missing values remaining: {summary['missing_values']}")
-        
-        if output_path:
-            cleaner.df.to_csv(output_path, index=False)
-            print(f"Cleaned data saved to: {output_path}")
-        
-        return cleaner.get_cleaned_data()
+def clean_numeric_data(values, default=0):
+    """
+    Clean numeric data by converting strings to floats and handling invalid values.
     
-    except Exception as e:
-        print(f"Error processing dataset: {e}")
-        return None
+    Args:
+        values: List of values to clean
+        default: Default value for invalid entries
+    
+    Returns:
+        List of cleaned numeric values
+    """
+    cleaned = []
+    
+    for value in values:
+        try:
+            # Try to convert to float
+            num = float(value)
+            cleaned.append(num)
+        except (ValueError, TypeError):
+            # Use default for invalid values
+            cleaned.append(default)
+    
+    return cleaned
+
+
+def filter_by_threshold(data, threshold, key=None):
+    """
+    Filter data based on a threshold value.
+    
+    Args:
+        data: List of values or dictionaries
+        threshold: Minimum value to include
+        key: If data contains dictionaries, key to extract value from
+    
+    Returns:
+        Filtered list
+    """
+    if key is None:
+        # Simple list of values
+        return [x for x in data if x >= threshold]
+    else:
+        # List of dictionaries
+        return [item for item in data if item.get(key, 0) >= threshold]
+
+
+# Example usage
+if __name__ == "__main__":
+    # Test remove_duplicates
+    sample_data = [1, 2, 2, 3, 4, 4, 4, 5]
+    cleaned = remove_duplicates(sample_data)
+    print(f"Original: {sample_data}")
+    print(f"Cleaned: {cleaned}")
+    
+    # Test clean_numeric_data
+    mixed_data = ["1.5", "2.7", "invalid", "3.0", None, "4.2"]
+    numeric_data = clean_numeric_data(mixed_data)
+    print(f"\nMixed data: {mixed_data}")
+    print(f"Numeric data: {numeric_data}")
+    
+    # Test filter_by_threshold
+    scores = [45, 78, 92, 33, 67, 88]
+    high_scores = filter_by_threshold(scores, 70)
+    print(f"\nAll scores: {scores}")
+    print(f"High scores (>=70): {high_scores}")
