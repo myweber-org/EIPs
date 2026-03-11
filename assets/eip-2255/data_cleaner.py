@@ -403,4 +403,41 @@ if __name__ == "__main__":
     print("\nCleaned data summary:")
     cleaned_summary = get_data_summary(cleaned)
     print(f"Shape: {cleaned_summary['shape']}")
-    print(f"Missing values: {cleaned_summary['missing_values']}")
+    print(f"Missing values: {cleaned_summary['missing_values']}")import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(dataframe, column):
+    Q1 = dataframe[column].quantile(0.25)
+    Q3 = dataframe[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & (dataframe[column] <= upper_bound)]
+    return filtered_df
+
+def normalize_minmax(dataframe, column):
+    min_val = dataframe[column].min()
+    max_val = dataframe[column].max()
+    if max_val == min_val:
+        return dataframe[column].apply(lambda x: 0.0)
+    normalized = (dataframe[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def standardize_zscore(dataframe, column):
+    mean_val = dataframe[column].mean()
+    std_val = dataframe[column].std()
+    if std_val == 0:
+        return dataframe[column].apply(lambda x: 0.0)
+    standardized = (dataframe[column] - mean_val) / std_val
+    return standardized
+
+def handle_missing_mean(dataframe, column):
+    mean_val = dataframe[column].mean()
+    filled_series = dataframe[column].fillna(mean_val)
+    return filled_series
+
+def validate_dataframe(dataframe, required_columns):
+    missing_cols = [col for col in required_columns if col not in dataframe.columns]
+    if missing_cols:
+        raise ValueError(f"Missing required columns: {missing_cols}")
+    return True
