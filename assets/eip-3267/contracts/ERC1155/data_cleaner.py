@@ -199,3 +199,148 @@ def clean_dataset(df, numeric_columns, outlier_method='iqr', normalize_method='m
             cleaned_df = normalize_zscore(cleaned_df, col)
     
     return cleaned_df
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column, threshold=1.5):
+    """
+    Remove outliers using Interquartile Range method
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - threshold * IQR
+    upper_bound = Q3 + threshold * IQR
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    removed_count = len(data) - len(filtered_data)
+    
+    return filtered_data, removed_count
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using Min-Max scaling
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return data[column].apply(lambda x: 0.5)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def standardize_zscore(data, column):
+    """
+    Standardize data using Z-score method
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return data[column].apply(lambda x: 0)
+    
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
+
+def handle_missing_values(data, strategy='mean'):
+    """
+    Handle missing values using specified strategy
+    """
+    strategies = ['mean', 'median', 'mode', 'drop']
+    
+    if strategy not in strategies:
+        raise ValueError(f"Strategy must be one of {strategies}")
+    
+    data_clean = data.copy()
+    
+    for column in data_clean.columns:
+        if data_clean[column].isnull().any():
+            if strategy == 'drop':
+                data_clean = data_clean.dropna(subset=[column])
+            elif strategy == 'mean':
+                fill_value = data_clean[column].mean()
+                data_clean[column] = data_clean[column].fillna(fill_value)
+            elif strategy == 'median':
+                fill_value = data_clean[column].median()
+                data_clean[column] = data_clean[column].fillna(fill_value)
+            elif strategy == 'mode':
+                fill_value = data_clean[column].mode()[0]
+                data_clean[column] = data_clean[column].fillna(fill_value)
+    
+    return data_clean
+
+def validate_data_types(data, expected_types):
+    """
+    Validate column data types against expected types
+    """
+    validation_results = {}
+    
+    for column, expected_type in expected_types.items():
+        if column not in data.columns:
+            validation_results[column] = {'valid': False, 'message': 'Column not found'}
+            continue
+        
+        actual_type = str(data[column].dtype)
+        
+        type_mapping = {
+            'int': ['int64', 'int32', 'int16', 'int8'],
+            'float': ['float64', 'float32', 'float16'],
+            'numeric': ['int64', 'int32', 'int16', 'int8', 'float64', 'float32', 'float16'],
+            'object': ['object'],
+            'datetime': ['datetime64[ns]']
+        }
+        
+        if expected_type in type_mapping:
+            valid = actual_type in type_mapping[expected_type]
+            message = f"Expected {expected_type}, got {actual_type}"
+        else:
+            valid = actual_type == expected_type
+            message = f"Expected {expected_type}, got {actual_type}"
+        
+        validation_results[column] = {
+            'valid': valid,
+            'message': message,
+            'actual_type': actual_type
+        }
+    
+    return validation_results
+
+def create_summary_report(data):
+    """
+    Create a comprehensive data summary report
+    """
+    report = {
+        'shape': data.shape,
+        'columns': list(data.columns),
+        'dtypes': data.dtypes.to_dict(),
+        'missing_values': data.isnull().sum().to_dict(),
+        'unique_counts': {col: data[col].nunique() for col in data.columns},
+        'basic_stats': {}
+    }
+    
+    numeric_cols = data.select_dtypes(include=[np.number]).columns
+    
+    for col in numeric_cols:
+        report['basic_stats'][col] = {
+            'mean': data[col].mean(),
+            'std': data[col].std(),
+            'min': data[col].min(),
+            '25%': data[col].quantile(0.25),
+            '50%': data[col].median(),
+            '75%': data[col].quantile(0.75),
+            'max': data[col].max()
+        }
+    
+    return report
