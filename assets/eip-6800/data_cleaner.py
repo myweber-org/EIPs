@@ -421,3 +421,13 @@ if __name__ == "__main__":
     print("\nCleaned data shape:", cleaned.shape)
     print("\nCleaned statistics for feature_a:")
     print(calculate_statistics(cleaned, 'feature_a'))
+def clean_data(data):
+    """
+    Remove duplicate entries from a list and sort the remaining items.
+    """
+    if not isinstance(data, list):
+        raise TypeError("Input must be a list")
+    
+    unique_data = list(set(data))
+    unique_data.sort()
+    return unique_data
