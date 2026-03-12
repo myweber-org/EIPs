@@ -260,3 +260,16 @@ def validate_data(data, required_columns=None, allow_nan=False):
         return False, "Data contains NaN values"
     
     return True, "Data validation passed"
+def clean_strings(string_list):
+    """
+    Takes a list of strings, strips leading/trailing whitespace,
+    converts them to lowercase, and returns the cleaned list.
+    """
+    cleaned_list = []
+    for item in string_list:
+        if isinstance(item, str):
+            cleaned_item = item.strip().lower()
+            cleaned_list.append(cleaned_item)
+        else:
+            cleaned_list.append(item)
+    return cleaned_list
