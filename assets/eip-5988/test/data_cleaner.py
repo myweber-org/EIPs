@@ -99,4 +99,60 @@ def calculate_summary_stats(data, column):
         'max': np.max(data[column]),
         'count': len(data[column])
     }
-    return stats
+    return statsimport pandas as pd
+import numpy as np
+
+def normalize_column(df, column_name):
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    
+    col_data = df[column_name].astype(float)
+    min_val = col_data.min()
+    max_val = col_data.max()
+    
+    if max_val == min_val:
+        df[column_name] = 0.0
+    else:
+        df[column_name] = (col_data - min_val) / (max_val - min_val)
+    
+    return df
+
+def remove_outliers_iqr(df, column_name):
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    
+    col_data = df[column_name].astype(float)
+    Q1 = col_data.quantile(0.25)
+    Q3 = col_data.quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(col_data >= lower_bound) & (col_data <= upper_bound)]
+    return filtered_df
+
+def clean_dataset(df, numeric_columns):
+    cleaned_df = df.copy()
+    
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = normalize_column(cleaned_df, col)
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+    
+    cleaned_df = cleaned_df.dropna()
+    return cleaned_df
+
+def validate_dataframe(df):
+    required_checks = [
+        (lambda: not df.empty, "DataFrame is empty"),
+        (lambda: df.isnull().sum().sum() == 0, "DataFrame contains null values"),
+        (lambda: len(df) > 10, "DataFrame has insufficient rows")
+    ]
+    
+    errors = []
+    for check_func, error_msg in required_checks:
+        if not check_func():
+            errors.append(error_msg)
+    
+    return len(errors) == 0, errors
