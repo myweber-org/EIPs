@@ -242,3 +242,110 @@ def remove_duplicates_preserve_order(sequence):
             seen.add(item)
             result.append(item)
     return result
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, columns_to_check=None, fill_method='mean'):
+    """
+    Clean dataset by removing duplicates and handling missing values.
+    
+    Args:
+        df: pandas DataFrame to clean
+        columns_to_check: list of columns to check for duplicates (default: all columns)
+        fill_method: method to fill missing values ('mean', 'median', 'mode', or 'drop')
+    
+    Returns:
+        Cleaned pandas DataFrame
+    """
+    original_shape = df.shape
+    
+    # Remove duplicate rows
+    if columns_to_check:
+        df_cleaned = df.drop_duplicates(subset=columns_to_check)
+    else:
+        df_cleaned = df.drop_duplicates()
+    
+    duplicates_removed = original_shape[0] - df_cleaned.shape[0]
+    
+    # Handle missing values
+    if fill_method == 'drop':
+        df_cleaned = df_cleaned.dropna()
+    elif fill_method in ['mean', 'median']:
+        numeric_cols = df_cleaned.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            if fill_method == 'mean':
+                fill_value = df_cleaned[col].mean()
+            else:
+                fill_value = df_cleaned[col].median()
+            df_cleaned[col] = df_cleaned[col].fillna(fill_value)
+    elif fill_method == 'mode':
+        for col in df_cleaned.columns:
+            mode_value = df_cleaned[col].mode()
+            if not mode_value.empty:
+                df_cleaned[col] = df_cleaned[col].fillna(mode_value[0])
+    
+    missing_filled = df.isna().sum().sum() - df_cleaned.isna().sum().sum()
+    
+    print(f"Cleaning complete:")
+    print(f"  - Removed {duplicates_removed} duplicate rows")
+    print(f"  - Filled {missing_filled} missing values")
+    print(f"  - Original shape: {original_shape}")
+    print(f"  - Cleaned shape: {df_cleaned.shape}")
+    
+    return df_cleaned
+
+def validate_dataframe(df, required_columns=None, min_rows=1):
+    """
+    Validate dataframe structure and content.
+    
+    Args:
+        df: pandas DataFrame to validate
+        required_columns: list of required column names
+        min_rows: minimum number of rows required
+    
+    Returns:
+        Boolean indicating if validation passed
+    """
+    if df.empty:
+        print("Validation failed: DataFrame is empty")
+        return False
+    
+    if len(df) < min_rows:
+        print(f"Validation failed: DataFrame has fewer than {min_rows} rows")
+        return False
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            print(f"Validation failed: Missing required columns: {missing_columns}")
+            return False
+    
+    print("DataFrame validation passed")
+    return True
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'id': [1, 2, 2, 3, 4, 5],
+        'name': ['Alice', 'Bob', 'Bob', 'Charlie', None, 'Eve'],
+        'age': [25, 30, 30, None, 35, 40],
+        'score': [85.5, 92.0, 92.0, 78.5, None, 95.0]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    # Clean the dataset
+    cleaned_df = clean_dataset(df, columns_to_check=['id', 'name'], fill_method='mean')
+    
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    
+    # Validate the cleaned dataframe
+    validation_passed = validate_dataframe(
+        cleaned_df, 
+        required_columns=['id', 'name', 'age', 'score'],
+        min_rows=1
+    )
