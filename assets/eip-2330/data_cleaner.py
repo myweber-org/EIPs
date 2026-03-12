@@ -1226,3 +1226,56 @@ def clean_numeric_data(df, columns=None):
         cleaned_df = cleaned_df.dropna(subset=[col])
     
     return cleaned_df.reset_index(drop=True)
+def remove_duplicates(input_list):
+    """
+    Remove duplicate elements from a list while preserving order.
+    Returns a new list with unique elements.
+    """
+    seen = set()
+    result = []
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+def clean_data_with_threshold(data, threshold=None):
+    """
+    Clean data by removing duplicates and optionally filtering by threshold.
+    If threshold is provided, only items meeting the threshold are kept.
+    """
+    unique_data = remove_duplicates(data)
+    
+    if threshold is not None:
+        filtered_data = [item for item in unique_data if item >= threshold]
+        return filtered_data
+    
+    return unique_data
+
+def validate_input(data):
+    """
+    Validate that input is a list or convertible to list.
+    Raises TypeError if input is invalid.
+    """
+    if not isinstance(data, (list, tuple, set)):
+        raise TypeError("Input must be a list, tuple, or set")
+    return list(data)
+
+def process_data(raw_data, threshold=None):
+    """
+    Main function to process and clean data.
+    Validates input, removes duplicates, and applies threshold filter.
+    """
+    validated_data = validate_input(raw_data)
+    cleaned_data = clean_data_with_threshold(validated_data, threshold)
+    return cleaned_data
+
+if __name__ == "__main__":
+    sample_data = [1, 2, 2, 3, 4, 4, 5, 1, 6]
+    print(f"Original data: {sample_data}")
+    
+    cleaned = process_data(sample_data)
+    print(f"Cleaned data: {cleaned}")
+    
+    filtered = process_data(sample_data, threshold=3)
+    print(f"Filtered data (threshold=3): {filtered}")
