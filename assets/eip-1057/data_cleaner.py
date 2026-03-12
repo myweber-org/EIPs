@@ -401,4 +401,103 @@ def example_usage():
 if __name__ == "__main__":
     result = example_usage()
     print("\nFirst 5 rows of cleaned data:")
-    print(result.head())
+    print(result.head())import pandas as pd
+import numpy as np
+from typing import List, Optional
+
+def remove_duplicates(df: pd.DataFrame, subset: Optional[List[str]] = None) -> pd.DataFrame:
+    """
+    Remove duplicate rows from DataFrame.
+    
+    Args:
+        df: Input DataFrame
+        subset: Columns to consider for identifying duplicates
+    
+    Returns:
+        DataFrame with duplicates removed
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def handle_missing_values(df: pd.DataFrame, strategy: str = 'drop', fill_value: Optional[float] = None) -> pd.DataFrame:
+    """
+    Handle missing values in DataFrame.
+    
+    Args:
+        df: Input DataFrame
+        strategy: 'drop' to remove rows, 'fill' to replace values
+        fill_value: Value to use when strategy is 'fill'
+    
+    Returns:
+        DataFrame with handled missing values
+    """
+    if strategy == 'drop':
+        return df.dropna()
+    elif strategy == 'fill':
+        if fill_value is not None:
+            return df.fillna(fill_value)
+        else:
+            return df.fillna(df.mean(numeric_only=True))
+    else:
+        raise ValueError("Strategy must be 'drop' or 'fill'")
+
+def clean_column_names(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Standardize column names to lowercase with underscores.
+    
+    Args:
+        df: Input DataFrame
+    
+    Returns:
+        DataFrame with cleaned column names
+    """
+    df.columns = df.columns.str.lower().str.replace(' ', '_')
+    return df
+
+def validate_dataframe(df: pd.DataFrame) -> bool:
+    """
+    Perform basic validation on DataFrame.
+    
+    Args:
+        df: Input DataFrame
+    
+    Returns:
+        True if DataFrame passes validation
+    """
+    if df.empty:
+        raise ValueError("DataFrame is empty")
+    
+    if df.isnull().all().any():
+        raise ValueError("DataFrame contains columns with all null values")
+    
+    return True
+
+def clean_data_pipeline(df: pd.DataFrame, 
+                       deduplicate: bool = True,
+                       handle_nulls: bool = True,
+                       clean_names: bool = True) -> pd.DataFrame:
+    """
+    Execute a complete data cleaning pipeline.
+    
+    Args:
+        df: Input DataFrame
+        deduplicate: Whether to remove duplicates
+        handle_nulls: Whether to handle missing values
+        clean_names: Whether to clean column names
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    if clean_names:
+        cleaned_df = clean_column_names(cleaned_df)
+    
+    if deduplicate:
+        cleaned_df = remove_duplicates(cleaned_df)
+    
+    if handle_nulls:
+        cleaned_df = handle_missing_values(cleaned_df, strategy='fill')
+    
+    validate_dataframe(cleaned_df)
+    
+    return cleaned_df
