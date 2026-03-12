@@ -395,4 +395,31 @@ def clean_dataset(input_path, output_path):
     return df
 
 if __name__ == "__main__":
-    clean_dataset('raw_data.csv', 'cleaned_data.csv')
+    clean_dataset('raw_data.csv', 'cleaned_data.csv')import pandas as pd
+
+def clean_dataset(df, drop_duplicates=True, fill_na=True):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling null values.
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    if fill_na:
+        for column in cleaned_df.columns:
+            if cleaned_df[column].dtype in ['int64', 'float64']:
+                cleaned_df[column] = cleaned_df[column].fillna(cleaned_df[column].median())
+            elif cleaned_df[column].dtype == 'object':
+                cleaned_df[column] = cleaned_df[column].fillna('Unknown')
+    
+    return cleaned_df
+
+def validate_data(df, required_columns):
+    """
+    Validate that required columns exist in the DataFrame.
+    """
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        raise ValueError(f"Missing required columns: {missing_columns}")
+    return True
