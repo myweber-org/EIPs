@@ -245,3 +245,76 @@ if __name__ == "__main__":
     print(f"\nCleaned data shape: {cleaned_df.shape}")
     print("\nFirst 5 rows of cleaned data:")
     print(cleaned_df.head())
+import pandas as pd
+import numpy as np
+from typing import List, Optional
+
+def clean_dataframe(df: pd.DataFrame, 
+                    drop_duplicates: bool = True,
+                    fill_missing: Optional[str] = 'mean',
+                    columns_to_standardize: Optional[List[str]] = None) -> pd.DataFrame:
+    """
+    Clean a pandas DataFrame by removing duplicates, handling missing values,
+    and standardizing specified columns.
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    if fill_missing:
+        for col in cleaned_df.select_dtypes(include=[np.number]).columns:
+            if cleaned_df[col].isnull().any():
+                if fill_missing == 'mean':
+                    cleaned_df[col].fillna(cleaned_df[col].mean(), inplace=True)
+                elif fill_missing == 'median':
+                    cleaned_df[col].fillna(cleaned_df[col].median(), inplace=True)
+                elif fill_missing == 'mode':
+                    cleaned_df[col].fillna(cleaned_df[col].mode()[0], inplace=True)
+    
+    if columns_to_standardize:
+        for col in columns_to_standardize:
+            if col in cleaned_df.columns and cleaned_df[col].dtype in [np.float64, np.int64]:
+                mean = cleaned_df[col].mean()
+                std = cleaned_df[col].std()
+                if std > 0:
+                    cleaned_df[col] = (cleaned_df[col] - mean) / std
+    
+    return cleaned_df
+
+def validate_dataframe(df: pd.DataFrame, 
+                       required_columns: List[str],
+                       min_rows: int = 1) -> bool:
+    """
+    Validate that a DataFrame meets basic requirements.
+    """
+    if len(df) < min_rows:
+        return False
+    
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        return False
+    
+    return True
+
+if __name__ == "__main__":
+    sample_data = {
+        'id': [1, 2, 2, 3, 4],
+        'value': [10.5, None, 15.3, 20.1, None],
+        'category': ['A', 'B', 'B', 'A', 'C']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned = clean_dataframe(df, 
+                              drop_duplicates=True,
+                              fill_missing='mean',
+                              columns_to_standardize=['value'])
+    
+    print("\nCleaned DataFrame:")
+    print(cleaned)
+    
+    is_valid = validate_dataframe(cleaned, required_columns=['id', 'value'])
+    print(f"\nDataFrame is valid: {is_valid}")
