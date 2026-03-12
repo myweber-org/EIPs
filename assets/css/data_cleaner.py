@@ -411,4 +411,117 @@ def validate_dataframe(df, required_columns=None):
         if missing_cols:
             raise ValueError(f"Missing required columns: {missing_cols}")
     
-    return True
+    return Trueimport pandas as pd
+import numpy as np
+
+def remove_duplicates(df, subset=None):
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        subset (list, optional): Columns to consider for duplicates.
+    
+    Returns:
+        pd.DataFrame: DataFrame with duplicates removed.
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def fill_missing_values(df, strategy='mean', columns=None):
+    """
+    Fill missing values in specified columns.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        strategy (str): 'mean', 'median', 'mode', or 'constant'.
+        columns (list): Columns to fill. If None, fill all numeric columns.
+    
+    Returns:
+        pd.DataFrame: DataFrame with missing values filled.
+    """
+    df_filled = df.copy()
+    
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    for col in columns:
+        if strategy == 'mean':
+            fill_value = df[col].mean()
+        elif strategy == 'median':
+            fill_value = df[col].median()
+        elif strategy == 'mode':
+            fill_value = df[col].mode()[0]
+        elif strategy == 'constant':
+            fill_value = 0
+        else:
+            raise ValueError("Strategy must be 'mean', 'median', 'mode', or 'constant'")
+        
+        df_filled[col] = df[col].fillna(fill_value)
+    
+    return df_filled
+
+def normalize_column(df, column, method='minmax'):
+    """
+    Normalize a column using specified method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        column (str): Column name to normalize.
+        method (str): 'minmax' or 'zscore'.
+    
+    Returns:
+        pd.DataFrame: DataFrame with normalized column.
+    """
+    df_normalized = df.copy()
+    
+    if method == 'minmax':
+        min_val = df[column].min()
+        max_val = df[column].max()
+        if max_val != min_val:
+            df_normalized[column] = (df[column] - min_val) / (max_val - min_val)
+    
+    elif method == 'zscore':
+        mean_val = df[column].mean()
+        std_val = df[column].std()
+        if std_val != 0:
+            df_normalized[column] = (df[column] - mean_val) / std_val
+    
+    else:
+        raise ValueError("Method must be 'minmax' or 'zscore'")
+    
+    return df_normalized
+
+def detect_outliers(df, column, method='iqr', threshold=1.5):
+    """
+    Detect outliers in a column.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        column (str): Column name to check.
+        method (str): 'iqr' or 'zscore'.
+        threshold (float): Threshold for outlier detection.
+    
+    Returns:
+        pd.DataFrame: DataFrame with outlier boolean column.
+    """
+    df_outliers = df.copy()
+    
+    if method == 'iqr':
+        Q1 = df[column].quantile(0.25)
+        Q3 = df[column].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - threshold * IQR
+        upper_bound = Q3 + threshold * IQR
+        df_outliers[f'{column}_outlier'] = ~df[column].between(lower_bound, upper_bound)
+    
+    elif method == 'zscore':
+        mean_val = df[column].mean()
+        std_val = df[column].std()
+        if std_val != 0:
+            z_scores = np.abs((df[column] - mean_val) / std_val)
+            df_outliers[f'{column}_outlier'] = z_scores > threshold
+    
+    else:
+        raise ValueError("Method must be 'iqr' or 'zscore'")
+    
+    return df_outliers
