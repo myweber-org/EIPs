@@ -1,101 +1,89 @@
 
 import os
-import glob
-from pathlib import Path
-from datetime import datetime
-
-def rename_files_sequentially(directory, prefix="file", extension=".txt"):
-    files = glob.glob(os.path.join(directory, "*" + extension))
-    files.sort(key=os.path.getctime)
-    
-    for index, filepath in enumerate(files, start=1):
-        new_filename = f"{prefix}_{index:03d}{extension}"
-        new_filepath = os.path.join(directory, new_filename)
-        os.rename(filepath, new_filepath)
-        print(f"Renamed: {Path(filepath).name} -> {new_filename}")
-
-if __name__ == "__main__":
-    target_dir = "./documents"
-    if os.path.exists(target_dir):
-        rename_files_sequentially(target_dir, prefix="document", extension=".pdf")
-    else:
-        print(f"Directory {target_dir} does not exist.")
-import os
 import sys
+import argparse
 
-def rename_files(directory, prefix="file"):
-    try:
-        files = [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))]
-        files.sort()
+def rename_files(directory, prefix, start_number=1, extension=None):
+    """
+    Rename files in a directory with sequential numbering.
+    
+    Args:
+        directory (str): Path to the directory containing files
+        prefix (str): Prefix for renamed files
+        start_number (int): Starting number for sequencing
+        extension (str): Filter files by extension (optional)
+    """
+    if not os.path.exists(directory):
+        print(f"Error: Directory '{directory}' does not exist.")
+        return
+    
+    if not os.path.isdir(directory):
+        print(f"Error: '{directory}' is not a directory.")
+        return
+    
+    files = os.listdir(directory)
+    
+    if extension:
+        files = [f for f in files if f.lower().endswith(f".{extension.lower()}")]
+    
+    if not files:
+        print(f"No files found in '{directory}'" + 
+              (f" with extension '.{extension}'" if extension else ""))
+        return
+    
+    files.sort()
+    
+    counter = start_number
+    
+    for filename in files:
+        file_extension = os.path.splitext(filename)[1]
+        new_filename = f"{prefix}_{counter:03d}{file_extension}"
         
-        for index, filename in enumerate(files, start=1):
-            extension = os.path.splitext(filename)[1]
-            new_name = f"{prefix}_{index:03d}{extension}"
-            old_path = os.path.join(directory, filename)
-            new_path = os.path.join(directory, new_name)
-            
+        old_path = os.path.join(directory, filename)
+        new_path = os.path.join(directory, new_filename)
+        
+        try:
             os.rename(old_path, new_path)
-            print(f"Renamed: {filename} -> {new_name}")
-            
-        print(f"Successfully renamed {len(files)} files.")
-        
-    except FileNotFoundError:
-        print(f"Error: Directory '{directory}' not found.")
-    except PermissionError:
-        print(f"Error: Permission denied for directory '{directory}'.")
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
-
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python file_renamer.py <directory> [prefix]")
-        sys.exit(1)
-    
-    target_dir = sys.argv[1]
-    name_prefix = sys.argv[2] if len(sys.argv) > 2 else "file"
-    
-    rename_files(target_dir, name_prefix)import os
-import sys
-from datetime import datetime
-
-def rename_files_by_date(directory, prefix="file_"):
-    try:
-        files = [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))]
-        
-        for filename in files:
-            filepath = os.path.join(directory, filename)
-            mod_time = os.path.getmtime(filepath)
-            date_str = datetime.fromtimestamp(mod_time).strftime("%Y%m%d_%H%M%S")
-            
-            name, ext = os.path.splitext(filename)
-            new_filename = f"{prefix}{date_str}{ext}"
-            new_filepath = os.path.join(directory, new_filename)
-            
-            counter = 1
-            while os.path.exists(new_filepath):
-                new_filename = f"{prefix}{date_str}_{counter}{ext}"
-                new_filepath = os.path.join(directory, new_filename)
-                counter += 1
-            
-            os.rename(filepath, new_filepath)
             print(f"Renamed: {filename} -> {new_filename}")
-            
-        print(f"Successfully renamed {len(files)} files.")
-        
-    except Exception as e:
-        print(f"Error: {e}")
-        sys.exit(1)
+            counter += 1
+        except Exception as e:
+            print(f"Failed to rename {filename}: {e}")
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Rename files in a directory with sequential numbering."
+    )
+    
+    parser.add_argument(
+        "directory",
+        help="Directory containing files to rename"
+    )
+    
+    parser.add_argument(
+        "prefix",
+        help="Prefix for renamed files"
+    )
+    
+    parser.add_argument(
+        "-s", "--start",
+        type=int,
+        default=1,
+        help="Starting number (default: 1)"
+    )
+    
+    parser.add_argument(
+        "-e", "--extension",
+        help="Filter files by extension (e.g., 'jpg', 'png')"
+    )
+    
+    args = parser.parse_args()
+    
+    rename_files(
+        directory=args.directory,
+        prefix=args.prefix,
+        start_number=args.start,
+        extension=args.extension
+    )
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python file_renamer.py <directory> [prefix]")
-        sys.exit(1)
-    
-    target_dir = sys.argv[1]
-    file_prefix = sys.argv[2] if len(sys.argv) > 2 else "file_"
-    
-    if not os.path.isdir(target_dir):
-        print(f"Error: {target_dir} is not a valid directory.")
-        sys.exit(1)
-    
-    rename_files_by_date(target_dir, file_prefix)
+    main()
