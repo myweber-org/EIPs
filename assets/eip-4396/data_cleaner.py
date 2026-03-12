@@ -322,3 +322,79 @@ def validate_dataframe(df, required_columns):
     if missing_cols:
         raise ValueError(f"Missing required columns: {missing_cols}")
     return True
+import pandas as pd
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    subset (list, optional): Column labels to consider for duplicates
+    keep (str, optional): Which duplicates to keep ('first', 'last', False)
+    
+    Returns:
+    pd.DataFrame: DataFrame with duplicates removed
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+    return cleaned_df
+
+def validate_dataframe(df):
+    """
+    Validate that input is a non-empty DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    
+    Returns:
+    bool: True if valid, raises exception otherwise
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    if df.empty:
+        raise ValueError("DataFrame is empty")
+    
+    return True
+
+def clean_numeric_columns(df, columns):
+    """
+    Clean numeric columns by converting to appropriate types.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    columns (list): List of column names to clean
+    
+    Returns:
+    pd.DataFrame: DataFrame with cleaned numeric columns
+    """
+    cleaned_df = df.copy()
+    
+    for col in columns:
+        if col in cleaned_df.columns:
+            cleaned_df[col] = pd.to_numeric(cleaned_df[col], errors='coerce')
+    
+    return cleaned_df
+
+def get_cleaning_summary(original_df, cleaned_df):
+    """
+    Generate a summary of cleaning operations performed.
+    
+    Parameters:
+    original_df (pd.DataFrame): Original DataFrame
+    cleaned_df (pd.DataFrame): Cleaned DataFrame
+    
+    Returns:
+    dict: Summary statistics
+    """
+    summary = {
+        'original_rows': len(original_df),
+        'cleaned_rows': len(cleaned_df),
+        'rows_removed': len(original_df) - len(cleaned_df),
+        'removal_percentage': ((len(original_df) - len(cleaned_df)) / len(original_df)) * 100
+    }
+    
+    return summary
