@@ -235,4 +235,88 @@ if __name__ == "__main__":
     
     print("\nCleaned data shape:", cleaned_df.shape)
     print("Cleaned data statistics:")
-    print(cleaned_df.describe())
+    print(cleaned_df.describe())import pandas as pd
+import numpy as np
+
+def clean_csv_data(filepath, strategy='mean', columns=None):
+    """
+    Load a CSV file and handle missing values using specified strategy.
+    
+    Args:
+        filepath (str): Path to the CSV file.
+        strategy (str): Method for handling missing values. 
+                       Options: 'mean', 'median', 'mode', 'drop'.
+        columns (list): Specific columns to clean. If None, clean all columns.
+    
+    Returns:
+        pandas.DataFrame: Cleaned dataframe.
+    """
+    try:
+        df = pd.read_csv(filepath)
+    except FileNotFoundError:
+        print(f"Error: File '{filepath}' not found.")
+        return None
+    
+    if columns is None:
+        columns = df.columns
+    
+    for col in columns:
+        if col not in df.columns:
+            print(f"Warning: Column '{col}' not found in dataframe.")
+            continue
+        
+        missing_count = df[col].isnull().sum()
+        if missing_count == 0:
+            continue
+            
+        print(f"Column '{col}' has {missing_count} missing values.")
+        
+        if strategy == 'mean':
+            if pd.api.types.is_numeric_dtype(df[col]):
+                fill_value = df[col].mean()
+                df[col].fillna(fill_value, inplace=True)
+            else:
+                print(f"Cannot use mean strategy on non-numeric column '{col}'")
+        
+        elif strategy == 'median':
+            if pd.api.types.is_numeric_dtype(df[col]):
+                fill_value = df[col].median()
+                df[col].fillna(fill_value, inplace=True)
+            else:
+                print(f"Cannot use median strategy on non-numeric column '{col}'")
+        
+        elif strategy == 'mode':
+            fill_value = df[col].mode()[0] if not df[col].mode().empty else None
+            if fill_value is not None:
+                df[col].fillna(fill_value, inplace=True)
+        
+        elif strategy == 'drop':
+            df.dropna(subset=[col], inplace=True)
+        
+        else:
+            print(f"Unknown strategy: {strategy}")
+    
+    print(f"Data cleaning completed. Remaining missing values: {df.isnull().sum().sum()}")
+    return df
+
+def save_cleaned_data(df, output_path):
+    """
+    Save cleaned dataframe to CSV file.
+    
+    Args:
+        df (pandas.DataFrame): Dataframe to save.
+        output_path (str): Path for output CSV file.
+    """
+    if df is not None:
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to: {output_path}")
+
+if __name__ == "__main__":
+    # Example usage
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    
+    cleaned_df = clean_csv_data(input_file, strategy='median')
+    
+    if cleaned_df is not None:
+        save_cleaned_data(cleaned_df, output_file)
