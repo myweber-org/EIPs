@@ -486,4 +486,109 @@ if __name__ == "__main__":
     
     print("\nValidating cleaned DataFrame...")
     is_valid = validate_dataframe(cleaned, required_columns=['A', 'B', 'C'])
-    print(f"Validation passed: {is_valid}")
+    print(f"Validation passed: {is_valid}")import pandas as pd
+import numpy as np
+
+def clean_missing_data(df, strategy='mean', columns=None):
+    """
+    Handle missing values in a DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        strategy (str): Method to handle missing values ('mean', 'median', 'mode', 'drop')
+        columns (list): Specific columns to clean, if None cleans all columns
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    df_clean = df.copy()
+    
+    if columns is None:
+        columns = df_clean.columns
+    
+    for col in columns:
+        if col in df_clean.columns:
+            if strategy == 'mean':
+                df_clean[col].fillna(df_clean[col].mean(), inplace=True)
+            elif strategy == 'median':
+                df_clean[col].fillna(df_clean[col].median(), inplace=True)
+            elif strategy == 'mode':
+                df_clean[col].fillna(df_clean[col].mode()[0], inplace=True)
+            elif strategy == 'drop':
+                df_clean.dropna(subset=[col], inplace=True)
+    
+    return df_clean
+
+def remove_outliers(df, columns=None, threshold=3):
+    """
+    Remove outliers using z-score method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns (list): Columns to check for outliers
+        threshold (float): Z-score threshold
+    
+    Returns:
+        pd.DataFrame: DataFrame with outliers removed
+    """
+    df_clean = df.copy()
+    
+    if columns is None:
+        columns = df_clean.select_dtypes(include=[np.number]).columns
+    
+    for col in columns:
+        if col in df_clean.columns and df_clean[col].dtype in [np.float64, np.int64]:
+            z_scores = np.abs((df_clean[col] - df_clean[col].mean()) / df_clean[col].std())
+            df_clean = df_clean[z_scores < threshold]
+    
+    return df_clean
+
+def standardize_columns(df, columns=None):
+    """
+    Standardize numerical columns to have zero mean and unit variance.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns (list): Columns to standardize
+    
+    Returns:
+        pd.DataFrame: Standardized DataFrame
+    """
+    df_standardized = df.copy()
+    
+    if columns is None:
+        columns = df_standardized.select_dtypes(include=[np.number]).columns
+    
+    for col in columns:
+        if col in df_standardized.columns and df_standardized[col].dtype in [np.float64, np.int64]:
+            mean_val = df_standardized[col].mean()
+            std_val = df_standardized[col].std()
+            if std_val > 0:
+                df_standardized[col] = (df_standardized[col] - mean_val) / std_val
+    
+    return df_standardized
+
+def main():
+    """
+    Example usage of data cleaning functions.
+    """
+    data = {
+        'A': [1, 2, np.nan, 4, 5],
+        'B': [10, 20, 30, np.nan, 50],
+        'C': [100, 200, 300, 400, 500]
+    }
+    
+    df = pd.DataFrame(data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned_df = clean_missing_data(df, strategy='mean')
+    print("\nDataFrame after cleaning missing values:")
+    print(cleaned_df)
+    
+    standardized_df = standardize_columns(cleaned_df)
+    print("\nDataFrame after standardization:")
+    print(standardized_df)
+
+if __name__ == "__main__":
+    main()
