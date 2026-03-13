@@ -93,3 +93,133 @@ if __name__ == "__main__":
         
         outliers = detect_outliers_iqr(cleaned_df, 'A')
         print(f"\nOutliers in column 'A': {outliers.sum()}")
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(dataframe, column, threshold=1.5):
+    """
+    Remove outliers from a DataFrame column using IQR method.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input DataFrame
+    column (str): Column name to process
+    threshold (float): IQR multiplier for outlier detection
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = dataframe[column].quantile(0.25)
+    q3 = dataframe[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
+                           (dataframe[column] <= upper_bound)]
+    
+    return filtered_df.copy()
+
+def normalize_column(dataframe, column, method='zscore'):
+    """
+    Normalize a column in DataFrame.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input DataFrame
+    column (str): Column name to normalize
+    method (str): Normalization method ('zscore', 'minmax', 'robust')
+    
+    Returns:
+    pd.Series: Normalized column values
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    data = dataframe[column].copy()
+    
+    if method == 'zscore':
+        normalized = (data - data.mean()) / data.std()
+    elif method == 'minmax':
+        normalized = (data - data.min()) / (data.max() - data.min())
+    elif method == 'robust':
+        median = data.median()
+        iqr = stats.iqr(data)
+        normalized = (data - median) / iqr
+    else:
+        raise ValueError(f"Unknown normalization method: {method}")
+    
+    return normalized
+
+def clean_dataset(dataframe, numeric_columns, outlier_threshold=1.5, normalize_method='zscore'):
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input DataFrame
+    numeric_columns (list): List of numeric column names to process
+    outlier_threshold (float): IQR threshold for outlier removal
+    normalize_method (str): Normalization method to apply
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = dataframe.copy()
+    
+    for column in numeric_columns:
+        if column in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, column, outlier_threshold)
+    
+    for column in numeric_columns:
+        if column in cleaned_df.columns:
+            cleaned_df[f'{column}_normalized'] = normalize_column(cleaned_df, column, normalize_method)
+    
+    return cleaned_df
+
+def validate_dataframe(dataframe, required_columns=None, min_rows=1):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    dataframe (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of required column names
+    min_rows (int): Minimum number of rows required
+    
+    Returns:
+    bool: True if validation passes, False otherwise
+    """
+    if not isinstance(dataframe, pd.DataFrame):
+        return False
+    
+    if len(dataframe) < min_rows:
+        return False
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in dataframe.columns]
+        if missing_columns:
+            return False
+    
+    return True
+
+def get_data_summary(dataframe):
+    """
+    Generate summary statistics for DataFrame.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input DataFrame
+    
+    Returns:
+    dict: Dictionary containing summary statistics
+    """
+    summary = {
+        'shape': dataframe.shape,
+        'columns': list(dataframe.columns),
+        'dtypes': dataframe.dtypes.to_dict(),
+        'missing_values': dataframe.isnull().sum().to_dict(),
+        'numeric_summary': dataframe.describe().to_dict() if not dataframe.select_dtypes(include=[np.number]).empty else {}
+    }
+    
+    return summary
