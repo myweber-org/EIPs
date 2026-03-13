@@ -382,4 +382,92 @@ if __name__ == "__main__":
     
     print("\nCleaned dataset shape:", cleaned_df.shape)
     print("Cleaned summary statistics:")
-    print(calculate_summary_stats(cleaned_df, 'value'))
+    print(calculate_summary_stats(cleaned_df, 'value'))import pandas as pd
+import numpy as np
+
+def clean_missing_data(df, strategy='mean', columns=None):
+    """
+    Clean missing data in a DataFrame using specified strategy.
+    
+    Args:
+        df: pandas DataFrame containing data with potential missing values
+        strategy: Method for handling missing values ('mean', 'median', 'mode', 'drop')
+        columns: List of columns to apply cleaning to (None applies to all numeric columns)
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    df_clean = df.copy()
+    
+    if columns is None:
+        columns = df_clean.select_dtypes(include=[np.number]).columns.tolist()
+    
+    if strategy == 'drop':
+        df_clean = df_clean.dropna(subset=columns)
+    elif strategy == 'mean':
+        for col in columns:
+            if col in df_clean.columns:
+                df_clean[col] = df_clean[col].fillna(df_clean[col].mean())
+    elif strategy == 'median':
+        for col in columns:
+            if col in df_clean.columns:
+                df_clean[col] = df_clean[col].fillna(df_clean[col].median())
+    elif strategy == 'mode':
+        for col in columns:
+            if col in df_clean.columns:
+                df_clean[col] = df_clean[col].fillna(df_clean[col].mode()[0])
+    else:
+        raise ValueError(f"Unsupported strategy: {strategy}")
+    
+    return df_clean
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df: DataFrame to validate
+        required_columns: List of columns that must be present
+    
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "DataFrame is valid"
+
+def save_cleaned_data(df, output_path, index=False):
+    """
+    Save cleaned DataFrame to CSV file.
+    
+    Args:
+        df: Cleaned DataFrame
+        output_path: Path to save the cleaned data
+        index: Whether to save DataFrame index
+    """
+    df.to_csv(output_path, index=index)
+    print(f"Cleaned data saved to: {output_path}")
+
+if __name__ == "__main__":
+    sample_data = {
+        'temperature': [22.5, np.nan, 24.0, 23.1, np.nan, 25.0],
+        'humidity': [45, 50, np.nan, 48, 52, 47],
+        'pressure': [1013, 1012, 1014, np.nan, 1015, 1013]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned_df = clean_missing_data(df, strategy='mean')
+    print("\nCleaned DataFrame (mean imputation):")
+    print(cleaned_df)
+    
+    is_valid, message = validate_dataframe(cleaned_df)
+    print(f"\nValidation: {message}")
