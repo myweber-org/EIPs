@@ -1,91 +1,85 @@
 
 import pandas as pd
-import re
+import numpy as np
 
-def clean_dataframe(df, column_mapping=None, drop_duplicates=True, normalize_text=True):
+def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
     """
-    Clean a pandas DataFrame by removing duplicates and normalizing text columns.
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
     
-    Args:
-        df (pd.DataFrame): Input DataFrame to clean
-        column_mapping (dict, optional): Dictionary mapping old column names to new ones
-        drop_duplicates (bool): Whether to remove duplicate rows
-        normalize_text (bool): Whether to normalize text columns (strip, lower case)
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    drop_duplicates (bool): Whether to drop duplicate rows.
+    fill_missing (str): Method to fill missing values ('mean', 'median', 'mode', or 'drop').
     
     Returns:
-        pd.DataFrame: Cleaned DataFrame
+    pd.DataFrame: Cleaned DataFrame.
     """
     cleaned_df = df.copy()
     
-    # Rename columns if mapping provided
-    if column_mapping:
-        cleaned_df = cleaned_df.rename(columns=column_mapping)
-    
-    # Remove duplicate rows
     if drop_duplicates:
+        initial_rows = len(cleaned_df)
         cleaned_df = cleaned_df.drop_duplicates()
+        removed = initial_rows - len(cleaned_df)
+        print(f"Removed {removed} duplicate rows.")
     
-    # Normalize text columns
-    if normalize_text:
-        text_columns = cleaned_df.select_dtypes(include=['object']).columns
-        for col in text_columns:
-            cleaned_df[col] = cleaned_df[col].astype(str).str.strip().str.lower()
-            # Remove extra whitespace
-            cleaned_df[col] = cleaned_df[col].apply(lambda x: re.sub(r'\s+', ' ', x))
-    
-    # Reset index after cleaning
-    cleaned_df = cleaned_df.reset_index(drop=True)
+    if fill_missing == 'drop':
+        cleaned_df = cleaned_df.dropna()
+        print("Dropped rows with missing values.")
+    elif fill_missing in ['mean', 'median']:
+        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            if fill_missing == 'mean':
+                cleaned_df[col].fillna(cleaned_df[col].mean(), inplace=True)
+            elif fill_missing == 'median':
+                cleaned_df[col].fillna(cleaned_df[col].median(), inplace=True)
+        print(f"Filled missing numeric values with {fill_missing}.")
+    elif fill_missing == 'mode':
+        for col in cleaned_df.columns:
+            if cleaned_df[col].dtype == 'object':
+                cleaned_df[col].fillna(cleaned_df[col].mode()[0] if not cleaned_df[col].mode().empty else '', inplace=True)
+        print("Filled missing categorical values with mode.")
     
     return cleaned_df
 
-def validate_email_column(df, email_column):
+def validate_dataset(df, check_duplicates=True, check_missing=True):
     """
-    Validate email addresses in a specified column.
+    Validate a DataFrame for duplicates and missing values.
     
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        email_column (str): Name of the column containing email addresses
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+    check_duplicates (bool): Check for duplicate rows.
+    check_missing (bool): Check for missing values.
     
     Returns:
-        pd.DataFrame: DataFrame with validation results
+    dict: Validation results.
     """
-    if email_column not in df.columns:
-        raise ValueError(f"Column '{email_column}' not found in DataFrame")
+    validation_results = {}
     
-    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    if check_duplicates:
+        duplicate_count = df.duplicated().sum()
+        validation_results['duplicates'] = duplicate_count
     
-    validation_df = df.copy()
-    validation_df['email_valid'] = validation_df[email_column].apply(
-        lambda x: bool(re.match(email_pattern, str(x))) if pd.notnull(x) else False
-    )
+    if check_missing:
+        missing_count = df.isnull().sum().sum()
+        validation_results['missing_values'] = missing_count
     
-    return validation_df
+    return validation_results
 
-def remove_outliers_iqr(df, column, multiplier=1.5):
-    """
-    Remove outliers from a numeric column using the Interquartile Range method.
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, 2, 4, 5, None],
+        'B': [10, 20, 20, None, 50, 60],
+        'C': ['x', 'y', 'y', 'z', None, 'x']
+    }
     
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        column (str): Name of the numeric column
-        multiplier (float): IQR multiplier for outlier detection
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nValidation before cleaning:")
+    print(validate_dataset(df))
     
-    Returns:
-        pd.DataFrame: DataFrame with outliers removed
-    """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    if not pd.api.types.is_numeric_dtype(df[column]):
-        raise ValueError(f"Column '{column}' is not numeric")
-    
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    
-    lower_bound = Q1 - multiplier * IQR
-    upper_bound = Q3 + multiplier * IQR
-    
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    
-    return filtered_df
+    cleaned = clean_dataset(df, fill_missing='mean')
+    print("\nCleaned DataFrame:")
+    print(cleaned)
+    print("\nValidation after cleaning:")
+    print(validate_dataset(cleaned))
