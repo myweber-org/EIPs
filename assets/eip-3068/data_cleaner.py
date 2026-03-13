@@ -351,3 +351,11 @@ if __name__ == "__main__":
     cleaned_df = clean_dataset('sample_data.csv', ['age', 'income', 'score'])
     cleaned_df.to_csv('cleaned_data.csv', index=False)
     print(f"Data cleaning complete. Original shape: {pd.read_csv('sample_data.csv').shape}, Cleaned shape: {cleaned_df.shape}")
+def remove_duplicates(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
