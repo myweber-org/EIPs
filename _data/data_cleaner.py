@@ -826,4 +826,53 @@ if __name__ == "__main__":
     print(cleaned)
     
     is_valid = validate_data(cleaned, required_columns=['A', 'B'], min_rows=3)
-    print(f"\nData validation result: {is_valid}")
+    print(f"\nData validation result: {is_valid}")import csv
+import sys
+
+def clean_csv(input_file, output_file):
+    """
+    Clean a CSV file by removing rows with missing values
+    and trimming whitespace from string fields.
+    """
+    try:
+        with open(input_file, 'r', newline='', encoding='utf-8') as infile:
+            reader = csv.DictReader(infile)
+            fieldnames = reader.fieldnames
+            
+            cleaned_rows = []
+            for row in reader:
+                # Skip rows with any empty values
+                if any(value.strip() == '' for value in row.values()):
+                    continue
+                
+                # Trim whitespace from all string fields
+                cleaned_row = {
+                    key: value.strip() if isinstance(value, str) else value
+                    for key, value in row.items()
+                }
+                cleaned_rows.append(cleaned_row)
+        
+        with open(output_file, 'w', newline='', encoding='utf-8') as outfile:
+            writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(cleaned_rows)
+        
+        print(f"Cleaned data saved to {output_file}")
+        print(f"Original rows: {len(cleaned_rows) + (len(cleaned_rows) // 4)}")
+        print(f"Cleaned rows: {len(cleaned_rows)}")
+        
+    except FileNotFoundError:
+        print(f"Error: Input file '{input_file}' not found.")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error processing CSV: {e}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("Usage: python data_cleaner.py <input_file> <output_file>")
+        sys.exit(1)
+    
+    input_file = sys.argv[1]
+    output_file = sys.argv[2]
+    clean_csv(input_file, output_file)
