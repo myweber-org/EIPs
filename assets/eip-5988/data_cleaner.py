@@ -105,4 +105,61 @@ if __name__ == "__main__":
     for col, col_stats in stats.items():
         print(f"\n{col}:")
         for key, value in col_stats.items():
-            print(f"  {key}: {value:.2f}" if isinstance(value, float) else f"  {key}: {value}")
+            print(f"  {key}: {value:.2f}" if isinstance(value, float) else f"  {key}: {value}")import pandas as pd
+import numpy as np
+
+def clean_dataframe(df, drop_duplicates=True, fill_missing=True, fill_value=np.nan):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    """
+    df_clean = df.copy()
+    
+    if drop_duplicates:
+        df_clean = df_clean.drop_duplicates()
+        print(f"Removed {len(df) - len(df_clean)} duplicate rows.")
+    
+    if fill_missing:
+        missing_before = df_clean.isnull().sum().sum()
+        df_clean = df_clean.fillna(fill_value)
+        missing_after = df_clean.isnull().sum().sum()
+        print(f"Filled {missing_before - missing_after} missing values.")
+    
+    return df_clean
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate the DataFrame structure and required columns.
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame.")
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    return True
+
+def main():
+    # Example usage
+    data = {
+        'A': [1, 2, 2, 3, None],
+        'B': [4, None, 6, 6, 8],
+        'C': [7, 8, 9, 9, 10]
+    }
+    
+    df = pd.DataFrame(data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nCleaning data...")
+    
+    try:
+        validate_dataframe(df, required_columns=['A', 'B', 'C'])
+        df_clean = clean_dataframe(df, fill_value=0)
+        print("\nCleaned DataFrame:")
+        print(df_clean)
+    except Exception as e:
+        print(f"Error during data cleaning: {e}")
+
+if __name__ == "__main__":
+    main()
