@@ -1,125 +1,39 @@
 
+import pandas as pd
 import numpy as np
+from scipy import stats
 
-def remove_outliers_iqr(data, column):
-    """
-    Remove outliers from a pandas DataFrame column using the IQR method.
-    
-    Parameters:
-    data (pd.DataFrame): Input DataFrame
-    column (str): Column name to process
-    
-    Returns:
-    pd.DataFrame: DataFrame with outliers removed
-    """
-    Q1 = data[column].quantile(0.25)
-    Q3 = data[column].quantile(0.75)
+def load_data(filepath):
+    return pd.read_csv(filepath)
+
+def remove_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
     IQR = Q3 - Q1
     lower_bound = Q1 - 1.5 * IQR
     upper_bound = Q3 + 1.5 * IQR
-    
-    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
-    return filtered_data
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
 
-def calculate_basic_stats(data, column):
-    """
-    Calculate basic statistics for a column after outlier removal.
-    
-    Parameters:
-    data (pd.DataFrame): Input DataFrame
-    column (str): Column name to analyze
-    
-    Returns:
-    dict: Dictionary containing statistical measures
-    """
-    stats = {
-        'mean': data[column].mean(),
-        'median': data[column].median(),
-        'std': data[column].std(),
-        'min': data[column].min(),
-        'max': data[column].max(),
-        'count': data[column].count()
-    }
-    return stats
-import pandas as pd
-import re
+def normalize_column(df, column):
+    min_val = df[column].min()
+    max_val = df[column].max()
+    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
+    return df
 
-def clean_dataframe(df, column_mapping=None, drop_duplicates=True, normalize_text=True):
-    """
-    Clean a pandas DataFrame by removing duplicates and normalizing text columns.
+def clean_dataset(input_file, output_file):
+    df = load_data(input_file)
     
-    Args:
-        df (pd.DataFrame): Input DataFrame to clean
-        column_mapping (dict): Optional dictionary to rename columns
-        drop_duplicates (bool): Whether to remove duplicate rows
-        normalize_text (bool): Whether to normalize text columns
+    numeric_columns = df.select_dtypes(include=[np.number]).columns
     
-    Returns:
-        pd.DataFrame: Cleaned DataFrame
-    """
-    cleaned_df = df.copy()
+    for col in numeric_columns:
+        df = remove_outliers_iqr(df, col)
     
-    if column_mapping:
-        cleaned_df = cleaned_df.rename(columns=column_mapping)
+    for col in numeric_columns:
+        df = normalize_column(df, col)
     
-    if drop_duplicates:
-        initial_rows = len(cleaned_df)
-        cleaned_df = cleaned_df.drop_duplicates().reset_index(drop=True)
-        removed = initial_rows - len(cleaned_df)
-        print(f"Removed {removed} duplicate rows")
-    
-    if normalize_text:
-        text_columns = cleaned_df.select_dtypes(include=['object']).columns
-        for col in text_columns:
-            cleaned_df[col] = cleaned_df[col].apply(_normalize_string)
-    
-    return cleaned_df
+    df.to_csv(output_file, index=False)
+    print(f"Cleaned data saved to {output_file}")
+    return df
 
-def _normalize_string(text):
-    """
-    Normalize a string by converting to lowercase, removing extra whitespace,
-    and stripping special characters.
-    """
-    if pd.isna(text):
-        return text
-    
-    text = str(text)
-    text = text.lower()
-    text = re.sub(r'\s+', ' ', text)
-    text = text.strip()
-    text = re.sub(r'[^\w\s-]', '', text)
-    
-    return text
-
-def validate_email_column(df, email_column):
-    """
-    Validate email addresses in a DataFrame column.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        email_column (str): Name of the column containing email addresses
-    
-    Returns:
-        pd.DataFrame: DataFrame with validation results
-    """
-    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    
-    validation_results = df.copy()
-    validation_results['email_valid'] = validation_results[email_column].apply(
-        lambda x: bool(re.match(email_pattern, str(x))) if pd.notna(x) else False
-    )
-    
-    valid_count = validation_results['email_valid'].sum()
-    total_count = len(validation_results)
-    
-    print(f"Valid emails: {valid_count}/{total_count} ({valid_count/total_count*100:.1f}%)")
-    
-    return validation_results
-def remove_duplicates_preserve_order(sequence):
-    seen = set()
-    result = []
-    for item in sequence:
-        if item not in seen:
-            seen.add(item)
-            result.append(item)
-    return result
+if __name__ == "__main__":
+    cleaned_df = clean_dataset('raw_data.csv', 'cleaned_data.csv')
