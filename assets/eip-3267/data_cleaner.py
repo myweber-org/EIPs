@@ -575,3 +575,49 @@ if __name__ == "__main__":
     
     except Exception as e:
         print(f"Error during cleaning: {e}")
+def remove_duplicates(data_list):
+    """
+    Remove duplicate entries from a list while preserving order.
+    Returns a new list with unique elements.
+    """
+    seen = set()
+    result = []
+    for item in data_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+def clean_numeric_data(values, remove_negative=False):
+    """
+    Clean numeric data by converting to float and optionally removing negative values.
+    Returns a list of cleaned numeric values.
+    """
+    cleaned = []
+    for val in values:
+        try:
+            num = float(val)
+            if remove_negative and num < 0:
+                continue
+            cleaned.append(num)
+        except (ValueError, TypeError):
+            continue
+    return cleaned
+
+def validate_email_list(emails):
+    """
+    Validate a list of email addresses using basic pattern matching.
+    Returns a tuple of (valid_emails, invalid_emails).
+    """
+    import re
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    valid = []
+    invalid = []
+    
+    for email in emails:
+        if isinstance(email, str) and re.match(pattern, email):
+            valid.append(email)
+        else:
+            invalid.append(email)
+    
+    return valid, invalid
